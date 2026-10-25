@@ -64,6 +64,8 @@ def drop(widget, paths):
     ev = QDropEvent(QPointF(10, 10), Qt.CopyAction, md, Qt.LeftButton, Qt.NoModifier); widget.dropEvent(ev)
 v4 = os.path.join(out, "big 1080p60.mp4"); make_video(v4, dur=2, size="1920x1080", rate=60)
 drop(w, [v4]); ok("영상 드롭 → 작업 시작", w.is_busy())
+w.wait_task(); ok("영상 드롭 → 구간 선택 대화상자 먼저", getattr(w, "range_dlg", None) is not None)
+w.range_dlg.accept(); w.range_auto = True
 first_seen = None; t0 = time.time()
 while w.is_busy() and time.time() - t0 < 60:
     app.processEvents()
@@ -123,5 +125,46 @@ ok("일괄 상태바 메시지", any(m.startswith("일괄 변환 2/2") for m in 
 bp.table.setRowCount(0); bp.add_files([v1, v2]); bp.ed_out.setText(os.path.join(out, "cancel"))
 th = w.start_batch(); w.cancel_task(); w.wait_task(); ok("일괄 취소", not w.is_busy(), ", ".join(bp.table.item(i, 2).text() for i in range(2)))
 ok("작업 중 충돌 동작 비활성화 후 복구", w.actions_["save"].isEnabled())
+# ---- 불러오기 전 구간 선택 대화상자 ----
+from PySide6.QtCore import QPoint as _QP
+from PySide6.QtGui import QMouseEvent as _ME
+from PySide6.QtCore import QEvent as _QE
+w.range_auto = False
+from bonggif.theme import apply_dark as _ad; _ad(app)
+v5 = os.path.join(out, "range src.mp4"); make_video(v5, dur=4, size="640x360", rate=25)
+def wait_dlg():
+    t0 = time.time()
+    while getattr(w, "range_dlg", None) is None and time.time() - t0 < 20: app.processEvents(); time.sleep(0.01)
+    return w.range_dlg
+w.wait_task(); w.tabs.setCurrentIndex(w.TAB_EDIT); n_before = len(w.project.frames)
+drop(w, [v5]); d = wait_dlg()
+ok("드롭 → 구간 선택 대화상자", d is not None and d.isVisible() and d.isModal() and d.windowTitle() == "동영상에서 읽어들일 구간 선택하기")
+ok("대화상자 정보(전체 구간·이미지 크기)", d.vals["이미지 크기"].text() == "640 x 360" and abs(d.range()[1] - 4.0) < 0.1, d.vals["선택된 구간 재생 시간(초)"].text())
+t0 = time.time()
+while d._pm is None and time.time() - t0 < 10: app.processEvents(); time.sleep(0.01)
+ok("미리보기 프레임 표시", d._pm is not None)
+d.play(); t0 = time.time(); p0 = d.bar.pos
+while time.time() - t0 < 1.0: app.processEvents(); time.sleep(0.01)
+adv = d.bar.pos - p0; d.stop_play(); ok("미리보기 실시간 재생(1초 ≈ 1초)", 0.6 < adv < 1.3, f"{adv:.2f}s")
+d.reject(); app.processEvents(); ok("취소 → 아무것도 불러오지 않음", len(w.project.frames) == n_before and not w.is_busy() and w.range_dlg is None)
+drop(w, [v5]); d = wait_dlg(); bar = d.bar; bar.resize(800, 40)
+def mouse(kind, x):
+    ev = _ME(kind, QPointF(x, 30), QPointF(x, 30), Qt.LeftButton, Qt.LeftButton, Qt.NoModifier)
+    {_QE.MouseButtonPress: bar.mousePressEvent, _QE.MouseMove: bar.mouseMoveEvent, _QE.MouseButtonRelease: bar.mouseReleaseEvent}[kind](ev)
+mouse(_QE.MouseButtonPress, bar._x(0)); mouse(_QE.MouseMove, bar._x(1.0)); mouse(_QE.MouseButtonRelease, bar._x(1.0))
+mouse(_QE.MouseButtonPress, bar._x(4.0)); mouse(_QE.MouseMove, bar._x(3.0)); mouse(_QE.MouseButtonRelease, bar._x(3.0))
+a, b = d.range(); ok("핸들 드래그로 구간 1~3초", abs(a - 1) < 0.05 and abs(b - 3) < 0.05, f"{a:.2f}~{b:.2f}")
+ok("핸들 드래그 시 미리보기 위치 이동", abs(bar.pos - 3.0) < 0.05)
+mouse(_QE.MouseButtonPress, bar._x(2.0)); mouse(_QE.MouseButtonRelease, bar._x(2.0)); ok("막대 클릭 → 탐색", abs(bar.pos - 2.0) < 0.05 and d.range() == (a, b))
+d.set_start(1.0); d.set_end(3.0)
+D = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qa_shots"); os.makedirs(D, exist_ok=True)
+for _ in range(30): app.processEvents(); time.sleep(0.01)
+d.grab().save(os.path.join(D, "13_video_range_dialog.png"))
+d.accept(); w.wait_task(); w.wait_task()
+ok("확인 → 선택 구간만 불러오기(2초×25fps=50프레임)", len(w.project.frames) == 50, str(len(w.project.frames)))
+gif = os.path.join(out, "skip.gif"); w.project.frames and None
+from PIL import Image as _I
+_I.new("RGB", (40, 30), "red").save(gif, save_all=True, append_images=[_I.new("RGB", (40, 30), "blue")], duration=100, loop=0)
+w.open_file(gif); w.wait_task(); ok("GIF는 대화상자 없이 바로 열기", getattr(w, "range_dlg", None) is None and len(w.project.frames) == 2)
 w.close(); print("출력:", out); print(f"결과: {sum(x for _, x in R)}/{len(R)} 통과")
 sys.exit(0 if all(x for _, x in R) else 1)

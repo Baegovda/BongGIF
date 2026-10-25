@@ -673,18 +673,27 @@ class EditorWindow(QMainWindow):
 
     # ---- 영상: 정보 읽기 → (메모리 확인) → 프레임 스트리밍 ----
     DEFAULT_FPS_CAP = 30; DEFAULT_MAX_W = 1280; MEM_LIMIT_MB = 3072
-    def load_video(self, path, fps_cap=None, max_w=None, start=0.0, end=None, ask=True):
+    range_auto = False   # True면 구간 선택 대화상자 생략(스크립트/테스트)
+    def load_video(self, path, fps_cap=None, max_w=None, start=0.0, end=None, ask=True, pick=True):
         from . import converter as cv
         fps_cap = self.DEFAULT_FPS_CAP if fps_cap is None else fps_cap; max_w = self.DEFAULT_MAX_W if max_w is None else max_w
         def done(info):
-            self._video = {"path": path, "info": info}
+            self._video = {"path": path, "info": info, "range": (start, end)}
+            if pick and not self.range_auto:
+                from .videorange import VideoRangeDialog
+                dlg = VideoRangeDialog(self, path, info, fps_cap, max_w, start, end); self.range_dlg = dlg
+                def ok_():
+                    a, b = dlg.range(); f2, w2 = dlg.options(); self.range_dlg = None
+                    self.load_video(path, f2, w2, a, None if b >= info.duration - 1e-3 else b, ask, pick=False)
+                def no_(): self.range_dlg = None; self.set_status("불러오기 취소")
+                dlg.accepted.connect(ok_); dlg.rejected.connect(no_); dlg.open(); self.set_status("불러올 구간을 선택하세요"); return
             s = video_settings(info, fps_cap, max_w, start, end); n = cv.estimate_frames(info, s); ow, oh = cv.out_size(info, s)
             mb = n * ow * oh * 4 / 1048576
             if mb > self.MEM_LIMIT_MB and ask:
                 dlg = OpenOptionsDialog(self, info, fps_cap or 0, max_w or 0, start, end,
                                         warn=f"이대로 불러오면 메모리를 약 {mb:.0f} MB 사용합니다. 시간 범위를 줄이거나 FPS·해상도를 낮추세요.")
                 if dlg.exec() != QDialog.Accepted: self.set_status("불러오기 취소"); return
-                f2, w2, a2, b2 = dlg.values(); self.load_video(path, f2, w2, a2, b2, ask=False); return
+                f2, w2, a2, b2 = dlg.values(); self.load_video(path, f2, w2, a2, b2, ask=False, pick=False); return
             self._stream_video(path, info, s, fps_cap, max_w)
         return self.run_task(f"영상 정보 읽기: {os.path.basename(path)}", lambda ctx: (ctx.step(0, 0, "영상 정보 읽는 중…"), cv.probe(path))[1], done)
     def _stream_video(self, path, info, s, fps_cap, max_w):
@@ -706,10 +715,10 @@ class EditorWindow(QMainWindow):
     def reload_video(self, full=False):
         v = getattr(self, "_video", None)
         if not v or self.is_busy(): return None
-        if full: return self.load_video(v["path"], 0, 0)
+        if full: return self.load_video(v["path"], 0, 0, *v.get("range", (0.0, None)), pick=False)
         dlg = OpenOptionsDialog(self, v["info"], self.DEFAULT_FPS_CAP, self.DEFAULT_MAX_W)
         if dlg.exec() != QDialog.Accepted: return None
-        f, w, a, b = dlg.values(); return self.load_video(v["path"], f, w, a, b, ask=False)
+        f, w, a, b = dlg.values(); return self.load_video(v["path"], f, w, a, b, ask=False, pick=False)
 
     # ---- 타임라인 구간 자르기 ----
     def _sync_trim_from_selection(self):

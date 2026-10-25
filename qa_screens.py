@@ -20,7 +20,7 @@ subprocess.run([cv.ffmpeg_exe(), "-loglevel", "error", "-y", "-f", "lavfi", "-i"
 w = EditorWindow(); w.resize(1280, 820); w.show(); shot(w, "01_home")
 w.tabs.setCurrentIndex(w.TAB_REC); shot(w, "01b_rec_tab")
 w.tabs.setCurrentIndex(w.TAB_EDIT); shot(w, "02_edit_empty")
-w.open_file(v)
+w.range_auto = True; w.open_file(v)
 t0 = time.time()
 while w.is_busy() and w.timeline.count() < 5 and time.time() - t0 < 30: app.processEvents(); time.sleep(0.01)
 shot(w, "03_loading"); w.wait_task(); w.wait_task(); shot(w, "04_loaded_4k")
