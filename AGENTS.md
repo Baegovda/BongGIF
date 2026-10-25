@@ -50,7 +50,8 @@ python -m venv .venv && .venv\Scripts\pip install -r requirements.txt
 set QT_QPA_PLATFORM=offscreen
 python smoke_test.py            # 70 checks
 python smoke_test_converter.py  # 64 checks
-python smoke_test_updater.py    # 29 checks
+python smoke_test_updater.py    # 40 checks
+python smoke_test_crash.py      # 14 checks (mock report endpoint)
 run_tests.bat                   # all three
 ```
 All must pass before a release. Add tests for every fix. In CI (`CI` env set) timing tolerances are loosened.
@@ -86,8 +87,14 @@ Repo excludes: `PARITY.md`, `qa_shots/`, `DONE*`, `PROGRESS.json`.
 
 ## 11. Start here (new agent checklist)
 1. Read this file, then `docs/HANDOFF.md`, then `docs/STATE.json`.
-2. Create venv (Py 3.12), install requirements, run the three smoke tests offscreen; all green.
+2. Create venv (Py 3.12), install requirements, run the four smoke tests offscreen; all green.
 3. Pick the top `backlog` item in STATE.json (or the user's request). Keep the hard rules.
 4. Implement + tests; regenerate screenshots with `python qa_screens.py` and look at them.
 5. Release via §7 if user wants it.
 6. **Update `docs/HANDOFF.md` + `docs/STATE.json`, commit.** Report to the user in short Korean.
+
+## Auto-update & crash reporting (v1.1.5)
+- Update check: 5 s after start, every 30 min, and on window activation if >30 min old. ETag/If-None-Match (settings keys update_etag/update_cache/update_last_check). Network errors silent. Same version notified once (update_notified, update_skip). Toggle `update_auto`.
+- One-click update in `EditorWindow.one_click_update`: download → sha256 → extract → apply script → restart. Only prompt is unsaved work.
+- Crash reports: `bonggif/crashreport.py` (ENDPOINT empty = disabled; env BONGGIF_REPORT_URL overrides). Anonymized, queued offline in data_dir/reports, toggle `crash_report`.
+- Relay: `relay/` Cloudflare Worker (not deployed yet). See relay/README.md. Never commit GITHUB_TOKEN.

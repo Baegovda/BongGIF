@@ -19,7 +19,7 @@ from .theme import icon
 from .effects import EFFECTS, op_effect, op_transform, op_border, reduce_frames, reduce_selected, apply_effect
 from .dialogs import ColorButton, SaveDialog, RangeDialog, ReduceDialog, TimeDialog, ImageImportDialog, SettingsDialog
 from .manage import ManagePanel
-from .prefs import get_bool, get_int, get_str, get_list, to_int
+from .prefs import get_bool, get_int, get_str, get_list, get_float, to_int
 from .core import Project, Frame, load_file, load_sequence, emoji_sticker, op_crop, op_resize, op_grayscale, op_sticker, VIDEO_EXT
 from . import APP_NAME
 from .panels import pil_to_qimage, ExportDialog, BatchPanel, VIDEO_FILTER, OpenOptionsDialog, video_settings
@@ -481,7 +481,11 @@ class EditorWindow(QMainWindow):
         else:
             self.set_status(f"{t.label} 실패: {payload}")
             if on_fail: on_fail(payload)
-            else: self._warn(f"{t.label} 실패:\n{payload}\n\n자세한 내용은 '도움말 > 로그 폴더 열기'")
+            else:
+                from . import crashreport
+                err = getattr(t, "error", None)
+                sent = crashreport.report_async(type(err).__name__ if err else "TaskError", str(payload), getattr(t, "tb", "") or str(payload), "task_error", t.label, self.settings)
+                self._warn(f"{t.label} 실패:\n{payload}\n\n자세한 내용은 '도움말 > 로그 폴더 열기'" + ("\n오류 보고가 자동으로 전송되었습니다." if sent else ""))
     def _warn(self, text):
         box = QMessageBox(QMessageBox.Warning, APP_NAME, text, QMessageBox.Ok, self); box.setModal(False); box.show(); self._last_warn = box
     def _set_busy(self, busy):
@@ -580,7 +584,7 @@ class EditorWindow(QMainWindow):
     def _on_reorder(self, order):
         self.project.checkpoint(); self.project.frames = [self.project.frames[i] for i in order]; self.refresh()
     def set_frames(self, frames, source=None):
-        self.project = Project(frames); self.cur = 0
+        self.project = Project(frames); self.cur = 0; self.mark_clean()
         if source: self.source_path = source
         self.tabs.setCurrentIndex(self.TAB_EDIT); self.refresh()
 
@@ -666,7 +670,7 @@ class EditorWindow(QMainWindow):
         if ld is None: return
         if ld["first"]:
             ld["first"] = False; self.stop_play() if self.is_playing() else None
-            self.project = Project([]); self.cur = 0; self.source_path = ld["source"]
+            self.project = Project([]); self.cur = 0; self.mark_clean(); self.source_path = ld["source"]
             self.timeline.clear(); self.tabs.setCurrentIndex(self.TAB_EDIT)
         start = len(self.project.frames)
         self.timeline.setUpdatesEnabled(False)
@@ -777,7 +781,7 @@ class EditorWindow(QMainWindow):
             if path.lower().endswith(".gif") and any(f.delay < 20 for f in frames):
                 extra += " · ⚠ 20ms 미만 지연 프레임: 브라우저에서 느리게 재생될 수 있음"
             self.set_status(f"저장 완료: {path} ({mb:.2f} MB{extra})")
-            self.dirty = False
+            self.dirty = False; self.mark_clean()
             if notify: self._saved_notice(path, mb, extra)
             if notify and get_bool(self.settings, "open_after_save", False): logutil.open_folder(path)
         return self.run_task(f"저장: {os.path.basename(path)}", lambda ctx: export_frames(frames, path, ctx=ctx, **opts), done)
@@ -1065,84 +1069,177 @@ class EditorWindow(QMainWindow):
         self.lbl_pos.setText(f"{self.cur + 1 if n else 0}/{n}"); self.lbl_time.setText(f"{t / 1000:.2f} / {self.project.total_ms() / 1000:.2f}초")
 
     # ================= 업데이트 =================
+    UPDATE_INTERVAL_S = 30 * 60
     def about(self):
         from .version import __version__
         QMessageBox.about(self, APP_NAME, f"<b>{APP_NAME}</b> {__version__}<br>GIF 녹화·편집기 (독자 구현, MIT)<br>"
                           f"<a href='https://github.com/Baegovda/BongGIF'>github.com/Baegovda/BongGIF</a>")
+    # ---- 자동 감지 스케줄 ----
+    def start_update_scheduler(self, first_delay_ms=5000):
+        """시작 5초 후 1회 + 실행 중 30분마다 + 창 활성화 시(마지막 확인 30분 경과) 백그라운드 확인."""
+        if getattr(self, "_upd_timer", None) is None:
+            self._upd_timer = QTimer(self); self._upd_timer.timeout.connect(lambda: self.auto_check_updates(force=True))
+        self._upd_timer.start(self.UPDATE_INTERVAL_S * 1000)
+        QTimer.singleShot(first_delay_ms, lambda: self.auto_check_updates(force=True))
+    def changeEvent(self, e):
+        from PySide6.QtCore import QEvent
+        if e.type() == QEvent.ActivationChange and self.isActiveWindow() and getattr(self, "_upd_timer", None) is not None: self.auto_check_updates()
+        super().changeEvent(e)
+    def auto_check_updates(self, force=False, url=None, now=None):
+        """설정 '자동으로 업데이트 확인'이 켜져 있을 때만. force=False면 마지막 확인 후 30분 지나야 확인."""
+        from . import updater as up
+        if not get_bool(self.settings, "update_auto", True): return None
+        if self.update_state in ("downloading", "verifying", "applying", "restarting"): return None
+        last = get_float(self.settings, "update_last_check", 0.0)
+        if not force and (now or time.time()) - last < self.UPDATE_INTERVAL_S: return None
+        if up.is_frozen(): up.remove_stale_backup()
+        return self.check_updates(manual=False, url=url)
     def check_updates(self, manual=True, url=None):
-        """manual=False: 시작 시 백그라운드 확인 (조용히 실패)."""
+        """GitHub 최신 릴리스 확인 (ETag 캐시). manual=False면 네트워크 오류는 조용히 무시."""
         from . import updater as up
         if getattr(self, "_upd_task", None) is not None: return self._upd_task
-        t = Task("업데이트 확인", lambda ctx: up.fetch_latest(url or up.API_LATEST), self); self._upd_task = t
-        self.set_update_state("checking")
-        def done(rel):
-            self._upd_task = None; self.last_release = rel; self.settings.setValue("update_last_check", time.time())
-            self.set_update_state("new", version=rel["version"]) if up.is_newer(rel["version"]) else self.set_update_state("latest")
-            if up.is_newer(rel["version"]):
-                if not manual and get_str(self.settings, "update_skip") == rel["version"]: return
-                self._update_notice(rel)
-            elif manual: QMessageBox.information(self, "업데이트 확인", f"최신 버전을 사용 중입니다. ({up.__version__})")
-            else: self.set_status(f"최신 버전 사용 중 ({up.__version__})")
+        etag = get_str(self.settings, "update_etag"); cached = get_str(self.settings, "update_cache")
+        t = Task("업데이트 확인", lambda ctx: up.fetch_latest_cached(url or up.API_LATEST, etag, cached), self); self._upd_task = t
+        prev = self.update_state
+        if manual or prev not in ("new",): self.set_update_state("checking")
+        def done(res):
+            self._upd_task = None; rel, new_etag, raw, not_mod = res
+            self.settings.setValue("update_last_check", time.time()); self.update_checks = getattr(self, "update_checks", 0) + 1
+            if new_etag and raw: self.settings.setValue("update_etag", new_etag); self.settings.setValue("update_cache", raw)
+            self.update_not_modified = not_mod
+            if rel is None: self.set_update_state("latest"); return
+            self.last_release = rel
+            if up.is_newer(rel["version"]) and rel.get("asset"):
+                self.set_update_state("new", version=rel["version"])
+                skipped = get_str(self.settings, "update_skip") == rel["version"]
+                notified = get_str(self.settings, "update_notified") == rel["version"]
+                if manual or not (skipped or notified): self._update_notice(rel); self.settings.setValue("update_notified", rel["version"])
+            else:
+                self.set_update_state("latest")
+                if manual: QMessageBox.information(self, "업데이트 확인", f"최신 버전을 사용 중입니다. ({up.__version__})")
         def fail(e):
-            self._upd_task = None; logging.getLogger("bonggif.update").warning("업데이트 확인 실패: %s", e); self.set_update_state("error", tip=f"업데이트 확인 실패: {e}")
-            if manual: self._warn(str(e))
+            self._upd_task = None; logging.getLogger("bonggif.update").warning("업데이트 확인 실패: %s", e)
+            if manual: self.set_update_state("error", tip=f"업데이트 확인 실패: {e}\n클릭하면 다시 시도합니다."); self._warn(str(e))
+            else: self.set_update_state(prev if prev not in ("checking",) else "idle")
         t.done.connect(done); t.failed.connect(fail); t.finished.connect(t.deleteLater); t.start(); return t
+    # ---- 알림 (비모달 토스트, 같은 버전은 한 번만) ----
+    def _update_notice(self, rel):
+        from . import updater as up
+        if getattr(self, "update_box", None) is not None:
+            try: self.update_box.close()
+            except RuntimeError: pass
+        box = QFrame(self); box.setObjectName("toast"); box.setAttribute(Qt.WA_StyledBackground, True)
+        box.setStyleSheet("#toast{background:#2c3038;border:1px solid #e8a317;border-radius:8px} #toast QLabel{background:transparent;color:#e6e6e6}")
+        v = QVBoxLayout(box); v.setContentsMargins(12, 10, 12, 10)
+        notes = rel["notes"].strip().splitlines()
+        v.addWidget(QLabel(f"<b>새 버전 v{rel['version']}</b> 이 있습니다 (현재 v{up.__version__})"))
+        if notes: lab = QLabel("\n".join(notes[:4])[:300]); lab.setWordWrap(True); lab.setStyleSheet("color:#9aa0a6"); v.addWidget(lab)
+        h = QHBoxLayout(); box._buttons = []
+        for text, fn in (("지금 업데이트", lambda: (box.close(), self.one_click_update())), ("나중에", box.close),
+                         ("이 버전 건너뛰기", lambda: (self.settings.setValue("update_skip", rel["version"]), box.close()))):
+            b = QPushButton(text); b.clicked.connect(fn); h.addWidget(b); box._buttons.append(b)
+        box._buttons[0].setObjectName("primary"); v.addLayout(h)
+        box.buttons = lambda: box._buttons; box.isModal = lambda: False
+        box.adjustSize(); box.setFixedWidth(max(360, box.sizeHint().width()))
+        box.move(self.width() - box.width() - 12, 70); box.show(); box.raise_()
+        QTimer.singleShot(15000, lambda: box.isVisible() and box.close())
+        self.update_box = box; self.set_status(f"새 버전 v{rel['version']} 사용 가능 — 오른쪽 위 '업데이트' 버튼을 누르면 자동으로 설치됩니다")
+        return box
+    # ---- 버튼 상태 ----
     UPDATE_STYLES = {"new": "background:#e8a317;color:#111;font-weight:700;border-radius:4px;padding:2px 10px",
                      "error": "background:#5a2a2a;color:#ffb4b4;border-radius:4px;padding:2px 10px",
                      "busy": "background:#2d4b7a;color:#fff;border-radius:4px;padding:2px 10px"}
+    BUSY_STATES = ("checking", "downloading", "verifying", "applying", "restarting")
     def set_update_state(self, state, pct=0, version="", tip=""):
-        """idle/checking/latest/new/downloading/installing/error → 오른쪽 위 버튼 문구·강조·툴팁."""
+        """idle/checking/latest/new/downloading/verifying/applying/restarting/error."""
         from .version import __version__ as _v
-        text = {"idle": "업데이트 확인", "checking": "확인 중…", "latest": "최신 버전", "new": f"새 버전 v{version} 있음",
-                "downloading": f"다운로드 중 {pct}%", "installing": "설치 준비 중", "error": "오류"}[state]
-        style = self.UPDATE_STYLES.get("busy" if state in ("checking", "downloading", "installing") else state, "padding:2px 10px")
+        version = version or (self.last_release["version"] if getattr(self, "last_release", None) else "")
+        text = {"idle": "업데이트 확인", "checking": "확인 중…", "latest": "최신 버전", "new": f"업데이트 v{version}",
+                "downloading": f"다운로드 중 {pct}%", "verifying": "검증 중…", "applying": "적용 중…", "restarting": "재시작 중…",
+                "error": "오류 · 다시 시도", "installing": "적용 중…"}[state]
+        if state == "installing": state = "applying"
+        style = self.UPDATE_STYLES.get("busy" if state in self.BUSY_STATES else state, "padding:2px 10px")
         self.update_state = state; self.btn_update.setText(text); self.btn_update.setStyleSheet(style)
         self.btn_update.setIcon(icon("add" if state == "new" else "settings" if state == "error" else "undo", "#111" if state == "new" else "#e6e6e6"))
-        self.btn_update.setEnabled(state not in ("checking", "downloading", "installing"))
-        self.btn_update.setToolTip(tip or {"new": f"현재 v{_v} → v{version}. 클릭하면 업데이트합니다.", "latest": f"v{_v}는 최신 버전입니다. 클릭하면 다시 확인합니다.",
-                                           "error": "업데이트 확인/설치 실패. 클릭하면 다시 시도합니다."}.get(state, "클릭하면 GitHub에서 업데이트를 확인합니다."))
+        self.btn_update.setEnabled(state not in self.BUSY_STATES)
+        self.btn_update.setToolTip(tip or {"new": f"현재 v{_v} → v{version}. 클릭 한 번으로 다운로드·검증·적용·재시작까지 자동으로 진행합니다.",
+                                           "latest": f"v{_v}는 최신 버전입니다. 클릭하면 다시 확인합니다.",
+                                           "error": "업데이트 실패. 클릭하면 다시 시도합니다."}.get(state, "클릭하면 GitHub에서 업데이트를 확인합니다."))
+        if state in ("downloading",): self.set_status(f"업데이트 다운로드 중 {pct}%")
+        elif state in ("verifying", "applying", "restarting"): self.set_status({"verifying": "업데이트 파일 검증 중…", "applying": "업데이트 적용 준비 중…", "restarting": "업데이트를 적용하고 다시 시작합니다…"}[state])
     def _update_clicked(self):
-        if self.update_state == "new" and getattr(self, "last_release", None): return self.start_update(self.last_release)
+        from . import updater as up
+        rel = getattr(self, "last_release", None)
+        if self.update_state == "new" or (self.update_state == "error" and rel and up.is_newer(rel["version"])): return self.one_click_update()
         return self.check_updates(manual=True)
-    def auto_check_updates(self):
+    # ---- 원클릭 업데이트 ----
+    def is_dirty(self):
+        p = self.project
+        return bool(p.frames) and (id(p), len(p._undo), id(p._undo[-1]) if p._undo else None) != getattr(self, "_clean_mark", None)
+    def mark_clean(self):
+        p = self.project; self._clean_mark = (id(p), len(p._undo), id(p._undo[-1]) if p._undo else None)
+    def _confirm_unsaved(self):
+        """저장 안 한 편집이 있으면 한 번만 묻기: 저장/버리기/취소. True=계속."""
+        if not self.is_dirty(): return True
+        box = QMessageBox(QMessageBox.Question, "업데이트", "저장하지 않은 편집이 있습니다. 업데이트하면 프로그램이 다시 시작됩니다.", QMessageBox.NoButton, self)
+        bs = box.addButton("저장 후 업데이트", QMessageBox.AcceptRole); bd = box.addButton("버리고 업데이트", QMessageBox.DestructiveRole); box.addButton("취소", QMessageBox.RejectRole)
+        box.exec(); c = box.clickedButton()
+        if c is bd: return True
+        if c is bs:
+            t = self.save_file()
+            if t is None: return False
+            self.wait_task(600); return not self.is_dirty()
+        return False
+    def one_click_update(self, rel=None, apply=True):
+        """다운로드 → SHA256 검증 → 압축 해제 → 적용 스크립트 실행 → 재시작. 확인 창 없음(저장 안 한 편집만 1회 확인)."""
         from . import updater as up
-        if up.is_frozen(): up.remove_stale_backup()
-        if up.should_auto_check(self.settings): return self.check_updates(manual=False)
-    def _update_notice(self, rel):
-        from . import updater as up
-        notes = rel["notes"].strip() or "(릴리스 노트 없음)"
-        box = QMessageBox(QMessageBox.Information, "새 버전", f"{APP_NAME} {rel['version']} 버전이 있습니다. (현재 {up.__version__})", QMessageBox.NoButton, self)
-        box.setDetailedText(notes[:4000]); box.setInformativeText(notes[:300] + ("…" if len(notes) > 300 else ""))
-        bn = box.addButton("지금 업데이트", QMessageBox.AcceptRole); bl = box.addButton("나중에", QMessageBox.RejectRole); bs = box.addButton("이 버전 건너뛰기", QMessageBox.DestructiveRole)
-        bn.clicked.connect(lambda: self.start_update(rel)); bs.clicked.connect(lambda: self.settings.setValue("update_skip", rel["version"]))
-        box.setModal(False); box.show(); self.update_box = box; self.set_status(f"새 버전 {rel['version']} 사용 가능 — 도움말 > 업데이트 확인"); return box
-    def start_update(self, rel, force_self=False):
-        """frozen Windows 빌드: 다운로드→검증→staging 해제→교체 스크립트 실행 후 종료. 소스 실행: 릴리스 페이지 열기."""
-        from . import updater as up
-        if not (up.is_frozen() or force_self) or not rel.get("asset"):
+        rel = rel or getattr(self, "last_release", None)
+        if not rel: return self.check_updates(manual=True)
+        frozen = up.is_frozen() or getattr(self, "_update_force_frozen", False)
+        if not frozen or not rel.get("asset"):
             from PySide6.QtGui import QDesktopServices; from PySide6.QtCore import QUrl
             QDesktopServices.openUrl(QUrl(rel.get("page") or up.RELEASES_PAGE)); return None
-        if not force_self and not up.dir_writable(up.install_dir()):
-            self._warn(f"설치 폴더에 쓸 수 없습니다:\n{up.install_dir()}\n\n관리자 권한 없이 쓸 수 있는 폴더(예: 사용자 폴더)로 옮기거나, 릴리스 페이지에서 직접 받아 교체하세요.")
-            return None
+        if apply and not getattr(self, "_update_force_frozen", False) and not up.dir_writable(up.install_dir()):
+            self.set_update_state("error", tip=f"설치 폴더에 쓸 수 없습니다: {up.install_dir()}")
+            self._warn(f"설치 폴더에 쓸 수 없습니다:\n{up.install_dir()}\n\n사용자 폴더(예: %LOCALAPPDATA%\\Programs)에 설치하거나 릴리스 페이지에서 직접 받아 교체하세요."); return None
+        if apply and not self._confirm_unsaved(): self.set_update_state("new", version=rel["version"]); return None
+        if self.is_busy(): self.set_status("다른 작업이 끝난 뒤 다시 눌러 주세요"); return None
         a = rel["asset"]; zip_path = os.path.join(up.update_dir(), a["name"]); staging = os.path.join(up.update_dir(), "staging")
         def job(ctx):
             sha = up.fetch_sha256(rel["sha256_asset"]["url"]) if rel.get("sha256_asset") else None
-            up.download(a["url"], zip_path, a["size"], sha, ctx); ctx.step(0, 0, "압축 해제 중")
-            src = up.extract(zip_path, staging, ctx); os.remove(zip_path); return src
+            up.download(a["url"], zip_path, a["size"], None, ctx)
+            ctx.step(0, 0, "검증: 업데이트 파일 SHA256 확인 중")
+            if sha and up.sha256_file(zip_path) != sha.lower(): os.remove(zip_path); raise up.UpdateError("SHA256 검증 실패 (파일이 손상되었거나 변조됨)")
+            ctx.step(0, 0, "적용: 업데이트 압축 해제 중")
+            src = up.extract(zip_path, staging); os.remove(zip_path); return src
         def done(src):
-            self.update_src = src; self.set_update_state("installing", tip="다운로드·검증 완료. 재시작하면 설치됩니다.")
-            if force_self: return
-            if QMessageBox.question(self, "업데이트", "다운로드 완료. 지금 다시 시작해 업데이트할까요?") == QMessageBox.Yes:
-                up.launch_update(src); self.set_status("업데이트를 위해 종료합니다…")
-                QTimer.singleShot(400, lambda: (self.close(), QApplication.instance().quit()))
-        def fail(e): self.set_update_state("error", tip=f"업데이트 실패: {e}"); self._warn(f"업데이트 실패:\n{e}")
+            self.update_src = src
+            if not apply: self.set_update_state("applying", tip="다운로드·검증 완료"); return
+            self.set_update_state("restarting")
+            try: (getattr(self, "_update_launcher", None) or up.launch_update)(src)
+            except Exception as e: return fail(e)
+            QTimer.singleShot(400, getattr(self, "_update_quit", None) or (lambda: (self.close(), QApplication.instance().quit())))
+        def fail(e):
+            self.set_update_state("error", tip=f"업데이트 실패: {e}\n클릭하면 다시 시도합니다."); self._warn(f"업데이트 실패:\n{e}\n\n오른쪽 위 버튼으로 다시 시도할 수 있습니다.")
         def cancel(): self.set_update_state("new", version=rel["version"])
-        t = self.run_task(f"업데이트 {rel['version']}", job, done, fail, cancel)
+        t = self.run_task(f"업데이트 v{rel['version']}", job, done, fail, cancel)
         if t:
             self.set_update_state("downloading", 0)
-            t.progress.connect(lambda i, n, m: n > 0 and "다운로드" in m and self.set_update_state("downloading", int(100 * min(i, n) / n)))
+            def prog(i, n, m):
+                if m.startswith("검증"): self.set_update_state("verifying")
+                elif m.startswith("적용"): self.set_update_state("applying")
+                elif "다운로드" in m and n > 0: self.set_update_state("downloading", int(100 * min(i, n) / n))
+                elif "검증" in m: self.set_update_state("verifying")
+                elif "적용" in m: self.set_update_state("applying")
+            t.progress.connect(prog)
         return t
+    def start_update(self, rel, force_self=False):
+        """(호환) force_self=True: 소스 실행에서도 다운로드·해제까지만 수행."""
+        if force_self:
+            self._update_force_frozen = True
+            try: return self.one_click_update(rel, apply=False)
+            finally: self._update_force_frozen = False
+        return self.one_click_update(rel)
 
     # ================= 재생 =================
     def short_delays(self):

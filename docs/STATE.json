@@ -1,10 +1,12 @@
 {
   "project": "BongGIF",
   "repo": "https://github.com/Baegovda/BongGIF",
-  "version": "1.1.4",
-  "last_release": {"tag": "v1.1.4", "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.1.4",
-                   "assets": ["BongGIF-v1.1.4-win64.zip", "BongGIF-v1.1.4-win64.zip.sha256"], "date": "2026-10-26"},
+  "version": "1.1.5",
+  "last_release": {"tag": "v1.1.5", "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.1.5",
+                   "assets": ["BongGIF-v1.1.5-win64.zip", "BongGIF-v1.1.5-win64.zip.sha256"], "date": "2026-10-26"},
   "language": {"ui": "ko", "user": "ko"},
+  "crash_relay": {"status": "written_not_deployed", "path": "relay/", "endpoint": "", "owner_needs": ["Cloudflare account", "wrangler login", "KV namespace id in wrangler.toml", "GitHub fine-grained token Issues:RW on Baegovda/BongGIF -> wrangler secret put GITHUB_TOKEN", "deploy then set ENDPOINT in bonggif/crashreport.py"]},
+  "tests": {"smoke_test.py": 70, "smoke_test_converter.py": 64, "smoke_test_updater.py": 40, "smoke_test_crash.py": 14},
   "parity_estimate_pct": 84,
   "backlog": [
     {"id": "text-anim", "priority": 1, "status": "todo", "title": "Text intro/outro animation", "accept": ["fade/slide/typewriter", "frame range", "preview", "test"]},

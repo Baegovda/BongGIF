@@ -1,5 +1,6 @@
 import os, sys, logging
 from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import QIcon
 from .editor import EditorWindow
 from . import APP_NAME, logutil
@@ -15,7 +16,8 @@ def main():
     if os.path.exists(ico): app.setWindowIcon(QIcon(ico))
     from .theme import apply_dark; apply_dark(QApplication.instance())
     args = sys.argv[1:]; w = EditorWindow(); w.show()
-    from PySide6.QtCore import QTimer; QTimer.singleShot(3000, w.auto_check_updates)
+    w.start_update_scheduler(5000)
+    from . import crashreport; QTimer.singleShot(8000, crashreport.flush_async)
     if args and args[0] in ("--convert", "-c"):
         p = args[1] if len(args) > 1 and os.path.exists(args[1]) else None
         if p: w.load_video(p)

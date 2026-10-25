@@ -33,7 +33,7 @@ class Task(QThread):
         except Cancelled:
             log.info("취소: %s (%.2fs)", self.label, time.monotonic() - t0); self.canceled.emit()
         except Exception as e:
-            self.error = e; log.error("실패: %s\n%s", self.label, traceback.format_exc()); self.failed.emit(str(e))
+            self.error = e; self.tb = traceback.format_exc(); log.error("실패: %s\n%s", self.label, self.tb); self.failed.emit(str(e))
 
 def make_thumb(im, tw=96, th=72) -> QImage:
     """작은 썸네일 QImage (작업 스레드에서 호출 가능). 큰 프레임은 reduce로 먼저 빠르게 축소."""

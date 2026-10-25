@@ -45,6 +45,29 @@ def fetch_latest(url=API_LATEST, timeout=10) -> dict:
     except Exception as e:
         raise UpdateError(f"업데이트 정보를 가져오지 못했습니다: {e}") from e
 
+def fetch_latest_cached(url=API_LATEST, etag="", cached_json="", timeout=10):
+    """If-None-Match(ETag)로 조회. 304면 캐시 JSON 사용(요청 한도 절약).
+    반환: (release dict 또는 None, etag, raw_json, not_modified)."""
+    import urllib.error
+    h = {"User-Agent": UA, "Accept": "application/vnd.github+json"}
+    if etag and cached_json: h["If-None-Match"] = etag
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=h), timeout=timeout) as r:
+            raw = r.read().decode("utf-8"); return parse_release(json.loads(raw)), r.headers.get("ETag", ""), raw, False
+    except urllib.error.HTTPError as e:
+        if e.code == 304 and cached_json:
+            return parse_release(json.loads(cached_json)), etag, cached_json, True
+        if e.code == 404: return None, "", "", False   # 릴리스 없음
+        raise UpdateError(f"업데이트 정보를 가져오지 못했습니다: HTTP {e.code}") from e
+    except Exception as e:
+        raise UpdateError(f"업데이트 정보를 가져오지 못했습니다: {e}") from e
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for b in iter(lambda: f.read(1 << 20), b""): h.update(b)
+    return h.hexdigest().lower()
+
 def fetch_sha256(url, timeout=10):
     with _get(url, timeout, "application/octet-stream") as r: txt = r.read().decode("utf-8", "replace")
     m = re.search(r"\b([0-9a-fA-F]{64})\b", txt); return m.group(1).lower() if m else None

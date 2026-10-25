@@ -1,9 +1,9 @@
 # HANDOFF — BongGIF
 
-_Last updated: 2026-10-26 (KST) · current version **v1.1.4** · https://github.com/Baegovda/BongGIF/releases/tag/v1.1.4_
+_Last updated: 2026-10-26 (KST) · current version **v1.1.5** · https://github.com/Baegovda/BongGIF/releases/tag/v1.1.5_
 
 ## Current state
-Stable. All smoke tests green (70 / 64 / 29). Self-update v1.1.2 → v1.1.3 verified on the owner's PC (update.log: backup → copy → restart, no rollback). Owner installs to `%LOCALAPPDATA%\Programs\BongGIF`.
+Stable. All smoke tests green (70 / 64 / 40 / 14). Self-update v1.1.2 → v1.1.3 verified on the owner's PC (update.log: backup → copy → restart, no rollback). Owner installs to `%LOCALAPPDATA%\Programs\BongGIF`.
 
 ## Version history
 | ver | summary |
@@ -14,6 +14,7 @@ Stable. All smoke tests green (70 / 64 / 29). Self-update v1.1.2 → v1.1.3 veri
 | 1.1.2 | Updater hang fix (no pipes), version label + live update button, instant seek cache |
 | 1.1.3 | Faster preview cache: keyframe pass, parallel segments, hwaccel fallback, click priority |
 | 1.1.4 | Fix settings crash (`int('true')`): `prefs.py` typed getters everywhere; `rec_countdown` is seconds |
+| 1.1.5 | Auto update detection (startup+30 min+activation, ETag, toast), one-click non-stop update; crash auto-report client + Cloudflare relay (endpoint empty until owner deploys) |
 
 ## Done (high level)
 Record (fps, presets, countdown, cursor/highlight/click, pin, direct save) · Edit (crop w/ ratio/darken/remember, resize/rotate/flip, draw, 18 effects with live preview, text/emoji/image stickers, border, frame delete/cut/reduce/time/speed/reverse/yoyo/add-to-end, undo/redo) · Playbar + zoom · Save dialog with preview/limits/target size · Manage tab · Batch · Settings (12 tabs) · Self-update.
@@ -37,4 +38,5 @@ Record (fps, presets, countdown, cursor/highlight/click, pin, direct save) · Ed
 - `requirements.txt` pins PySide6 <6.9; dev box uses 6.12 — verify before bumping.
 
 ## Session log (append newest first)
+- 2026-10-26: v1.1.5: auto-update + crash reporting; relay/ written, NOT deployed. Owner must: Cloudflare account, wrangler login, KV namespace, fine-grained token (Issues RW on BongGIF) → wrangler secret put GITHUB_TOKEN → deploy → set ENDPOINT → release.
 - 2026-10-26: v1.1.4 released; handoff docs added (AGENTS.md, HANDOFF.md, STATE.json).

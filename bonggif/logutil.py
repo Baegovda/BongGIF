@@ -33,10 +33,15 @@ def install_excepthook():
     def hook(et, ev, tb):
         text = "".join(traceback.format_exception(et, ev, tb))
         logging.getLogger("bonggif").error("처리되지 않은 예외:\n%s", text)
+        sent = False
+        try:
+            from . import crashreport
+            sent = crashreport.report_async(et.__name__, str(ev), text, "crash")
+        except Exception: pass
         try:
             from PySide6.QtWidgets import QApplication, QMessageBox
             if QApplication.instance() and os.environ.get("QT_QPA_PLATFORM") != "offscreen":
-                QMessageBox.critical(None, "BongGIF 오류", f"예기치 않은 오류가 발생했습니다.\n\n{ev}\n\n로그: {_LOG_FILE}")
+                QMessageBox.critical(None, "BongGIF 오류", f"예기치 않은 오류가 발생했습니다.\n\n{ev}\n\n로그: {_LOG_FILE}" + ("\n\n오류 보고가 자동으로 전송되었습니다." if sent else ""))
         except Exception: pass
         sys.__stderr__ and sys.__stderr__.write(text)
     sys.excepthook = hook
