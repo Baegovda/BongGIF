@@ -1,6 +1,7 @@
 """영상 불러오기 전 구간 선택 대화상자: 저해상도 미리보기 재생 · 시작/끝 핸들 · 재생 위치."""
 from __future__ import annotations
-import subprocess, threading, time
+import subprocess, threading, time, logging
+log = logging.getLogger("bonggif.preview")
 from PySide6.QtCore import Qt, QThread, Signal, QRectF, QPointF, QSize
 from PySide6.QtGui import QImage, QPixmap, QPainter, QColor, QPen, QPolygonF, QKeySequence, QShortcut
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget, QToolButton, QGridLayout, QFrame
@@ -45,44 +46,174 @@ class PreviewPlayer(QThread):
             qi = QImage(buf, w, h, w * 3, QImage.Format_RGB888).copy(); self.frame.emit(self.gen, qi, self.t0 + k / fps); k += 1
         self.stop(); self.ended.emit(self.gen)
 
+def _split_jpegs(buf: bytearray):
+    """MJPEG 파이프 스트림에서 완성된 JPEG들을 잘라냄 (SOI FFD8 … EOI FFD9)."""
+    out = []
+    while True:
+        s = buf.find(b"\xff\xd8")
+        if s < 0: buf.clear(); break
+        e = buf.find(b"\xff\xd9", s + 2)
+        if e < 0:
+            if s: del buf[:s]
+            break
+        out.append(bytes(buf[s:e + 2])); del buf[:e + 2]
+    return out
+
+def cache_fps(info) -> float:
+    d = info.duration or 0; src = info.fps or 30.0
+    if d > 60: f = 10.0
+    elif info.width * info.height >= 2560 * 1440 or d > 20: f = 15.0
+    else: f = 24.0
+    return min(src, f)
+
 class FrameCache(QThread):
-    """열자마자 전체 영상을 저해상도로 디코딩해 시간 순 JPEG 캐시에 저장 (메모리 상한)."""
-    loaded = Signal(float)   # 지금까지 캐시된 시간(초)
-    def __init__(self, path, info, width=480, budget_mb=300, parent=None):
+    """전체 영상 저해상도 미리보기 캐시 (시간 슬롯 → JPEG).
+    1단계: 키프레임만(-skip_frame nokey) 빠르게 → 막대 전체 대략 채움.
+    2단계: N개 구간을 병렬 ffmpeg(-ss 앞, fps 축소, fast_bilinear, mjpeg 파이프)로 채움.
+    클릭한 곳이 비어 있으면 그 지점부터 우선 구간을 추가. 하드웨어 디코딩(-hwaccel auto) 실패 시 소프트웨어로 재시도."""
+    loaded = Signal(float)
+    def __init__(self, path, info, width=480, budget_mb=300, segments=None, hwaccel=True, parent=None):
         super().__init__(parent); self.path, self.info = path, info; self.budget = budget_mb * 1048576
-        d = info.duration or 0; src = info.fps or 30.0
-        self.fps = min(src, 30.0 if d <= 20 else 15.0 if d <= 120 else 10.0)
-        self.w = min(width, info.width) // 2 * 2; self.h = max(2, int(info.height * self.w / info.width) // 2 * 2)
-        self.frames = []; self.bytes = 0; self.loaded_t = 0.0; self.done_all = False; self._stop = threading.Event(); self.p = None
+        self.fps = cache_fps(info); self.w = min(width, info.width) // 2 * 2
+        self.nslots = max(1, int(round((info.duration or 0) * self.fps)) or 1)
+        self.frames = {}; self.exact = set(); self.bytes = 0; self.done_all = False; self._stop = threading.Event()
+        self._lock = threading.Lock(); self._procs = []; self.hw = hwaccel; self.hw_used = None
+        import os as _os; self.nseg = segments or max(1, min(4, (_os.cpu_count() or 2) // 4)); self._prio = None; self.t_cover = None; self.t_done = None
+        self.loaded_t = 0.0; self.keys_done = False; self.keytimes = []
+        self.threads = 0   # 디코더 스레드는 ffmpeg 자동 (구간별로 나누면 프레임 스레딩 효율이 떨어짐)
+    # ---- 조회 ----
+    def coverage(self):
+        """막대 전체가 '어떤 프레임이라도' 보여줄 수 있는 정도 (키프레임 간격 기준)."""
+        if self.done_all or self.keys_done: return 1.0   # 키프레임 단계 후엔 어디를 눌러도 가까운 프레임이 있음
+        if not self.frames: return 0.0
+        return min(1.0, max(self.frames) / self.nslots)
+    def bins(self, n=200):
+        b = [0] * n
+        for k in list(self.exact): b[min(n - 1, k * n // self.nslots)] = 1
+        return b
+    def covers(self, t): return self.nearest_slot(t, exact=True) is not None
+    def nearest_slot(self, t, exact=False, tol=None):
+        i = int(round(t * self.fps)); tol = (1 if exact else 10 ** 9) if tol is None else tol
+        with self._lock:
+            if i in self.frames and (not exact or i in self.exact): return i
+            ks = self.exact if exact else self.frames
+            if not ks: return None
+            best = min(ks, key=lambda k: abs(k - i))
+        return best if abs(best - i) <= tol else None
+    def nearest(self, t, exact=False):
+        k = self.nearest_slot(t, exact)
+        if k is None: return None
+        return QImage.fromData(self.frames[k], "JPEG")
+    def slot_time(self, k): return k / self.fps
+    # ---- 제어 ----
     def stop(self):
         self._stop.set()
-        if self.p and self.p.poll() is None:
-            try: self.p.kill()
-            except OSError: pass
-    def run(self):
-        from PySide6.QtCore import QBuffer, QByteArray, QIODevice
-        n = self.w * self.h * 3
-        args = [cv.ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-i", self.path, "-an", "-vf", f"fps={self.fps:.4f},scale={self.w}:{self.h}",
-                "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
-        try: self.p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, creationflags=cv._NOWIN, bufsize=n * 2)
-        except OSError: return
-        k = 0; last_emit = 0.0
+        for p in list(self._procs):
+            if p.poll() is None:
+                try: p.kill()
+                except OSError: pass
+    def prioritize(self, t):
+        """비어 있는 곳 클릭 → 그 지점부터 2초 우선 디코딩 (이전 우선 작업은 중단)."""
+        if self.done_all or self._stop.is_set() or self.covers(t): return
+        if self._prio and self._prio[1].is_alive() and abs(self._prio[0] - t) < 1.0: return
+        if self._prio and self._prio[2]: 
+            try: self._prio[2][0].kill()
+            except Exception: pass
+        holder = []; th = threading.Thread(target=self._segment, args=(max(0.0, t - 0.2), 2.5, holder), daemon=True)
+        self._prio = (t, th, holder); th.start()
+    # ---- ffmpeg ----
+    def _args(self, ss, dur, keyonly, hw):
+        a = [cv.ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-nostdin", "-threads", "0" if keyonly else str(self.threads)]
+        if hw: a += ["-hwaccel", "auto"]
+        if keyonly: a += ["-skip_frame", "nokey"]
+        else: a += ["-skip_loop_filter", "all", "-flags2", "fast"]   # 미리보기용: 루프 필터 생략으로 디코딩 가속
+        if ss > 0: a += ["-ss", f"{ss:.3f}"]
+        a += ["-i", self.path]
+        if dur is not None: a += ["-t", f"{dur:.3f}"]
+        if keyonly:
+            vf = f"scale={self.w}:-2:flags=fast_bilinear,showinfo"; a += ["-an", "-vf", vf, "-fps_mode", "passthrough"]
+            a[3] = "info"   # showinfo는 info 레벨 로그
+        else:
+            a += ["-an", "-vf", f"fps={self.fps:.4f},scale={self.w}:-2:flags=fast_bilinear"]
+        return a + ["-f", "image2pipe", "-c:v", "mjpeg", "-q:v", "5", "-"]
+    def _run(self, ss, dur, keyonly, holder=None):
+        """반환: 받은 프레임 수. 하드웨어 경로 실패(프레임 0 + 오류) 시 소프트웨어로 1회 재시도."""
+        for hw in ([True, False] if self.hw and self.hw_used is not False else [False]):
+            n = self._run_once(ss, dur, keyonly, hw, holder)
+            if n > 0 or self._stop.is_set():
+                if self.hw_used is None: self.hw_used = hw; log.info("미리보기 디코딩 경로: %s", "hwaccel auto" if hw else "software")
+                return n
+            if hw: log.info("하드웨어 디코딩 실패 → 소프트웨어로 재시도")
+        return 0
+    def _run_once(self, ss, dur, keyonly, hw, holder):
+        import re as _re
+        try:
+            p = subprocess.Popen(self._args(ss, dur, keyonly, hw), stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,
+                                 creationflags=cv._NOWIN, bufsize=0)
+        except OSError: return 0
+        self._procs.append(p)
+        if holder is not None: holder.append(p)
+        pts = []; done_err = threading.Event()
+        def read_err():
+            for line in iter(p.stderr.readline, b""):
+                if keyonly:
+                    m = _re.search(rb"pts_time:\s*([-\d.]+)", line)
+                    if m: pts.append(float(m.group(1)))
+            done_err.set()
+        threading.Thread(target=read_err, daemon=True).start()
+        buf = bytearray(); k = 0
         while not self._stop.is_set():
-            buf = self.p.stdout.read(n)
-            if not buf or len(buf) < n: self.done_all = not self._stop.is_set(); break
-            qi = QImage(buf, self.w, self.h, self.w * 3, QImage.Format_RGB888)
-            ba = QByteArray(); b = QBuffer(ba); b.open(QIODevice.WriteOnly); qi.save(b, "JPEG", 80); data = bytes(ba)
-            self.frames.append(data); self.bytes += len(data); k += 1; self.loaded_t = k / self.fps
-            if self.bytes > self.budget: break
-            if self.loaded_t - last_emit >= 0.25: last_emit = self.loaded_t; self.loaded.emit(self.loaded_t)
-        if self.done_all: self.loaded_t = max(self.loaded_t, self.info.duration)
-        self.stop(); self.loaded.emit(self.loaded_t)
-    def covers(self, t): return bool(self.frames) and (self.done_all or t <= self.loaded_t - 0.5 / self.fps)
-    def nearest(self, t):
-        """캐시에서 가장 가까운 프레임 (없으면 None) → QImage."""
-        if not self.frames: return None
-        i = max(0, min(len(self.frames) - 1, int(round(t * self.fps))))
-        return QImage.fromData(self.frames[i], "JPEG")
+            chunk = p.stdout.read(65536)
+            if not chunk: break
+            buf += chunk
+            for jpg in _split_jpegs(buf):
+                if keyonly:
+                    t0 = time.time()
+                    while len(pts) <= k and time.time() - t0 < 1.0 and not done_err.is_set(): time.sleep(0.002)
+                    t = (pts[k] if k < len(pts) else 0.0) + ss; slot = int(round(t * self.fps)); exact = False; self.keytimes.append(t)
+                else:
+                    slot = int(round(ss * self.fps)) + k; exact = True
+                k += 1
+                if 0 <= slot <= self.nslots: self._put(slot, jpg, exact)
+                if self.bytes > self.budget: self.stop(); break
+        if p.poll() is None and self._stop.is_set():
+            try: p.kill()
+            except OSError: pass
+        p.wait(); done_err.wait(2)
+        return k
+    def _put(self, slot, jpg, exact):
+        with self._lock:
+            if slot in self.exact: return
+            old = self.frames.get(slot); self.bytes += len(jpg) - (len(old) if old else 0); self.frames[slot] = jpg
+            if exact: self.exact.add(slot)
+        now = time.perf_counter()
+        if now - getattr(self, "_last_emit", 0) > 0.1:
+            self._last_emit = now; self.loaded_t = len(self.exact) / self.fps; self.loaded.emit(self.loaded_t)
+    def _segment(self, ss, dur, holder=None): self._run(int(round(ss * self.fps)) / self.fps, dur, False, holder)   # 슬롯 경계에 맞춤
+    def run(self):
+        t0 = time.perf_counter(); d = self.info.duration or 0
+        self._run(0.0, None, True)   # 1단계: 키프레임
+        self.keys_done = bool(self.frames); self.t_cover = time.perf_counter() - t0 if self.keys_done else None
+        self.loaded.emit(self.loaded_t)
+        if self._stop.is_set(): return
+        # 2단계: 키프레임 경계에 맞춘 병렬 구간 (시킹 후 버리는 디코딩 최소화)
+        n = self.nseg if d > 2 else 1; ks = sorted(set(round(k, 3) for k in self.keytimes if 0 <= k < d)) or [0.0]
+        starts = [0.0]
+        for i in range(1, n):
+            target = d * i / n; cand = min(ks, key=lambda k: abs(k - target))
+            if cand > starts[-1] + 0.5: starts.append(cand)
+        bounds = starts + [d]
+        ths = [threading.Thread(target=self._segment, args=(bounds[i], bounds[i + 1] - bounds[i] + 0.5 / self.fps if i < len(starts) - 1 else None), daemon=True)
+               for i in range(len(starts))]
+        for th in ths: th.start()
+        for th in ths: th.join()
+        if self._prio: self._prio[1].join(5)
+        if not self._stop.is_set():
+            self.done_all = True; self.loaded_t = d; self.t_done = time.perf_counter() - t0
+            if self.t_cover is None: self.t_cover = self.t_done
+            log.info("미리보기 캐시: %d슬롯, %.1fMB, 키프레임 %.2fs, 완료 %.2fs (%s)", len(self.frames), self.bytes / 1048576, self.t_cover, self.t_done,
+                     "hw" if self.hw_used else "sw")
+        self.loaded.emit(self.loaded_t)
 
 class SeekWorker(QThread):
     """핸들 드래그 중 최신 요청만 처리하는 단일 프레임 디코더."""
@@ -121,8 +252,11 @@ class RangeBar(QWidget):
     def paintEvent(self, e):
         p = QPainter(self); p.setRenderHint(QPainter.Antialiasing); y = self.height() - self.H - 6
         p.setPen(Qt.NoPen); p.setBrush(QColor("#3a3f48")); p.drawRoundedRect(QRectF(self.M, y, self.width() - 2 * self.M, self.H), 4, 4)
-        if self.loaded > 0:   # 미리보기 캐시 로딩 범위 (얇은 선)
-            p.setBrush(QColor(170, 175, 185, 150)); p.drawRect(QRectF(self.M, y + self.H + 3, self._x(min(self.loaded, self.dur)) - self.M, 2))
+        bins = getattr(self, "bins", None)
+        if bins:   # 미리보기 캐시 로딩 범위 (얇은 선, 구간별)
+            p.setBrush(QColor(170, 175, 185, 170)); W = self.width() - 2 * self.M; n = len(bins)
+            for i, v in enumerate(bins):
+                if v: p.drawRect(QRectF(self.M + W * i / n, y + self.H + 3, W / n + 0.5, 2))
         xa, xb = self._x(self.a), self._x(self.b)
         p.setBrush(QColor(61, 139, 253, 170)); p.drawRect(QRectF(xa, y, xb - xa, self.H))
         for x in (xa, xb):
@@ -196,15 +330,15 @@ class VideoRangeDialog(QDialog):
         if self._pm: self.view.setPixmap(self._pm.scaled(self.view.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
     # ---- 탐색/재생 ----
     def _on_loaded(self, t):
-        self.bar.loaded = t; self.bar.update()
+        self.bar.loaded = t; self.bar.bins = self.cache.bins(); self.bar.update()
     def _show_at(self, t):
         """캐시에 있으면 즉시 표시(수 ms), 없으면 키프레임 시킹 요청(최신 요청만 처리)."""
-        t0 = time.perf_counter()
-        if self.cache.covers(t):
-            qi = self.cache.nearest(t)
-            if qi is not None and not qi.isNull():
-                self._show(qi); self.last_seek_ms = (time.perf_counter() - t0) * 1000; self.seeker._req = None; return True
-        self.seeker.request(t); return False
+        t0 = time.perf_counter(); exact = self.cache.covers(t)
+        qi = self.cache.nearest(t)
+        if qi is not None and not qi.isNull():
+            self._show(qi); self.last_seek_ms = (time.perf_counter() - t0) * 1000
+        if exact: self.seeker._req = None; return True
+        self.cache.prioritize(t); self.seeker.request(t); return False
     def seek_to(self, t):
         was = self.is_playing(); self.stop_play(); self.bar.set_pos(t); self._update_info(); self._show_at(self.bar.pos)
         if was: self.play()
@@ -216,15 +350,15 @@ class VideoRangeDialog(QDialog):
     def toggle_play(self): self.stop_play() if self.is_playing() else self.play()
     def play(self):
         a, b = self.range(); t0 = self.bar.pos if a <= self.bar.pos < b - 0.05 else a
-        if self.cache.covers(b) or self.cache.done_all:   # 캐시로 재생 (디코딩 없음)
+        if self.cache.done_all:   # 캐시로 재생 (디코딩 없음)
             self._ct0, self._cb = t0, b; self.cclock.start(); self.ctimer.start(); self.btn_play.setIcon(icon("pause")); return
         self.gen += 1; p = PreviewPlayer(self.path, self.info, self.gen, t0, b, self); p.frame.connect(self._on_frame); p.ended.connect(self._on_end)
         self.player = p; p.start(); self.btn_play.setIcon(icon("pause"))
     def _cache_tick(self):
         t = self._ct0 + self.cclock.elapsed() / 1000
         if t >= self._cb: t = self._cb; self.ctimer.stop(); self.btn_play.setIcon(icon("play"))
-        qi = self.cache.nearest(t)
-        if qi is not None: self._show(qi)
+        k = self.cache.nearest_slot(t)
+        if k is not None and k != getattr(self, "_last_k", None): self._last_k = k; self._show(QImage.fromData(self.cache.frames[k], "JPEG"))
         self.bar.set_pos(t); self._update_info()
     def stop_play(self):
         self.ctimer.stop()
