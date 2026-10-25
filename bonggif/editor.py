@@ -19,6 +19,7 @@ from .theme import icon
 from .effects import EFFECTS, op_effect, op_transform, op_border, reduce_frames, reduce_selected, apply_effect
 from .dialogs import ColorButton, SaveDialog, RangeDialog, ReduceDialog, TimeDialog, ImageImportDialog, SettingsDialog
 from .manage import ManagePanel
+from .prefs import get_bool, get_int, get_str, get_list, to_int
 from .core import Project, Frame, load_file, load_sequence, emoji_sticker, op_crop, op_resize, op_grayscale, op_sticker, VIDEO_EXT
 from . import APP_NAME
 from .panels import pil_to_qimage, ExportDialog, BatchPanel, VIDEO_FILTER, OpenOptionsDialog, video_settings
@@ -269,15 +270,16 @@ class EditorWindow(QMainWindow):
     def _build_rec_page(self):
         w = QWidget(); v = QVBoxLayout(w); st = self.settings
         g = QGroupBox("녹화 설정"); f = QFormLayout(g)
-        self.rec_fps = QSpinBox(); self.rec_fps.setRange(1, 60); self.rec_fps.setValue(int(st.value("rec_fps", 15))); self.rec_fps.setSuffix(" fps")
+        self.rec_fps = QSpinBox(); self.rec_fps.setRange(1, 60); self.rec_fps.setValue(get_int(st, "rec_fps", 15, 1, 60)); self.rec_fps.setSuffix(" fps")
         self.rec_size = QComboBox()
         for t in ("사용자 지정", "320×240", "480×360", "640×480", "800×600", "1280×720"): self.rec_size.addItem(t)
-        self.rec_cd = QCheckBox("카운트다운 3초"); self.rec_cd.setChecked(st.value("rec_countdown", True, bool))
-        self.rec_cursor = QCheckBox("마우스 커서 녹화"); self.rec_cursor.setChecked(st.value("rec_cursor", True, bool))
-        self.rec_hl = QCheckBox("커서 강조 표시"); self.rec_hl.setChecked(st.value("rec_highlight", False, bool))
-        self.rec_click = QCheckBox("클릭 효과"); self.rec_click.setChecked(st.value("rec_click", False, bool))
+        self._cd_secs = get_int(st, "rec_countdown", 3, 0, 10)
+        self.rec_cd = QCheckBox(f"카운트다운 {self._cd_secs or 3}초"); self.rec_cd.setChecked(self._cd_secs > 0)
+        self.rec_cursor = QCheckBox("마우스 커서 녹화"); self.rec_cursor.setChecked(get_bool(st, "rec_cursor", True))
+        self.rec_hl = QCheckBox("커서 강조 표시"); self.rec_hl.setChecked(get_bool(st, "rec_highlight", False))
+        self.rec_click = QCheckBox("클릭 효과"); self.rec_click.setChecked(get_bool(st, "rec_click", False))
         self.rec_pin = QCheckBox("녹화 창 항상 위"); self.rec_pin.setChecked(True)
-        self.rec_direct = QCheckBox("녹화 후 편집 없이 바로 GIF 저장"); self.rec_direct.setChecked(st.value("rec_direct", False, bool))
+        self.rec_direct = QCheckBox("녹화 후 편집 없이 바로 GIF 저장"); self.rec_direct.setChecked(get_bool(st, "rec_direct", False))
         f.addRow("프레임 속도", self.rec_fps); f.addRow("크기", self.rec_size)
         for c in (self.rec_cd, self.rec_cursor, self.rec_hl, self.rec_click, self.rec_pin, self.rec_direct): f.addRow(c)
         v.addWidget(g); b = QPushButton(icon("rec", "#ff5a5a"), "  녹화 영역 열기 (Ctrl+R / F9 시작·종료)"); b.setObjectName("primary"); b.setMinimumHeight(48)
@@ -315,9 +317,9 @@ class EditorWindow(QMainWindow):
         self.cb_ratio.currentIndexChanged.connect(lambda _: setattr(self.preview, "ratio", self.cb_ratio.currentData()))
         self.cx, self.cy, self.cw, self.ch = (QSpinBox() for _ in range(4))
         for s in (self.cx, self.cy, self.cw, self.ch): s.setRange(0, 16000); s.valueChanged.connect(self._crop_from_spins)
-        self.chk_darken = QCheckBox("바깥 영역 어둡게"); self.chk_darken.setChecked(self.settings.value("crop_darken", True, bool))
+        self.chk_darken = QCheckBox("바깥 영역 어둡게"); self.chk_darken.setChecked(get_bool(self.settings, "crop_darken", True))
         self.chk_darken.toggled.connect(lambda on: (setattr(self.preview, "darken", on), self.preview._redraw()))
-        self.chk_remember = QCheckBox("영역 기억"); self.chk_remember.setChecked(self.settings.value("crop_remember", False, bool))
+        self.chk_remember = QCheckBox("영역 기억"); self.chk_remember.setChecked(get_bool(self.settings, "crop_remember", False))
         self.lbl_crop = QLabel("미리보기에서 드래그하여 영역 선택")
         f.addRow("비율", self.cb_ratio); f.addRow("X", self.cx); f.addRow("Y", self.cy); f.addRow("너비", self.cw); f.addRow("높이", self.ch)
         f.addRow(self.chk_darken); f.addRow(self.chk_remember); f.addRow(self.lbl_crop)
@@ -423,7 +425,7 @@ class EditorWindow(QMainWindow):
         body = QSplitter(); body.addWidget(center); body.addWidget(side); body.setStretchFactor(0, 1)
         edit = QWidget(); rv = QVBoxLayout(edit); rv.setContentsMargins(0, 0, 0, 0); rv.addWidget(cmd); rv.addWidget(body, 1); rv.addWidget(self.timeline)
         self.batch_panel = BatchPanel(); self.batch_panel.startRequested.connect(lambda: self.start_batch())
-        self.manage = ManagePanel(self.settings.value("manage_dir", "", str) or self.settings.value("last_dir", "", str))
+        self.manage = ManagePanel(get_str(self.settings, "manage_dir") or get_str(self.settings, "last_dir"))
         self.manage.editRequested.connect(lambda p: self.open_file(p))
         self.tabs = QTabWidget(); self._home_buttons = []
         self.tabs.addTab(self._build_rec_page(), icon("rec", "#ff5a5a"), "녹화"); self.tabs.addTab(self.manage, icon("manage"), "관리")
@@ -437,7 +439,7 @@ class EditorWindow(QMainWindow):
         chl.addWidget(self.lbl_version); chl.addWidget(self.btn_update); self.tabs.setCornerWidget(corner, Qt.TopRightCorner)
         self.set_update_state("idle")
         self.setCentralWidget(self.tabs)
-        start = self.settings.value("start_tab", "home", str)
+        start = get_str(self.settings, "start_tab", "home")
         self.tabs.setCurrentIndex({"rec": 0, "manage": 1, "edit": 2}.get(start, self.TAB_HOME))
     def _build_status(self):
         self.status = self.statusBar()
@@ -594,7 +596,7 @@ class EditorWindow(QMainWindow):
         if len(imgs) > 1: self.open_sequence(imgs)
         else: self.open_file(paths[0])
     def _start_dir(self):
-        d = self.settings.value("last_dir", "", str)
+        d = get_str(self.settings, "last_dir")
         if d and os.path.isdir(d): return d
         return os.path.dirname(self.source_path) if self.source_path else ""
     def open_file(self, path=None):
@@ -761,8 +763,8 @@ class EditorWindow(QMainWindow):
         if not self.project.frames or self.is_busy(): return None
         if not path:
             base = os.path.splitext(os.path.basename(self.source_path))[0] if self.source_path else "bonggif"
-            dlg = SaveDialog(self, self.settings.value("last_fmt", "gif", str), self.project.frames,
-                             self.settings.value("save_dir", "", str) or self._start_dir() or os.path.expanduser("~"), base)
+            dlg = SaveDialog(self, get_str(self.settings, "last_fmt", "gif"), self.project.frames,
+                             get_str(self.settings, "save_dir") or self._start_dir() or os.path.expanduser("~"), base)
             if dlg.exec() != QDialog.Accepted: return None
             fmt = dlg.fmt(); options = dlg.options(); self.settings.setValue("last_fmt", fmt); path = dlg.path()
         from .exporter import export_frames
@@ -777,7 +779,7 @@ class EditorWindow(QMainWindow):
             self.set_status(f"저장 완료: {path} ({mb:.2f} MB{extra})")
             self.dirty = False
             if notify: self._saved_notice(path, mb, extra)
-            if notify and self.settings.value("open_after_save", False, bool): logutil.open_folder(path)
+            if notify and get_bool(self.settings, "open_after_save", False): logutil.open_folder(path)
         return self.run_task(f"저장: {os.path.basename(path)}", lambda ctx: export_frames(frames, path, ctx=ctx, **opts), done)
     def _saved_notice(self, path, mb, extra=""):
         box = QMessageBox(QMessageBox.Information, "저장 완료", f"저장했습니다.\n\n{path}\n크기 {mb:.2f} MB{extra}", QMessageBox.NoButton, self)
@@ -824,16 +826,16 @@ class EditorWindow(QMainWindow):
         from .recorder import RecorderWindow
         self.recorder = RecorderWindow(); self.recorder.finished.connect(self._rec_done)
         st = self.settings
-        for k, v in (("rec_fps", self.rec_fps.value()), ("rec_countdown", self.rec_cd.isChecked()), ("rec_cursor", self.rec_cursor.isChecked()),
+        for k, v in (("rec_fps", self.rec_fps.value()), ("rec_countdown", (self._cd_secs or 3) if self.rec_cd.isChecked() else 0), ("rec_cursor", self.rec_cursor.isChecked()),
                      ("rec_highlight", self.rec_hl.isChecked()), ("rec_click", self.rec_click.isChecked()), ("rec_direct", self.rec_direct.isChecked())): st.setValue(k, v)
-        self.recorder.configure(min(30, self.rec_fps.value()), 3 if self.rec_cd.isChecked() else 0, self.rec_cursor.isChecked(), self.rec_hl.isChecked(),
+        self.recorder.configure(min(30, self.rec_fps.value()), (self._cd_secs or 3) if self.rec_cd.isChecked() else 0, self.rec_cursor.isChecked(), self.rec_hl.isChecked(),
                                 self.rec_click.isChecked(), self.rec_pin.isChecked(), self.rec_size.currentIndex())
         self.recorder.show(); return self.recorder
     def _rec_done(self, frames):
         if self.recorder: self.recorder.close()
         self.source_path = None; self.banner.hide(); self.set_frames(frames); self.show(); self.raise_(); self.activateWindow()
         if self.rec_direct.isChecked() and frames:
-            d = self.settings.value("save_dir", "", str) or self._start_dir() or os.path.expanduser("~")
+            d = get_str(self.settings, "save_dir") or self._start_dir() or os.path.expanduser("~")
             self.save_file(os.path.join(d, time.strftime("rec_%Y%m%d_%H%M%S.gif")), {})
     def open_log_folder(self):
         logutil.setup_logging(); return logutil.open_folder(logutil.log_dir(), select=False)
@@ -920,8 +922,8 @@ class EditorWindow(QMainWindow):
         self.show_frame(self.cur); p = self.preview
         if k == "crop":
             p.mode = "crop"; p.ratio = self.cb_ratio.currentData(); p.darken = self.chk_darken.isChecked()
-            last = self.settings.value("crop_rect", None) if self.chk_remember.isChecked() else None
-            self._set_sel(QRect(*[int(x) for x in last]) if last else QRect(0, 0, *self.project.size))
+            last = get_list(self.settings, "crop_rect") if self.chk_remember.isChecked() else []
+            self._set_sel(QRect(*[to_int(x) for x in last]) if len(last) == 4 else QRect(0, 0, *self.project.size))
         elif k == "draw":
             w, h = self.project.size; p.draw_layer = QImage(w, h, QImage.Format_ARGB32_Premultiplied); p.draw_layer.fill(Qt.transparent); p.mode = "draw"; self._update_pen()
         elif k == "effect": p.mode = "rect"; p.sel = None; self._fx_preview()
@@ -1021,7 +1023,7 @@ class EditorWindow(QMainWindow):
         self.project.frames = fr + [Frame(fr[i].image.copy(), fr[i].delay) for i in s]; self.refresh(len(fr))
     def import_images(self, paths=None, accept=False):
         if not paths and accept: return
-        d = ImageImportDialog(self, paths or [], int(self.settings.value("import_delay", 100)))
+        d = ImageImportDialog(self, paths or [], get_int(self.settings, "import_delay", 100, 10, 60000))
         if not accept:
             if not paths: QTimer.singleShot(0, d._add)
             if d.exec() != QDialog.Accepted: return None
@@ -1047,9 +1049,9 @@ class EditorWindow(QMainWindow):
     def open_settings(self):
         d = SettingsDialog(self)
         if d.exec() == QDialog.Accepted:
-            self.project.max_undo = int(self.settings.value("max_undo", 30)) if hasattr(self.project, "max_undo") else None
-            self.chk_darken.setChecked(self.settings.value("crop_darken", True, bool)); self.chk_remember.setChecked(self.settings.value("crop_remember", False, bool))
-            if self.settings.value("manage_dir", "", str): self.manage.set_folder(self.settings.value("manage_dir", "", str))
+            self.project.max_undo = get_int(self.settings, "max_undo", 30, 5, 200) if hasattr(self.project, "max_undo") else None
+            self.chk_darken.setChecked(get_bool(self.settings, "crop_darken", True)); self.chk_remember.setChecked(get_bool(self.settings, "crop_remember", False))
+            if get_str(self.settings, "manage_dir"): self.manage.set_folder(get_str(self.settings, "manage_dir"))
             self.set_status("설정을 저장했습니다")
         return d
     def _label_items(self):
@@ -1077,7 +1079,7 @@ class EditorWindow(QMainWindow):
             self._upd_task = None; self.last_release = rel; self.settings.setValue("update_last_check", time.time())
             self.set_update_state("new", version=rel["version"]) if up.is_newer(rel["version"]) else self.set_update_state("latest")
             if up.is_newer(rel["version"]):
-                if not manual and self.settings.value("update_skip", "", str) == rel["version"]: return
+                if not manual and get_str(self.settings, "update_skip") == rel["version"]: return
                 self._update_notice(rel)
             elif manual: QMessageBox.information(self, "업데이트 확인", f"최신 버전을 사용 중입니다. ({up.__version__})")
             else: self.set_status(f"최신 버전 사용 중 ({up.__version__})")

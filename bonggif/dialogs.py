@@ -19,6 +19,8 @@ def _ok_cancel(dlg, ok="확인"):
     bb.button(QDialogButtonBox.Ok).setText(ok); bb.button(QDialogButtonBox.Cancel).setText("취소")
     bb.button(QDialogButtonBox.Ok).setObjectName("primary"); bb.accepted.connect(dlg.accept); bb.rejected.connect(dlg.reject); return bb
 
+from .prefs import get_bool, get_int, get_str, get_list
+
 class ColorButton(QPushButton):
     def __init__(self, color=QColor(61, 139, 253)):
         super().__init__(); self.color = QColor(color); self.setFixedWidth(48); self.clicked.connect(self._pick); self._paint()
@@ -64,11 +66,11 @@ class SaveDialog(QDialog):
         g = QGroupBox("파일"); f = QFormLayout(g)
         self.ed_name = QLineEdit(name); f.addRow("파일 이름", self.ed_name)
         self.cb_folder = QComboBox(); self.cb_folder.setEditable(True)
-        recent = [d for d in (settings().value("recent_dirs", [], list) or []) if d]
+        recent = [d for d in (get_list(settings(), "recent_dirs")) if d]
         for d in ([folder] if folder else []) + [d for d in recent if d != folder]: self.cb_folder.addItem(d)
         b = QPushButton("찾아보기…"); b.clicked.connect(self._browse)
         h = QHBoxLayout(); h.addWidget(self.cb_folder, 1); h.addWidget(b); f.addRow("저장 폴더", h)
-        self.chk_open = QCheckBox("저장 후 폴더 열기"); self.chk_open.setChecked(settings().value("open_after_save", False, bool)); f.addRow(self.chk_open)
+        self.chk_open = QCheckBox("저장 후 폴더 열기"); self.chk_open.setChecked(get_bool(settings(), "open_after_save", False)); f.addRow(self.chk_open)
         rv.addWidget(g); rv.addStretch(); rv.addWidget(_ok_cancel(self, "저장"))
         sc = QScrollArea(); sc.setWidget(right); sc.setWidgetResizable(True); sc.setMinimumWidth(420); root.addWidget(sc)
     def _simple_quality(self):
@@ -96,7 +98,7 @@ class SaveDialog(QDialog):
         return o
     def accept(self):
         st = settings(); d = self.cb_folder.currentText().strip()
-        rec = [d] + [x for x in (st.value("recent_dirs", [], list) or []) if x and x != d]; st.setValue("recent_dirs", rec[:8])
+        rec = [d] + [x for x in get_list(st, "recent_dirs") if x and x != d]; st.setValue("recent_dirs", rec[:8])
         st.setValue("open_after_save", self.chk_open.isChecked()); super().accept()
 
 class RangeDialog(QDialog):
@@ -193,11 +195,11 @@ class SettingsDialog(QDialog):
         def page(title):
             w = QWidget(); f = QFormLayout(w); self.tabs.addTab(w, title); return f
         def spin(key, lo, hi, val, suf=""):
-            s = QSpinBox(); s.setRange(lo, hi); s.setValue(int(st.value(key, val))); s.setSuffix(suf); self.w[key] = s; return s
+            s = QSpinBox(); s.setRange(lo, hi); s.setValue(get_int(st, key, val, lo, hi)); s.setSuffix(suf); self.w[key] = s; return s
         def chk(key, text, val):
-            c = QCheckBox(text); c.setChecked(st.value(key, val, bool)); self.w[key] = c; return c
+            c = QCheckBox(text); c.setChecked(get_bool(st, key, val)); self.w[key] = c; return c
         def combo(key, items, val):
-            c = QComboBox(); [c.addItem(t, d) for t, d in items]; i = c.findData(st.value(key, val)); c.setCurrentIndex(max(0, i)); self.w[key] = c; return c
+            c = QComboBox(); [c.addItem(t, d) for t, d in items]; i = c.findData(get_str(st, key, val)); c.setCurrentIndex(max(0, i)); self.w[key] = c; return c
         f = page("일반"); f.addRow("시작 탭", combo("start_tab", [("홈", "home"), ("편집", "edit"), ("관리", "manage")], "home"))
         f.addRow(chk("update_auto", "시작할 때 업데이트 자동 확인 (하루 1회)", True))
         f.addRow(chk("confirm_exit_unsaved", "저장하지 않은 편집이 있으면 종료 전에 확인", True))
@@ -218,7 +220,7 @@ class SettingsDialog(QDialog):
         f = page("언어"); c = QComboBox(); c.addItem("한국어"); c.setEnabled(False); f.addRow("언어", c)
         v.addWidget(_ok_cancel(self, "저장"))
     def _folder(self, key):
-        w = QWidget(); h = QHBoxLayout(w); h.setContentsMargins(0, 0, 0, 0); e = QLineEdit(self.st.value(key, "", str)); b = QPushButton("…")
+        w = QWidget(); h = QHBoxLayout(w); h.setContentsMargins(0, 0, 0, 0); e = QLineEdit(get_str(self.st, key, "")); b = QPushButton("…")
         b.clicked.connect(lambda: (lambda d: d and e.setText(d))(QFileDialog.getExistingDirectory(self, "폴더 선택", e.text())))
         h.addWidget(e, 1); h.addWidget(b); self.w[key] = e; return w
     def accept(self):

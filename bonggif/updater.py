@@ -171,5 +171,6 @@ def launch_update(src_dir: str) -> str:
     log.info("업데이트 스크립트 실행: %s", script); return script
 
 def should_auto_check(st, now=None) -> bool:
-    if not st.value("update_auto", True, bool): return False
-    last = float(st.value("update_last_check", 0) or 0); return (now or time.time()) - last >= 86400
+    from .prefs import get_bool, get_float
+    if not get_bool(st, "update_auto", True): return False
+    last = get_float(st, "update_last_check", 0.0); return (now or time.time()) - last >= 86400

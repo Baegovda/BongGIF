@@ -139,6 +139,21 @@ rd = RangeDialog(w, base, 1, 3); ok("구간 자르기 대화상자", rd.range() 
 w.goto(-1); ok("마지막 프레임 이동", w.cur == len(w.project.frames) - 1); w.goto(0); ok("재생 막대 위치 표시", w.lbl_pos.text().startswith("1/"))
 sd = SaveDialog(w, "webm", w.project.frames, out, "x"); ok("저장 대화상자(5형식)", sd.q.cb_fmt.count() == 5 and sd.path().endswith("x.webm"))
 sdl = SettingsDialog(w); ok("설정 탭 12개", sdl.findChild(QTabWidget).count() == 12); sdl.reject()
+from bonggif.prefs import to_bool, to_int, to_float
+ok("설정 값 변환(문자열 bool/숫자/잘못된 값)", to_bool("true") and not to_bool("false") and to_bool("", True) and to_int("true", 3) == 1 and to_int("false", 3) == 0
+   and to_int("", 7) == 7 and to_int("abc", 5) == 5 and to_int("12") == 12 and to_int("3.6") == 4 and to_int(99, 0, 0, 10) == 10 and to_float("x", 1.5) == 1.5)
+_st = QSettings(QSettings.defaultFormat(), QSettings.UserScope, "BongGIF", "BongGIF")
+_seed = {"rec_countdown": "true", "rec_fps": "abc", "gif_colors": "", "max_undo": "false", "rec_cursor": "false", "update_auto": "1",
+         "crop_darken": "", "start_tab": ["edit"], "mem_limit_mb": "1e9", "import_delay": "true", "update_last_check": "nope", "crop_rect": "bad"}
+for k, v in _seed.items(): _st.setValue(k, v)
+_st.sync()
+try:
+    sdl2 = SettingsDialog(w); vals = {k: (x.value() if hasattr(x, "value") else None) for k, x in sdl2.w.items() if hasattr(x, "setRange")}
+    sdl2.accept(); ok("문자열('true' 등) 설정으로 환경 설정 열기·저장", vals["rec_countdown"] == 1 and vals["rec_fps"] == 15 and vals["gif_colors"] == 256, str({k: vals[k] for k in ("rec_countdown", "rec_fps", "gif_colors", "max_undo")}))
+    w2 = EditorWindow(); w2.open_settings().reject() if False else None; w2.set_mode("crop") if w2.project.frames else None
+    from bonggif import updater as _up; _up.should_auto_check(_st); w2.close(); ok("문자열 설정으로 메인 창 생성·자동 확인 판단", True)
+except Exception as e:
+    import traceback; traceback.print_exc(); ok("문자열('true' 등) 설정으로 환경 설정 열기·저장", False, repr(e))
 ImageImportDialog(w, [png]); t = w.import_images([png, png], accept=True); w.wait_task(); ok("이미지 가져오기", t is not None)
 mp = ManagePanel(out); ok("관리 목록", mp.tree.topLevelItemCount() >= 3, f"{mp.tree.topLevelItemCount()}개")
 w.preview.set_zoom(2.0); ok("확대 표시", w.lbl_zoom.text() == "200%"); w.preview.set_zoom(None)
