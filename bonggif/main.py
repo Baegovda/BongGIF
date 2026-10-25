@@ -15,6 +15,7 @@ def main():
     if os.path.exists(ico): app.setWindowIcon(QIcon(ico))
     from .theme import apply_dark; apply_dark(QApplication.instance())
     args = sys.argv[1:]; w = EditorWindow(); w.show()
+    from PySide6.QtCore import QTimer; QTimer.singleShot(3000, w.auto_check_updates)
     if args and args[0] in ("--convert", "-c"):
         p = args[1] if len(args) > 1 and os.path.exists(args[1]) else None
         if p: w.load_video(p)

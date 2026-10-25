@@ -54,9 +54,17 @@ build_exe.bat          :: venv 생성 → 의존성+PyInstaller 설치 → dist\
 - 관리 탭: 저장 폴더 파일 목록·정렬·미리보기·편집·이름 바꾸기·삭제
 - 저장 대화상자: 미리보기·파일 정보, 형식 5종, 품질, 목표 용량, FPS/너비/유사 프레임 제한, 진행 막대 삽입, 파일명/최근 폴더
 
+## 업데이트
+- `도움말 > 업데이트 확인`: GitHub(Baegovda/BongGIF)의 최신 릴리스를 조회해 새 버전과 릴리스 노트를 보여줍니다. `도움말 > 정보`에서 현재 버전을 확인할 수 있습니다.
+- 시작할 때 백그라운드에서 하루 1회 자동 확인합니다 (`환경 설정 > 일반 > 시작할 때 업데이트 자동 확인`, 기본 켜짐). 새 버전이 있으면 `지금 업데이트` / `나중에` / `이 버전 건너뛰기` 알림이 뜹니다.
+- **자체 업데이트(설치된 exe에서만)**: `*-win64.zip`을 진행률·취소와 함께 받고, 크기와 SHA256(`.sha256` 파일)을 검증한 뒤 `%LOCALAPPDATA%\BongGIF\update\staging`에 풉니다.
+  재시작하면 업데이트 스크립트가 프로그램 종료를 기다렸다가 설치 폴더를 `<설치폴더>.bak`으로 백업하고 새 파일로 바꾼 뒤 BongGIF를 다시 실행합니다. 실패하면 백업으로 되돌립니다.
+  기록은 `logs\update.log`에 남습니다. 설치 폴더에 쓰기 권한이 없으면(예: Program Files) 안내만 표시하므로, 사용자 폴더에 압축을 푸는 것을 권장합니다.
+- 소스(`python BongGIF.py`)로 실행 중이면 릴리스 페이지를 엽니다.
+
 ## 릴리스 (GitHub Actions)
 `v*` 태그를 푸시하면 `.github/workflows/release.yml`이 windows-latest + Python 3.12에서 PyInstaller(onedir)로 빌드하고
-`BongGIF-<태그>-win64.zip`을 GitHub Release에 올립니다. 라이선스: MIT (`LICENSE`).
+`BongGIF-<태그>-win64.zip`과 `.sha256`을 GitHub Release에 올립니다. 태그는 `bonggif/version.py`의 버전과 같아야 합니다(다르면 실패). 라이선스: MIT (`LICENSE`).
 - 재생(Space): 실제 시간(QElapsedTimer) 기준으로 누적 지연에 맞춰 프레임을 고르고, 늦으면 건너뜁니다. 뷰 크기로 미리 축소한 미리보기를 백그라운드에서 캐시합니다.
   20ms 미만 지연이 있으면 경고합니다(GIF는 10ms 단위, 브라우저는 보통 100ms로 늘려 재생).
 - 실행취소/다시실행(Ctrl+Z / Ctrl+Y, 30단계)

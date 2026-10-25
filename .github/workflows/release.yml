@@ -18,6 +18,13 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Verify version matches tag
+        shell: pwsh
+        run: |
+          $v = python -c "import re;print(re.search(r'__version__\s*=\s*.([0-9A-Za-z.\-]+).', open('bonggif/version.py').read()).group(1))"
+          $tag = "${{ github.ref_name }}".TrimStart('v')
+          if ($v -ne $tag) { Write-Error "bonggif/version.py ($v) != tag ($tag)"; exit 1 }
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -25,11 +32,17 @@ jobs:
 
       - name: Smoke tests (offscreen)
         continue-on-error: true   # timing checks can flake on shared runners
+        shell: pwsh
         env:
           QT_QPA_PLATFORM: offscreen
+          CI: "true"
         run: |
-          python smoke_test.py
-          python smoke_test_converter.py
+          $fail = 0
+          foreach ($t in "smoke_test.py","smoke_test_converter.py","smoke_test_updater.py") {
+            python $t
+            if ($LASTEXITCODE -ne 0) { Write-Host "::warning::$t failed (exit $LASTEXITCODE)"; $fail = 1 }
+          }
+          exit $fail
 
       - name: Build (PyInstaller onedir)
         run: |
@@ -45,10 +58,14 @@ jobs:
         run: |
           $zip = "BongGIF-${{ github.ref_name }}-win64.zip"
           Compress-Archive -Path dist/BongGIF -DestinationPath $zip
+          $h = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$h  $zip" | Out-File -Encoding ascii -NoNewline "$zip.sha256"
           echo "ZIP=$zip" >> $env:GITHUB_ENV
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.ZIP }}
+          files: |
+            ${{ env.ZIP }}
+            ${{ env.ZIP }}.sha256
           generate_release_notes: true

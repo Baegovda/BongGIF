@@ -199,6 +199,7 @@ class SettingsDialog(QDialog):
         def combo(key, items, val):
             c = QComboBox(); [c.addItem(t, d) for t, d in items]; i = c.findData(st.value(key, val)); c.setCurrentIndex(max(0, i)); self.w[key] = c; return c
         f = page("일반"); f.addRow("시작 탭", combo("start_tab", [("홈", "home"), ("편집", "edit"), ("관리", "manage")], "home"))
+        f.addRow(chk("update_auto", "시작할 때 업데이트 자동 확인 (하루 1회)", True))
         f.addRow(chk("confirm_exit_unsaved", "저장하지 않은 편집이 있으면 종료 전에 확인", True))
         f = page("녹화"); f.addRow("기본 FPS", spin("rec_fps", 5, 60, 15, " fps")); f.addRow("카운트다운", spin("rec_countdown", 0, 10, 3, " 초"))
         f.addRow(chk("rec_cursor", "마우스 커서 녹화", True)); f.addRow(chk("rec_highlight", "커서 강조", False)); f.addRow(chk("rec_click", "클릭 효과", False))

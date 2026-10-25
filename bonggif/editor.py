@@ -216,7 +216,8 @@ class EditorWindow(QMainWindow):
         A["mark_b"] = self._act("현재 프레임을 구간 끝으로", lambda: self.mark_trim("b"), "O")
         A["keep"] = self._act("구간만 남기기", self.keep_trim, "Ctrl+K")
         A["logs"] = self._act("로그 폴더 열기", self.open_log_folder, busy_ok=True)
-        A["about"] = self._act("정보", lambda: QMessageBox.about(self, APP_NAME, f"{APP_NAME}\nGIF 녹화·편집기 (독자 구현)"), busy_ok=True)
+        A["about"] = self._act("정보", self.about, busy_ok=True)
+        A["update"] = self._act("업데이트 확인…", self.check_updates, busy_ok=True)
         icons = {"open": "open", "save": "save", "undo": "undo", "redo": "redo", "delete": "delete", "play": "play", "first": "first", "last": "last",
                  "prev": "prev", "next": "next", "rec": "rec", "batch": "batch", "manage": "manage", "settings": "settings", "cut": "cut",
                  "reduce": "reduce", "time": "time", "faster": "faster", "slower": "slower", "reverse": "reverse", "yoyo": "yoyo",
@@ -235,7 +236,7 @@ class EditorWindow(QMainWindow):
         for k in ("mark_a", "mark_b", "keep"): self.menu_edit.addAction(A[k])
         for k in ("rec", "manage", "batch", "cancel"): self.menu_tools.addAction(A[k])
         self.menu_tools.addSeparator(); self.menu_tools.addAction(A["settings"])
-        self.menu_help.addAction(A["logs"]); self.menu_help.addAction(A["about"])
+        self.menu_help.addAction(A["update"]); self.menu_help.addAction(A["logs"]); self.menu_help.addSeparator(); self.menu_help.addAction(A["about"])
         self.toolbar = self.addToolBar("주 도구"); self.toolbar.setMovable(False); self.toolbar.setIconSize(QSize(22, 22))
         for k, t in [("rec", "녹화"), ("open", "열기"), ("save", "저장"), (None, None), ("undo", "실행취소"), ("redo", "다시실행"),
                      (None, None), ("manage", "관리"), ("batch", "일괄 변환"), ("settings", "설정")]:
@@ -1044,6 +1045,59 @@ class EditorWindow(QMainWindow):
     def _update_pos(self):
         n = len(self.project.frames); t = sum(f.delay for f in self.project.frames[: self.cur])
         self.lbl_pos.setText(f"{self.cur + 1 if n else 0}/{n}"); self.lbl_time.setText(f"{t / 1000:.2f} / {self.project.total_ms() / 1000:.2f}초")
+
+    # ================= 업데이트 =================
+    def about(self):
+        from .version import __version__
+        QMessageBox.about(self, APP_NAME, f"<b>{APP_NAME}</b> {__version__}<br>GIF 녹화·편집기 (독자 구현, MIT)<br>"
+                          f"<a href='https://github.com/Baegovda/BongGIF'>github.com/Baegovda/BongGIF</a>")
+    def check_updates(self, manual=True, url=None):
+        """manual=False: 시작 시 백그라운드 확인 (조용히 실패)."""
+        from . import updater as up
+        if getattr(self, "_upd_task", None) is not None: return self._upd_task
+        t = Task("업데이트 확인", lambda ctx: up.fetch_latest(url or up.API_LATEST), self); self._upd_task = t
+        def done(rel):
+            self._upd_task = None; self.last_release = rel; self.settings.setValue("update_last_check", time.time())
+            if up.is_newer(rel["version"]):
+                if not manual and self.settings.value("update_skip", "", str) == rel["version"]: return
+                self._update_notice(rel)
+            elif manual: QMessageBox.information(self, "업데이트 확인", f"최신 버전을 사용 중입니다. ({up.__version__})")
+            else: self.set_status(f"최신 버전 사용 중 ({up.__version__})")
+        def fail(e):
+            self._upd_task = None; logging.getLogger("bonggif.update").warning("업데이트 확인 실패: %s", e)
+            if manual: self._warn(str(e))
+        t.done.connect(done); t.failed.connect(fail); t.finished.connect(t.deleteLater); t.start(); return t
+    def auto_check_updates(self):
+        from . import updater as up
+        if up.should_auto_check(self.settings): return self.check_updates(manual=False)
+    def _update_notice(self, rel):
+        from . import updater as up
+        notes = rel["notes"].strip() or "(릴리스 노트 없음)"
+        box = QMessageBox(QMessageBox.Information, "새 버전", f"{APP_NAME} {rel['version']} 버전이 있습니다. (현재 {up.__version__})", QMessageBox.NoButton, self)
+        box.setDetailedText(notes[:4000]); box.setInformativeText(notes[:300] + ("…" if len(notes) > 300 else ""))
+        bn = box.addButton("지금 업데이트", QMessageBox.AcceptRole); bl = box.addButton("나중에", QMessageBox.RejectRole); bs = box.addButton("이 버전 건너뛰기", QMessageBox.DestructiveRole)
+        bn.clicked.connect(lambda: self.start_update(rel)); bs.clicked.connect(lambda: self.settings.setValue("update_skip", rel["version"]))
+        box.setModal(False); box.show(); self.update_box = box; self.set_status(f"새 버전 {rel['version']} 사용 가능 — 도움말 > 업데이트 확인"); return box
+    def start_update(self, rel, force_self=False):
+        """frozen Windows 빌드: 다운로드→검증→staging 해제→교체 스크립트 실행 후 종료. 소스 실행: 릴리스 페이지 열기."""
+        from . import updater as up
+        if not (up.is_frozen() or force_self) or not rel.get("asset"):
+            from PySide6.QtGui import QDesktopServices; from PySide6.QtCore import QUrl
+            QDesktopServices.openUrl(QUrl(rel.get("page") or up.RELEASES_PAGE)); return None
+        if not force_self and not up.dir_writable(up.install_dir()):
+            self._warn(f"설치 폴더에 쓸 수 없습니다:\n{up.install_dir()}\n\n관리자 권한 없이 쓸 수 있는 폴더(예: 사용자 폴더)로 옮기거나, 릴리스 페이지에서 직접 받아 교체하세요.")
+            return None
+        a = rel["asset"]; zip_path = os.path.join(up.update_dir(), a["name"]); staging = os.path.join(up.update_dir(), "staging")
+        def job(ctx):
+            sha = up.fetch_sha256(rel["sha256_asset"]["url"]) if rel.get("sha256_asset") else None
+            up.download(a["url"], zip_path, a["size"], sha, ctx); ctx.step(0, 0, "압축 해제 중")
+            src = up.extract(zip_path, staging, ctx); os.remove(zip_path); return src
+        def done(src):
+            self.update_src = src
+            if force_self: return
+            if QMessageBox.question(self, "업데이트", "다운로드 완료. 지금 다시 시작해 업데이트할까요?") == QMessageBox.Yes:
+                up.launch_update(src); QApplication.instance().quit()
+        return self.run_task(f"업데이트 {rel['version']}", job, done)
 
     # ================= 재생 =================
     def short_delays(self):

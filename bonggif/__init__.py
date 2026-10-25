@@ -1,2 +1,2 @@
 APP_NAME = "BongGIF"
-__version__ = "1.0.0"
+from .version import __version__  # noqa: F401
