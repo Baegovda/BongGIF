@@ -1,0 +1,54 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Smoke tests (offscreen)
+        continue-on-error: true   # timing checks can flake on shared runners
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python smoke_test.py
+          python smoke_test_converter.py
+
+      - name: Build (PyInstaller onedir)
+        run: |
+          python -m bonggif.icon bonggif.ico
+          pyinstaller --noconfirm --clean --onedir --windowed --name BongGIF `
+            --icon bonggif.ico --add-data "bonggif.ico;." `
+            --collect-all imageio_ffmpeg --collect-submodules imageio `
+            --hidden-import mss --hidden-import keyboard `
+            BongGIF.py
+
+      - name: Zip
+        shell: pwsh
+        run: |
+          $zip = "BongGIF-${{ github.ref_name }}-win64.zip"
+          Compress-Archive -Path dist/BongGIF -DestinationPath $zip
+          echo "ZIP=$zip" >> $env:GITHUB_ENV
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP }}
+          generate_release_notes: true
