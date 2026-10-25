@@ -1,23 +1,138 @@
 {
   "project": "BongGIF",
   "repo": "https://github.com/Baegovda/BongGIF",
-  "version": "1.1.5",
-  "last_release": {"tag": "v1.1.5", "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.1.5",
-                   "assets": ["BongGIF-v1.1.5-win64.zip", "BongGIF-v1.1.5-win64.zip.sha256"], "date": "2026-10-26"},
-  "language": {"ui": "ko", "user": "ko"},
-  "crash_relay": {"status": "written_not_deployed", "path": "relay/", "endpoint": "", "owner_needs": ["Cloudflare account", "wrangler login", "KV namespace id in wrangler.toml", "GitHub fine-grained token Issues:RW on Baegovda/BongGIF -> wrangler secret put GITHUB_TOKEN", "deploy then set ENDPOINT in bonggif/crashreport.py"]},
-  "tests": {"smoke_test.py": 70, "smoke_test_converter.py": 64, "smoke_test_updater.py": 40, "smoke_test_crash.py": 14},
+  "version": "1.1.6",
+  "last_release": {
+    "tag": "v1.1.6",
+    "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.1.6",
+    "assets": [
+      "BongGIF-v1.1.6-win64.zip",
+      "BongGIF-v1.1.6-win64.zip.sha256"
+    ],
+    "date": "2026-10-26"
+  },
+  "language": {
+    "ui": "ko",
+    "user": "ko"
+  },
+  "crash_relay": {
+    "status": "deployed",
+    "url": "https://bonggif-report.revaptor.workers.dev",
+    "endpoint": "https://bonggif-report.revaptor.workers.dev/report",
+    "kv_id": "6824be73bb144e038496588eb32be102",
+    "github_token": "worker secret GITHUB_TOKEN (fine-grained, Issues RW, BongGIF only)",
+    "verified": "issue #1 (test, closed)",
+    "tests_disable_via": "BONGGIF_REPORT_URL=\"\""
+  },
+  "tests": {
+    "smoke_test.py": 70,
+    "smoke_test_converter.py": 64,
+    "smoke_test_updater.py": 40,
+    "smoke_test_crash.py": 15
+  },
   "parity_estimate_pct": 84,
   "backlog": [
-    {"id": "text-anim", "priority": 1, "status": "todo", "title": "Text intro/outro animation", "accept": ["fade/slide/typewriter", "frame range", "preview", "test"]},
-    {"id": "bubbles", "priority": 2, "status": "todo", "title": "Speech bubble stickers", "accept": ["3+ shapes drawn in code", "text inside", "draggable", "colors"]},
-    {"id": "transitions", "priority": 3, "status": "todo", "title": "Transitions", "accept": ["fade/slide/wipe", "insert N frames", "undo"]},
-    {"id": "zoom-camera", "priority": 4, "status": "todo", "title": "Zoom/pan camera", "accept": ["start/end rect", "easing", "constant output size"]},
-    {"id": "collage", "priority": 5, "status": "todo", "title": "Collage 2-4 clips", "accept": ["layout picker", "per-cell source", "synced length"]},
-    {"id": "effects-9", "priority": 6, "status": "todo", "title": "9 more effects", "accept": ["in EFFECTS", "strength", "live preview", "test"]},
-    {"id": "rec-grid-finder", "priority": 7, "status": "todo", "title": "Recording grid + window finder", "accept": ["grid excluded from capture", "pick window"]},
-    {"id": "shortcuts", "priority": 8, "status": "todo", "title": "Custom shortcuts", "accept": ["editable", "persisted via prefs", "conflict check"]},
-    {"id": "watermark", "priority": 9, "status": "todo", "title": "Watermark on save", "accept": ["text/image", "position", "opacity"]}
+    {
+      "id": "text-anim",
+      "priority": 1,
+      "status": "todo",
+      "title": "Text intro/outro animation",
+      "accept": [
+        "fade/slide/typewriter",
+        "frame range",
+        "preview",
+        "test"
+      ]
+    },
+    {
+      "id": "bubbles",
+      "priority": 2,
+      "status": "todo",
+      "title": "Speech bubble stickers",
+      "accept": [
+        "3+ shapes drawn in code",
+        "text inside",
+        "draggable",
+        "colors"
+      ]
+    },
+    {
+      "id": "transitions",
+      "priority": 3,
+      "status": "todo",
+      "title": "Transitions",
+      "accept": [
+        "fade/slide/wipe",
+        "insert N frames",
+        "undo"
+      ]
+    },
+    {
+      "id": "zoom-camera",
+      "priority": 4,
+      "status": "todo",
+      "title": "Zoom/pan camera",
+      "accept": [
+        "start/end rect",
+        "easing",
+        "constant output size"
+      ]
+    },
+    {
+      "id": "collage",
+      "priority": 5,
+      "status": "todo",
+      "title": "Collage 2-4 clips",
+      "accept": [
+        "layout picker",
+        "per-cell source",
+        "synced length"
+      ]
+    },
+    {
+      "id": "effects-9",
+      "priority": 6,
+      "status": "todo",
+      "title": "9 more effects",
+      "accept": [
+        "in EFFECTS",
+        "strength",
+        "live preview",
+        "test"
+      ]
+    },
+    {
+      "id": "rec-grid-finder",
+      "priority": 7,
+      "status": "todo",
+      "title": "Recording grid + window finder",
+      "accept": [
+        "grid excluded from capture",
+        "pick window"
+      ]
+    },
+    {
+      "id": "shortcuts",
+      "priority": 8,
+      "status": "todo",
+      "title": "Custom shortcuts",
+      "accept": [
+        "editable",
+        "persisted via prefs",
+        "conflict check"
+      ]
+    },
+    {
+      "id": "watermark",
+      "priority": 9,
+      "status": "todo",
+      "title": "Watermark on save",
+      "accept": [
+        "text/image",
+        "position",
+        "opacity"
+      ]
+    }
   ],
   "invariants": [
     "No third-party proprietary code/assets/names; no license-bypass content",
@@ -37,8 +152,14 @@
     "python smoke_test_converter.py",
     "python smoke_test_updater.py"
   ],
-  "expected_test_counts": {"smoke_test.py": 70, "smoke_test_converter.py": 64, "smoke_test_updater.py": 29},
-  "build_commands": ["build_exe.bat  (Python 3.12, PyInstaller onedir -> dist\\BongGIF\\BongGIF.exe)"],
+  "expected_test_counts": {
+    "smoke_test.py": 70,
+    "smoke_test_converter.py": 64,
+    "smoke_test_updater.py": 29
+  },
+  "build_commands": [
+    "build_exe.bat  (Python 3.12, PyInstaller onedir -> dist\\BongGIF\\BongGIF.exe)"
+  ],
   "release_steps": [
     "bump bonggif/version.py",
     "run all tests",
@@ -48,7 +169,16 @@
     "verify assets BongGIF-vX.Y.Z-win64.zip and .sha256",
     "update docs/HANDOFF.md + docs/STATE.json"
   ],
-  "paths": {"log": "%LOCALAPPDATA%\\BongGIF\\logs\\bonggif.log", "update_log": "%LOCALAPPDATA%\\BongGIF\\logs\\update.log",
-            "install": "%LOCALAPPDATA%\\Programs\\BongGIF", "staging": "%LOCALAPPDATA%\\BongGIF\\update\\staging"},
-  "excluded_from_repo": ["PARITY.md", "qa_shots/", "DONE*", "PROGRESS.json"]
+  "paths": {
+    "log": "%LOCALAPPDATA%\\BongGIF\\logs\\bonggif.log",
+    "update_log": "%LOCALAPPDATA%\\BongGIF\\logs\\update.log",
+    "install": "%LOCALAPPDATA%\\Programs\\BongGIF",
+    "staging": "%LOCALAPPDATA%\\BongGIF\\update\\staging"
+  },
+  "excluded_from_repo": [
+    "PARITY.md",
+    "qa_shots/",
+    "DONE*",
+    "PROGRESS.json"
+  ]
 }

@@ -1,5 +1,6 @@
 """업데이트 기능 오프스크린 테스트: QT_QPA_PLATFORM=offscreen python smoke_test_updater.py"""
 import os, sys, json, tempfile, threading, zipfile, hashlib, functools, time
+os.environ["BONGGIF_REPORT_URL"] = ""  # 테스트에서 실제 오류 보고 금지
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 out = tempfile.mkdtemp(prefix="bgupd_"); os.environ["BONGGIF_DATA_DIR"] = os.path.join(out, "data")
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler

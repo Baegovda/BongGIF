@@ -1,5 +1,6 @@
 """오프스크린 스모크 테스트(편집기): QT_QPA_PLATFORM=offscreen python smoke_test.py"""
 import os, sys, tempfile, time
+os.environ["BONGGIF_REPORT_URL"] = ""  # 테스트에서 실제 오류 보고 금지
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 out = tempfile.mkdtemp(prefix="ff_"); os.environ["BONGGIF_DATA_DIR"] = os.path.join(out, "data")
 from PIL import Image, ImageDraw

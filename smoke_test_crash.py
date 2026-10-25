@@ -21,8 +21,9 @@ class H(BaseHTTPRequestHandler):
 srv = ThreadingHTTPServer(("127.0.0.1", 0), H); threading.Thread(target=srv.serve_forever, daemon=True).start()
 url = f"http://127.0.0.1:{srv.server_address[1]}/report"
 
-os.environ.pop("BONGGIF_REPORT_URL", None)
-ok("엔드포인트 비어 있으면 기능 꺼짐(no-op)", cr.ENDPOINT == "" and not cr.enabled() and cr.report_async("E", "m", "tb") is False)
+ok("실제 엔드포인트 설정됨", cr.ENDPOINT.startswith("https://") and cr.ENDPOINT.endswith("/report"))
+os.environ["BONGGIF_REPORT_URL"] = ""
+ok("엔드포인트 비어 있으면 기능 꺼짐(no-op)", cr.endpoint() == "" and not cr.enabled() and cr.report_async("E", "m", "tb") is False)
 os.environ["BONGGIF_REPORT_URL"] = url
 txt = r'File "C:\Users\홍길동\AppData\Local\x.py" /home/bob/a.py mail me@ex.com ' + os.path.expanduser("~") + "/z"
 a = cr.anonymize(txt); ok("경로·사용자·메일 익명화", "홍길동" not in a and "bob" not in a and "me@ex.com" not in a and "%USERPROFILE%" in a and os.path.expanduser("~") not in a, a)

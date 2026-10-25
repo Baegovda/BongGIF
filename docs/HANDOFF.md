@@ -1,9 +1,9 @@
 # HANDOFF — BongGIF
 
-_Last updated: 2026-10-26 (KST) · current version **v1.1.5** · https://github.com/Baegovda/BongGIF/releases/tag/v1.1.5_
+_Last updated: 2026-10-26 (KST) · current version **v1.1.6** · https://github.com/Baegovda/BongGIF/releases/tag/v1.1.6_
 
 ## Current state
-Stable. All smoke tests green (70 / 64 / 40 / 14). Self-update v1.1.2 → v1.1.3 verified on the owner's PC (update.log: backup → copy → restart, no rollback). Owner installs to `%LOCALAPPDATA%\Programs\BongGIF`.
+Stable. All smoke tests green (70 / 64 / 40 / 15). Self-update v1.1.2 → v1.1.3 verified on the owner's PC (update.log: backup → copy → restart, no rollback). Owner installs to `%LOCALAPPDATA%\Programs\BongGIF`.
 
 ## Version history
 | ver | summary |
@@ -14,6 +14,7 @@ Stable. All smoke tests green (70 / 64 / 40 / 14). Self-update v1.1.2 → v1.1.3
 | 1.1.2 | Updater hang fix (no pipes), version label + live update button, instant seek cache |
 | 1.1.3 | Faster preview cache: keyframe pass, parallel segments, hwaccel fallback, click priority |
 | 1.1.4 | Fix settings crash (`int('true')`): `prefs.py` typed getters everywhere; `rec_countdown` is seconds |
+| 1.1.6 | Crash reports live: ENDPOINT = https://bonggif-report.revaptor.workers.dev/report (relay deployed, KV 6824be73…, GITHUB_TOKEN secret set; test issue #1 created+closed). Tests set BONGGIF_REPORT_URL="" |
 | 1.1.5 | Auto update detection (startup+30 min+activation, ETag, toast), one-click non-stop update; crash auto-report client + Cloudflare relay (endpoint empty until owner deploys) |
 
 ## Done (high level)
@@ -38,5 +39,6 @@ Record (fps, presets, countdown, cursor/highlight/click, pin, direct save) · Ed
 - `requirements.txt` pins PySide6 <6.9; dev box uses 6.12 — verify before bumping.
 
 ## Session log (append newest first)
+- 2026-10-26: v1.1.6: relay deployed at https://bonggif-report.revaptor.workers.dev (Cloudflare account of owner, workers.dev subdomain revaptor); end-to-end test issue #1 OK, closed. Redeploy: cd relay && npx wrangler deploy.
 - 2026-10-26: v1.1.5: auto-update + crash reporting; relay/ written, NOT deployed. Owner must: Cloudflare account, wrangler login, KV namespace, fine-grained token (Issues RW on BongGIF) → wrangler secret put GITHUB_TOKEN → deploy → set ENDPOINT → release.
 - 2026-10-26: v1.1.4 released; handoff docs added (AGENTS.md, HANDOFF.md, STATE.json).

@@ -51,7 +51,7 @@ set QT_QPA_PLATFORM=offscreen
 python smoke_test.py            # 70 checks
 python smoke_test_converter.py  # 64 checks
 python smoke_test_updater.py    # 40 checks
-python smoke_test_crash.py      # 14 checks (mock report endpoint)
+python smoke_test_crash.py      # 15 checks (mock report endpoint)
 run_tests.bat                   # all three
 ```
 All must pass before a release. Add tests for every fix. In CI (`CI` env set) timing tolerances are loosened.
@@ -97,4 +97,4 @@ Repo excludes: `PARITY.md`, `qa_shots/`, `DONE*`, `PROGRESS.json`.
 - Update check: 5 s after start, every 30 min, and on window activation if >30 min old. ETag/If-None-Match (settings keys update_etag/update_cache/update_last_check). Network errors silent. Same version notified once (update_notified, update_skip). Toggle `update_auto`.
 - One-click update in `EditorWindow.one_click_update`: download → sha256 → extract → apply script → restart. Only prompt is unsaved work.
 - Crash reports: `bonggif/crashreport.py` (ENDPOINT empty = disabled; env BONGGIF_REPORT_URL overrides). Anonymized, queued offline in data_dir/reports, toggle `crash_report`.
-- Relay: `relay/` Cloudflare Worker (not deployed yet). See relay/README.md. Never commit GITHUB_TOKEN.
+- Relay: `relay/` Cloudflare Worker, deployed at https://bonggif-report.revaptor.workers.dev (see relay/README.md). Tests must set BONGGIF_REPORT_URL="" so they never hit it. Never commit GITHUB_TOKEN.

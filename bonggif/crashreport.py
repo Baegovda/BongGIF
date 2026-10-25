@@ -4,7 +4,7 @@ from __future__ import annotations
 import glob, hashlib, json, logging, os, platform, re, sys, threading, time, traceback, urllib.request
 from .version import __version__
 
-ENDPOINT = ""                      # 예: "https://bonggif-report.<계정>.workers.dev/report" (relay/README.md 참고)
+ENDPOINT = "https://bonggif-report.revaptor.workers.dev/report"   # relay/ Cloudflare Worker; 환경 변수 BONGGIF_REPORT_URL="" 이면 끔
 APP_KEY = "bonggif-report-v1"      # 단순 필터용 헤더 (보안 수단 아님)
 MAX_BYTES = 60 * 1024; QUEUE_MAX = 20
 log = logging.getLogger("bonggif.report")

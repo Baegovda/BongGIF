@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 *.spec
 qa_shots/
+relay/.wrangler/
+relay/node_modules/
