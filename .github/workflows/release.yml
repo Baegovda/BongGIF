@@ -21,7 +21,7 @@ jobs:
       - name: Verify version matches tag
         shell: pwsh
         run: |
-          $v = python -c "import re;print(re.search(r'__version__\s*=\s*.([0-9A-Za-z.\-]+).', open('bonggif/version.py').read()).group(1))"
+          $v = python -c "import re;print(re.search(r'__version__\s*=\s*.([0-9A-Za-z.\-]+).', open('bonggif/version.py',encoding='utf-8').read()).group(1))"
           $tag = "${{ github.ref_name }}".TrimStart('v')
           if ($v -ne $tag) { Write-Error "bonggif/version.py ($v) != tag ($tag)"; exit 1 }
 
