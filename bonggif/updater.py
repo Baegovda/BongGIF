@@ -95,41 +95,64 @@ def dir_writable(d):
     except OSError: return False
 
 def make_script(pid: int, src: str, dst: str, exe_name="BongGIF.exe", log_file="update.log") -> str:
-    """대기 → 백업 → 복사 → 재시작, 실패 시 롤백. ASCII + CRLF 배치 파일 내용."""
+    """대기 → 백업 → 복사 → 재시작, 실패 시 롤백. ASCII + CRLF. 파이프 없음(콘솔/표준입력 없이도 멈추지 않음)."""
+    L = r'call :log'
     lines = [
-        "@echo off", "setlocal", "chcp 65001 >nul",
+        "@echo off", "setlocal EnableExtensions", "chcp 65001 >nul",
         f'set "PID={int(pid)}"', f'set "SRC={src}"', f'set "DST={dst}"', f'set "BAK={dst}.bak"', f'set "EXE={exe_name}"', f'set "LOG={log_file}"',
-        'echo [%date% %time%] update start pid=%PID% >> "%LOG%"',
+        r'set "SYS=%SystemRoot%\System32"',
+        r'set "PS=%SYS%\WindowsPowerShell\v1.0\powershell.exe"',
+        r'set "TMPF=%TEMP%\bonggif_update_%PID%.txt"',
+        f'{L} "update start pid=%PID% src=%SRC% dst=%DST%"',
+        f'{L} "waiting for process exit"',
+        r'if exist "%PS%" "%PS%" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "try{Wait-Process -Id %PID% -Timeout 120 -ErrorAction Stop}catch{}" <nul >nul 2>&1',
         "set /a N=0",
         ":wait",
-        'tasklist /FI "PID eq %PID%" 2>nul | find "%PID%" >nul',
-        "if errorlevel 1 goto backup",
+        r'"%SYS%\tasklist.exe" /FI "PID eq %PID%" /FO CSV /NH > "%TMPF%" 2>nul <nul',
+        r'"%SYS%\findstr.exe" /C:"\"%PID%\"" "%TMPF%" >nul 2>&1 <nul',
+        "if errorlevel 1 goto exited",
         "set /a N+=1",
-        'if %N% GEQ 120 (echo [%date% %time%] timeout waiting for exit >> "%LOG%" & goto fail_nochange)',
-        "ping -n 2 127.0.0.1 >nul",
+        f'if %N% GEQ 60 ({L} "timeout waiting for exit" & goto fail_nochange)',
+        r'"%SYS%\ping.exe" -n 2 127.0.0.1 >nul 2>&1 <nul',
         "goto wait",
-        ":backup",
-        'if exist "%BAK%" rmdir /s /q "%BAK%"',
-        'robocopy "%DST%" "%BAK%" /E /R:2 /W:1 /NFL /NDL /NJH /NJS >> "%LOG%"',
-        "if %ERRORLEVEL% GEQ 8 goto fail_nochange",
-        'echo [%date% %time%] backup ok >> "%LOG%"',
-        'robocopy "%SRC%" "%DST%" /E /R:3 /W:1 /NFL /NDL /NJH /NJS >> "%LOG%"',
-        "if %ERRORLEVEL% GEQ 8 goto rollback",
-        'if not exist "%DST%\\%EXE%" goto rollback',
-        'echo [%date% %time%] update ok >> "%LOG%"',
-        'rmdir /s /q "%BAK%"',
-        'rmdir /s /q "%SRC%"',
-        'start "" "%DST%\\%EXE%"',
+        ":exited",
+        'del /q "%TMPF%" >nul 2>&1',
+        f'{L} "process exited"',
+        r'"%SYS%\ping.exe" -n 2 127.0.0.1 >nul 2>&1 <nul',
+        f'if exist "%BAK%" ({L} "removing stale backup" & rmdir /s /q "%BAK%")',
+        f'{L} "backup start"',
+        r'"%SYS%\robocopy.exe" "%DST%" "%BAK%" /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP >> "%LOG%" 2>&1 <nul',
+        f'if %ERRORLEVEL% GEQ 8 ({L} "backup failed rc=%ERRORLEVEL%" & goto fail_nochange)',
+        f'{L} "backup ok, copying new files"',
+        r'"%SYS%\robocopy.exe" "%SRC%" "%DST%" /E /R:3 /W:1 /NFL /NDL /NJH /NJS /NP >> "%LOG%" 2>&1 <nul',
+        f'if %ERRORLEVEL% GEQ 8 ({L} "copy failed rc=%ERRORLEVEL%" & goto rollback)',
+        r'if not exist "%DST%\%EXE%" goto rollback',
+        f'{L} "copy ok, cleaning up"',
+        'rmdir /s /q "%BAK%" >nul 2>&1',
+        'rmdir /s /q "%SRC%" >nul 2>&1',
+        f'{L} "restarting %EXE%"',
+        r'start "" "%DST%\%EXE%"',
+        f'{L} "update done"',
         "exit /b 0",
         ":rollback",
-        'echo [%date% %time%] copy failed, rolling back >> "%LOG%"',
-        'robocopy "%BAK%" "%DST%" /MIR /R:3 /W:1 /NFL /NDL /NJH /NJS >> "%LOG%"',
+        f'{L} "rolling back from backup"',
+        r'"%SYS%\robocopy.exe" "%BAK%" "%DST%" /MIR /R:3 /W:1 /NFL /NDL /NJH /NJS /NP >> "%LOG%" 2>&1 <nul',
+        f'{L} "rollback rc=%ERRORLEVEL%"',
         ":fail_nochange",
-        'echo [%date% %time%] update failed >> "%LOG%"',
-        'start "" "%DST%\\%EXE%"',
+        f'{L} "update failed, restarting current version"',
+        r'start "" "%DST%\%EXE%"',
         "exit /b 1",
+        ":log",
+        'echo [%date% %time%] %~1>> "%LOG%"',
+        "exit /b 0",
     ]
     return "\r\n".join(lines) + "\r\n"
+
+def remove_stale_backup(d=None):
+    """이전 업데이트가 남긴 <설치폴더>.bak 정리."""
+    b = (d or install_dir()).rstrip("\\/") + ".bak"
+    if os.path.isdir(b): shutil.rmtree(b, ignore_errors=True); log.info("이전 백업 삭제: %s", b)
+    return not os.path.exists(b)
 
 def write_script(path, content):
     with open(path, "w", encoding="utf-8", newline="") as f: f.write(content)
@@ -141,8 +164,10 @@ def launch_update(src_dir: str) -> str:
     os.makedirs(log_dir(), exist_ok=True)
     script = write_script(os.path.join(update_dir(), "apply_update.bat"),
                           make_script(os.getpid(), src_dir, install_dir(), os.path.basename(sys.executable), os.path.join(log_dir(), "update.log")))
-    flags = 0x00000008 | 0x00000200 | 0x08000000   # DETACHED | NEW_GROUP | NO_WINDOW
-    subprocess.Popen(["cmd.exe", "/c", script], creationflags=flags, close_fds=True, cwd=update_dir())
+    flags = 0x08000000 | 0x00000200   # CREATE_NO_WINDOW | NEW_PROCESS_GROUP (숨은 콘솔 → 하위 robocopy 등도 창 없음)
+    cmd = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "cmd.exe")
+    subprocess.Popen([cmd, "/d", "/c", script], creationflags=flags, close_fds=True, cwd=update_dir(),
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     log.info("업데이트 스크립트 실행: %s", script); return script
 
 def should_auto_check(st, now=None) -> bool:

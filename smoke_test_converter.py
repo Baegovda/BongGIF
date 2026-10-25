@@ -156,6 +156,21 @@ mouse(_QE.MouseButtonPress, bar._x(4.0)); mouse(_QE.MouseMove, bar._x(3.0)); mou
 a, b = d.range(); ok("핸들 드래그로 구간 1~3초", abs(a - 1) < 0.05 and abs(b - 3) < 0.05, f"{a:.2f}~{b:.2f}")
 ok("핸들 드래그 시 미리보기 위치 이동", abs(bar.pos - 3.0) < 0.05)
 mouse(_QE.MouseButtonPress, bar._x(2.0)); mouse(_QE.MouseButtonRelease, bar._x(2.0)); ok("막대 클릭 → 탐색", abs(bar.pos - 2.0) < 0.05 and d.range() == (a, b))
+t0 = time.time()
+while not d.cache.done_all and time.time() - t0 < 20: app.processEvents(); time.sleep(0.01)
+app.processEvents(); ok("미리보기 캐시 전체 로딩 + 막대 표시", d.cache.done_all and d.bar.loaded >= 3.9, f"{len(d.cache.frames)}프레임 {d.cache.bytes / 1024:.0f}KB")
+lat = []
+for tt in (0.3, 2.7, 1.1, 3.6, 0.0, 2.2):
+    s0 = time.perf_counter(); d.seek_to(tt); lat.append((time.perf_counter() - s0) * 1000)
+ok("캐시 후 탐색 지연 < 30ms", max(lat) < 30, f"최대 {max(lat):.1f}ms")
+from bonggif.videorange import SeekWorker
+from PySide6.QtCore import QObject as _QO
+sw = SeekWorker(v5, d.info); got = []; sw.frame.connect(lambda qi, t: got.append(t)); sw.start()
+for k in range(20): sw.request(k * 0.15)
+t0 = time.time()
+while (not got or got[-1] != 19 * 0.15) and time.time() - t0 < 10: app.processEvents(); time.sleep(0.01)
+sw.quit_(); sw.wait(5000)
+ok("이전 탐색 요청 버림(최신 요청만 처리)", got and got[-1] == 19 * 0.15 and len(got) <= 3 and sw.dropped >= 17, f"표시 {len(got)}회, 버림 {sw.dropped}")
 d.set_start(1.0); d.set_end(3.0)
 D = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qa_shots"); os.makedirs(D, exist_ok=True)
 for _ in range(30): app.processEvents(); time.sleep(0.01)

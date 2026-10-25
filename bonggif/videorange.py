@@ -45,12 +45,54 @@ class PreviewPlayer(QThread):
             qi = QImage(buf, w, h, w * 3, QImage.Format_RGB888).copy(); self.frame.emit(self.gen, qi, self.t0 + k / fps); k += 1
         self.stop(); self.ended.emit(self.gen)
 
+class FrameCache(QThread):
+    """열자마자 전체 영상을 저해상도로 디코딩해 시간 순 JPEG 캐시에 저장 (메모리 상한)."""
+    loaded = Signal(float)   # 지금까지 캐시된 시간(초)
+    def __init__(self, path, info, width=480, budget_mb=300, parent=None):
+        super().__init__(parent); self.path, self.info = path, info; self.budget = budget_mb * 1048576
+        d = info.duration or 0; src = info.fps or 30.0
+        self.fps = min(src, 30.0 if d <= 20 else 15.0 if d <= 120 else 10.0)
+        self.w = min(width, info.width) // 2 * 2; self.h = max(2, int(info.height * self.w / info.width) // 2 * 2)
+        self.frames = []; self.bytes = 0; self.loaded_t = 0.0; self.done_all = False; self._stop = threading.Event(); self.p = None
+    def stop(self):
+        self._stop.set()
+        if self.p and self.p.poll() is None:
+            try: self.p.kill()
+            except OSError: pass
+    def run(self):
+        from PySide6.QtCore import QBuffer, QByteArray, QIODevice
+        n = self.w * self.h * 3
+        args = [cv.ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-i", self.path, "-an", "-vf", f"fps={self.fps:.4f},scale={self.w}:{self.h}",
+                "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
+        try: self.p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, creationflags=cv._NOWIN, bufsize=n * 2)
+        except OSError: return
+        k = 0; last_emit = 0.0
+        while not self._stop.is_set():
+            buf = self.p.stdout.read(n)
+            if not buf or len(buf) < n: self.done_all = not self._stop.is_set(); break
+            qi = QImage(buf, self.w, self.h, self.w * 3, QImage.Format_RGB888)
+            ba = QByteArray(); b = QBuffer(ba); b.open(QIODevice.WriteOnly); qi.save(b, "JPEG", 80); data = bytes(ba)
+            self.frames.append(data); self.bytes += len(data); k += 1; self.loaded_t = k / self.fps
+            if self.bytes > self.budget: break
+            if self.loaded_t - last_emit >= 0.25: last_emit = self.loaded_t; self.loaded.emit(self.loaded_t)
+        if self.done_all: self.loaded_t = max(self.loaded_t, self.info.duration)
+        self.stop(); self.loaded.emit(self.loaded_t)
+    def covers(self, t): return bool(self.frames) and (self.done_all or t <= self.loaded_t - 0.5 / self.fps)
+    def nearest(self, t):
+        """캐시에서 가장 가까운 프레임 (없으면 None) → QImage."""
+        if not self.frames: return None
+        i = max(0, min(len(self.frames) - 1, int(round(t * self.fps))))
+        return QImage.fromData(self.frames[i], "JPEG")
+
 class SeekWorker(QThread):
     """핸들 드래그 중 최신 요청만 처리하는 단일 프레임 디코더."""
     frame = Signal(QImage, float)
     def __init__(self, path, info, parent=None):
         super().__init__(parent); self.path, self.info = path, info; self._req = None; self._ev = threading.Event(); self._quit = False
-    def request(self, t): self._req = t; self._ev.set()
+        self.dropped = 0; self.emitted = 0
+    def request(self, t):
+        if self._ev.is_set(): self.dropped += 1   # 아직 처리 전 요청 → 최신 요청으로 대체
+        self._req = t; self._ev.set()
     def quit_(self): self._quit = True; self._ev.set()
     def run(self):
         while not self._quit:
@@ -59,16 +101,17 @@ class SeekWorker(QThread):
             t = self._req
             if t is None: continue
             im = cv.grab_frame(self.path, min(t, max(0, self.info.duration - 0.05)), PREVIEW_W, self.info)
-            if im is not None and self._req == t:
+            if self._req != t: self.dropped += 1; continue   # 처리 중 더 새 요청이 옴 → 결과 버림
+            if im is not None:
                 rgb = im.convert("RGB"); qi = QImage(rgb.tobytes(), rgb.width, rgb.height, rgb.width * 3, QImage.Format_RGB888).copy()
-                self.frame.emit(qi, t)
+                self.emitted += 1; self.frame.emit(qi, t)
 
 class RangeBar(QWidget):
     """전체 길이 막대: 선택 구간 · 양 끝 핸들 · 위쪽 재생 위치 표시."""
     rangeChanged = Signal(float, float); scrub = Signal(float); seek = Signal(float); released = Signal()
     H = 14; M = 10
     def __init__(self, duration):
-        super().__init__(); self.dur = max(0.01, duration); self.a = 0.0; self.b = self.dur; self.pos = 0.0; self._drag = None
+        super().__init__(); self.dur = max(0.01, duration); self.a = 0.0; self.b = self.dur; self.pos = 0.0; self._drag = None; self.loaded = 0.0
         self.setMinimumHeight(40); self.setFocusPolicy(Qt.NoFocus); self.setCursor(Qt.PointingHandCursor)
     def _x(self, t): return self.M + (self.width() - 2 * self.M) * t / self.dur
     def _t(self, x): return max(0.0, min(self.dur, (x - self.M) / max(1, self.width() - 2 * self.M) * self.dur))
@@ -78,6 +121,8 @@ class RangeBar(QWidget):
     def paintEvent(self, e):
         p = QPainter(self); p.setRenderHint(QPainter.Antialiasing); y = self.height() - self.H - 6
         p.setPen(Qt.NoPen); p.setBrush(QColor("#3a3f48")); p.drawRoundedRect(QRectF(self.M, y, self.width() - 2 * self.M, self.H), 4, 4)
+        if self.loaded > 0:   # 미리보기 캐시 로딩 범위 (얇은 선)
+            p.setBrush(QColor(170, 175, 185, 150)); p.drawRect(QRectF(self.M, y + self.H + 3, self._x(min(self.loaded, self.dur)) - self.M, 2))
         xa, xb = self._x(self.a), self._x(self.b)
         p.setBrush(QColor(61, 139, 253, 170)); p.drawRect(QRectF(xa, y, xb - xa, self.H))
         for x in (xa, xb):
@@ -124,6 +169,10 @@ class VideoRangeDialog(QDialog):
         self.btn_cancel.clicked.connect(self.reject); self.btn_ok.clicked.connect(self.accept); hb.addWidget(self.btn_cancel); hb.addWidget(self.btn_ok); v.addLayout(hb)
         self.player = None; self.gen = 0; self._pm = None
         self.seeker = SeekWorker(path, info, self); self.seeker.frame.connect(self._on_seek); self.seeker.start()
+        self.cache = FrameCache(path, info, parent=self); self.cache.loaded.connect(self._on_loaded); self.cache.start()
+        from PySide6.QtCore import QTimer, QElapsedTimer
+        self.ctimer = QTimer(self); self.ctimer.setTimerType(Qt.PreciseTimer); self.ctimer.setInterval(5); self.ctimer.timeout.connect(self._cache_tick); self.cclock = QElapsedTimer()
+        self.last_seek_ms = None
         self.bar.rangeChanged.connect(lambda a, b: self._update_info()); self.bar.scrub.connect(self.scrub); self.bar.seek.connect(self.seek_to)
         for key, fn in (("Space", self.toggle_play), ("I", lambda: self.set_start(self.bar.pos)), ("O", lambda: self.set_end(self.bar.pos)),
                         ("Left", lambda: self.step(-1)), ("Right", lambda: self.step(1)), ("Shift+Left", lambda: self.step(-10)), ("Shift+Right", lambda: self.step(10))):
@@ -146,20 +195,39 @@ class VideoRangeDialog(QDialog):
         super().resizeEvent(e)
         if self._pm: self.view.setPixmap(self._pm.scaled(self.view.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
     # ---- 탐색/재생 ----
+    def _on_loaded(self, t):
+        self.bar.loaded = t; self.bar.update()
+    def _show_at(self, t):
+        """캐시에 있으면 즉시 표시(수 ms), 없으면 키프레임 시킹 요청(최신 요청만 처리)."""
+        t0 = time.perf_counter()
+        if self.cache.covers(t):
+            qi = self.cache.nearest(t)
+            if qi is not None and not qi.isNull():
+                self._show(qi); self.last_seek_ms = (time.perf_counter() - t0) * 1000; self.seeker._req = None; return True
+        self.seeker.request(t); return False
     def seek_to(self, t):
-        was = self.is_playing(); self.stop_play(); self.bar.set_pos(t); self._update_info(); self.seeker.request(self.bar.pos)
+        was = self.is_playing(); self.stop_play(); self.bar.set_pos(t); self._update_info(); self._show_at(self.bar.pos)
         if was: self.play()
     def scrub(self, t):
-        self.stop_play(); self.bar.set_pos(t); self._update_info(); self.seeker.request(t)
+        self.stop_play(); self.bar.set_pos(t); self._update_info(); self._show_at(t)
     def _on_seek(self, qi, t):
         if not self.is_playing(): self._show(qi)
-    def is_playing(self): return self.player is not None
+    def is_playing(self): return self.player is not None or self.ctimer.isActive()
     def toggle_play(self): self.stop_play() if self.is_playing() else self.play()
     def play(self):
         a, b = self.range(); t0 = self.bar.pos if a <= self.bar.pos < b - 0.05 else a
+        if self.cache.covers(b) or self.cache.done_all:   # 캐시로 재생 (디코딩 없음)
+            self._ct0, self._cb = t0, b; self.cclock.start(); self.ctimer.start(); self.btn_play.setIcon(icon("pause")); return
         self.gen += 1; p = PreviewPlayer(self.path, self.info, self.gen, t0, b, self); p.frame.connect(self._on_frame); p.ended.connect(self._on_end)
         self.player = p; p.start(); self.btn_play.setIcon(icon("pause"))
+    def _cache_tick(self):
+        t = self._ct0 + self.cclock.elapsed() / 1000
+        if t >= self._cb: t = self._cb; self.ctimer.stop(); self.btn_play.setIcon(icon("play"))
+        qi = self.cache.nearest(t)
+        if qi is not None: self._show(qi)
+        self.bar.set_pos(t); self._update_info()
     def stop_play(self):
+        self.ctimer.stop()
         if self.player: self.player.stop(); self.player.wait(2000); self.player = None
         self.gen += 1; self.btn_play.setIcon(icon("play"))
     def _on_frame(self, gen, qi, t):
@@ -174,4 +242,4 @@ class VideoRangeDialog(QDialog):
         if d.exec() == QDialog.Accepted:
             f, w, a2, b2 = d.values(); self.fps_cap, self.max_w = f, w; self.bar.set_range(a2, b2 if b2 is not None else self.info.duration); self.seek_to(self.bar.a)
     def done(self, r):
-        self.stop_play(); self.seeker.quit_(); self.seeker.wait(5000); super().done(r)
+        self.stop_play(); self.seeker.quit_(); self.cache.stop(); self.seeker.wait(5000); self.cache.wait(5000); super().done(r)
