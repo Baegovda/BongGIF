@@ -1,0 +1,31 @@
+{
+  "_comment": "Generic mcpServers config. Copy into your host's MCP config (Cursor: ~/.cursor/mcp.json, Claude Desktop: claude_desktop_config.json). Replace <placeholders>. No secrets in this repo.",
+  "mcpServers": {
+    "github": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "<fine-grained PAT: Baegovda/BongGIF, Contents RW + Issues RW + Pull requests RW>" }
+    },
+    "github-remote": {
+      "_comment": "Alternative: hosted GitHub MCP (OAuth or PAT header)",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer <PAT>" }
+    },
+    "rea": {
+      "_comment": "OPTIONAL. Reverse-engineering MCP (github.com/morluto/rea). Reference analysis only; clean-room rule applies. Only set env vars for providers you installed.",
+      "command": "npx",
+      "args": ["-y", "rea-agents@6.7.0", "mcp"],
+      "env": {
+        "PATH": "<node bin>:<jdk21 bin>:<~/.local/bin>:/usr/local/bin:/usr/bin:/bin",
+        "JAVA_HOME": "<path to JDK 21>",
+        "GHIDRA_INSTALL_DIR": "<path>/ghidra_12.1.4_PUBLIC",
+        "REA_JADX_MCP_JAR": "<path>/jadx-headless-mcp-0.7.1.jar",
+        "REA_RIZIN_COMMAND": "<path>/rizin",
+        "REA_OBJDUMP_COMMAND": "/usr/bin/objdump",
+        "REA_BINWALK_COMMAND": "<path>/binwalk",
+        "REA_ILSPY_CMD_PATH": "<~/.dotnet/tools/ilspycmd>",
+        "DOTNET_ROOT": "<path to dotnet>"
+      }
+    }
+  }
+}

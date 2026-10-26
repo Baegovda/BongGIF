@@ -3,6 +3,12 @@
 > Canonical instructions for any AI agent. `CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md` only point here.
 > **Rule: before ending ANY session, update `docs/HANDOFF.md` and `docs/STATE.json` (version, what changed, backlog status) and commit them.**
 
+## Start here — step 0 (fresh agent, only the repo URL)
+1. `git clone https://github.com/Baegovda/BongGIF && cd BongGIF && bash scripts/bootstrap_agent.sh` (Windows: `scripts\bootstrap_agent.ps1`). Must print `OVERALL PASS`.
+2. If your host supports MCP: install servers listed in `docs/agent-env.json` → `mcp_servers` (template `docs/mcp.example.json`). GitHub = useful, REA = optional/clean-room.
+3. Read `docs/SETUP_AGENT.md` (box vs user PC), then `docs/HANDOFF.md` (what's done/next) and `docs/STATE.json` (version, backlog, tests).
+4. Continue the top `todo` item in STATE.json backlog; update HANDOFF.md + STATE.json at the end of every session.
+
 ## 1. Purpose
 BongGIF = Windows desktop GIF recorder/editor (Python 3.12 + PySide6 + ffmpeg via imageio-ffmpeg). Workflow/UX modeled on popular GIF tools (record → edit frames → save GIF/WebP/MP4/WebM/APNG), **clean-room implementation**.
 

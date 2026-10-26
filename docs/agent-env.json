@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "project": "BongGIF",
+  "repo": "https://github.com/Baegovda/BongGIF",
+  "bootstrap": {"linux": "bash scripts/bootstrap_agent.sh", "windows": "powershell -ExecutionPolicy Bypass -File scripts\\bootstrap_agent.ps1"},
+  "tools": [
+    {"id": "python", "required": true, "version": "3.12.x", "forbid": ["3.10.0"], "purpose": "app runtime, tests, PyInstaller build",
+     "install": {"linux": "uv venv --python 3.12 .venv  (or python3.12 -m venv .venv)", "windows": "portable NuGet: https://www.nuget.org/api/v2/package/python/3.12.8 -> %USERPROFILE%\\Frameflow\\py312\\tools\\python.exe -m venv .venv"},
+     "verify": ".venv/bin/python -V", "fallback": "Python 3.11+ works for tests (WARN)"},
+    {"id": "requirements", "required": true, "purpose": "PySide6<6.9, Pillow, numpy<2.3, mss, imageio, imageio-ffmpeg, keyboard",
+     "install": "pip install -r requirements.txt (Windows build also: pyinstaller)", "verify": "python -c \"import PySide6,PIL,numpy,mss,imageio,imageio_ffmpeg\""},
+    {"id": "ffmpeg", "required": true, "purpose": "video import/export", "install": "bundled by imageio-ffmpeg (no system install needed)",
+     "verify": "python -c \"import imageio_ffmpeg;print(imageio_ffmpeg.get_ffmpeg_exe())\"", "fallback": "apt-get install ffmpeg"},
+    {"id": "qt-offscreen-libs", "required": true, "platform": "linux", "purpose": "headless tests (QT_QPA_PLATFORM=offscreen)",
+     "install": "apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3", "verify": "QT_QPA_PLATFORM=offscreen python -c \"from PySide6.QtWidgets import QApplication;QApplication([])\""},
+    {"id": "git", "required": true, "purpose": "source control", "install": {"windows": "PortableGit if installer blocked"}, "verify": "git --version"},
+    {"id": "gh", "required": false, "purpose": "tag/push/release watch from the USER PC (gh run watch, gh release view, gh issue)",
+     "install": {"linux": "https://cli.github.com (apt) ", "windows": "portable zip github.com/cli/cli/releases"}, "verify": "gh auth status",
+     "fallback": "GitHub MCP connector for reads/PRs/issues; pushing a tag that triggers release.yml needs git+gh credentials on the user PC"},
+    {"id": "node", "required": false, "version": ">=20", "purpose": "runs wrangler (relay deploy) and REA MCP",
+     "install": {"linux": "nodejs.org tarball or apt", "windows": "nodejs.org zip if MSI blocked"}, "verify": "node -v"},
+    {"id": "wrangler", "required": false, "purpose": "deploy relay/ Cloudflare Worker (crash reports -> GitHub issues)",
+     "install": "npx --yes wrangler (no global install)", "verify": "cd relay && npx wrangler whoami",
+     "notes": ["login: npx wrangler login (browser; user must Allow)", "GITHUB_TOKEN is a Worker secret: npx wrangler secret put GITHUB_TOKEN (fine-grained, Baegovda/BongGIF only, Issues RW)", "never commit secrets; KV id in wrangler.toml is not secret", "deploy: cd relay && npx wrangler deploy"]}
+  ],
+  "mcp_servers": [
+    {"id": "github", "required": false, "purpose": "read repo, issues (auto-report label), PRs, Actions status",
+     "install": "host connector, or docs/mcp.example.json 'github' (ghcr.io/github/github-mcp-server, PAT env)", "verify": "list issues of Baegovda/BongGIF",
+     "fallback": "gh CLI"},
+    {"id": "rea", "required": false, "package": "rea-agents@6.7.0", "source": "https://github.com/morluto/rea",
+     "purpose": "OPTIONAL reverse-engineering MCP for studying the reference app's behavior only. CLEAN-ROOM: never copy decompiled logic, assets, names or UI text into the repo.",
+     "install": ["npx rea-agents setup   (interactive; or: npx -y rea-agents@6.7.0 setup --yes --client <cursor|claude|...>)", "or global: npm install --global rea-agents", "MCP entry: command npx, args [-y, rea-agents@6.7.0, mcp] (see docs/mcp.example.json)"],
+     "providers": {"ghidra": "Ghidra 12.1.4 + JDK 21 -> env GHIDRA_INSTALL_DIR, JAVA_HOME", "jadx": "jadx-headless-mcp 0.7.1 jar -> REA_JADX_MCP_JAR", "rizin": "REA_RIZIN_COMMAND", "ilspy": "dotnet tool install -g ilspycmd -> REA_ILSPY_CMD_PATH, DOTNET_ROOT", "binwalk/unblob": "REA_BINWALK_COMMAND / REA_UNBLOB_COMMAND", "objdump/gdb": "REA_OBJDUMP_COMMAND / REA_GDB_COMMAND", "others": "apktool, adb, wabt, wakaru, mitmdump, tshark, sigrok, pwndbg via REA_* env (only if installed)"},
+     "verify": "npx -y rea-agents@6.7.0 doctor  ;  npx -y rea-agents@6.7.0 providers",
+     "fallback": "skip; not needed to build, test or release"}
+  ],
+  "user_pc": {
+    "os": "Windows 11 Pro", "policy": "winget/MSI installs may be blocked by org policy -> use portable/zip packages, no admin",
+    "python": "%USERPROFILE%\\Frameflow\\py312\\tools\\python.exe (portable NuGet 3.12). Ignore C:\\Program Files\\Python310 (3.10.0).",
+    "repo_clone": "%USERPROFILE%\\BongGIF (git + gh logged in; publishing happens here)",
+    "installed_app": "%LOCALAPPDATA%\\Programs\\BongGIF (owner tests self-update; agents must NOT touch it)",
+    "present": ["git", "gh", "node"]
+  },
+  "secrets": "none in repo. Worker secret GITHUB_TOKEN lives only in Cloudflare."
+}

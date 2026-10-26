@@ -180,5 +180,14 @@
     "qa_shots/",
     "DONE*",
     "PROGRESS.json"
-  ]
+  ],
+  "agent_setup": {
+    "doc": "docs/SETUP_AGENT.md",
+    "env": "docs/agent-env.json",
+    "mcp_template": "docs/mcp.example.json",
+    "bootstrap": [
+      "scripts/bootstrap_agent.sh",
+      "scripts/bootstrap_agent.ps1"
+    ]
+  }
 }
