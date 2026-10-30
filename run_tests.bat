@@ -9,4 +9,6 @@ if exist .venv\Scripts\python.exe set PYEXE=.venv\Scripts\python.exe
 "%PYEXE%" smoke_test_updater.py || exit /b 1
 "%PYEXE%" smoke_test_crash.py || exit /b 1
 "%PYEXE%" smoke_test_export.py || exit /b 1
+"%PYEXE%" smoke_test_masks.py || exit /b 1
+"%PYEXE%" smoke_test_webpclip.py || exit /b 1
 echo All tests passed

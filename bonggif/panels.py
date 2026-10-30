@@ -1,4 +1,4 @@
-"""메인 창에 들어가는 패널: 영상 가져오기(구간 선택) · 내보내기 설정 · 일괄 변환."""
+"""메인 창에 들어가는 패널: 영상 불러오기 옵션 · 내보내기 설정."""
 from __future__ import annotations
 import os
 from dataclasses import replace
@@ -88,26 +88,6 @@ class ExportDialog(QDialog):
         else: o.update(quality=q.sp_mq.value())
         return o
 
-class ExtractBox(QGroupBox):
-    """FPS · 크기 · 속도 (영상 가져오기 / 일괄 공용)."""
-    changed = Signal()
-    def __init__(self, title="추출 설정"):
-        super().__init__(title); f = QFormLayout(self)
-        self.chk_src_fps = QCheckBox("원본"); self.sp_fps = QSpinBox(); self.sp_fps.setRange(1, 60); self.sp_fps.setValue(15)
-        h = QHBoxLayout(); h.addWidget(self.sp_fps); h.addWidget(self.chk_src_fps); f.addRow("FPS", h)
-        self.cb_size = _combo(SIZE_PRESETS, 5)
-        self.sp_w = QSpinBox(); self.sp_w.setRange(0, 7680); self.sp_w.setSpecialValueText("원본"); self.sp_w.setValue(480)
-        self.sp_pct = QDoubleSpinBox(); self.sp_pct.setRange(5, 200); self.sp_pct.setValue(100); self.sp_pct.setSuffix(" %")
-        self.cb_size.currentIndexChanged.connect(lambda: self.sp_w.setValue(self.cb_size.currentData()))
-        f.addRow("크기 프리셋", self.cb_size); f.addRow("너비(px)", self.sp_w); f.addRow("배율(너비 '원본'일 때)", self.sp_pct)
-        self.sp_speed = QDoubleSpinBox(); self.sp_speed.setRange(0.1, 8); self.sp_speed.setValue(1.0); self.sp_speed.setSingleStep(0.25); self.sp_speed.setSuffix(" 배")
-        f.addRow("속도", self.sp_speed)
-        for x in (self.sp_fps, self.sp_w, self.sp_pct, self.sp_speed): x.valueChanged.connect(self.changed)
-        self.chk_src_fps.toggled.connect(self.changed); self.changed.connect(lambda: self.sp_fps.setEnabled(not self.chk_src_fps.isChecked()))
-    def settings(self, **kw) -> cv.ConvertSettings:
-        return cv.ConvertSettings(fps=0 if self.chk_src_fps.isChecked() else self.sp_fps.value(), width=self.sp_w.value(),
-                                  scale_pct=self.sp_pct.value(), speed=self.sp_speed.value(), **kw)
-
 FPS_CHOICES = [("원본", 0), ("60", 60), ("30", 30), ("24", 24), ("15", 15), ("10", 10)]
 WIDTH_CHOICES = [("원본", 0), ("1920", 1920), ("1280", 1280), ("960", 960), ("640", 640), ("480", 480)]
 
@@ -145,59 +125,3 @@ class OpenOptionsDialog(QDialog):
         n = cv.estimate_frames(self.info, s); ow, oh = cv.out_size(self.info, s)
         self.lbl.setText(f"예상: {n}프레임 · {ow}×{oh} · 메모리 약 {n * ow * oh * 4 / 1048576:.0f} MB")
 
-class DropTable(QTableWidget):
-    filesDropped = Signal(list)
-    def __init__(self):
-        super().__init__(0, 3); self.setHorizontalHeaderLabels(["파일", "진행", "상태"]); self.setAcceptDrops(True)
-        self.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch); self.setSelectionBehavior(QAbstractItemView.SelectRows)
-    def dragEnterEvent(self, e):
-        if e.mimeData().hasUrls(): e.acceptProposedAction()
-    def dragMoveEvent(self, e):
-        if e.mimeData().hasUrls(): e.acceptProposedAction()
-    def dropEvent(self, e):
-        self.filesDropped.emit([u.toLocalFile() for u in e.mimeData().urls() if u.isLocalFile()]); e.acceptProposedAction()
-
-class BatchPanel(QWidget):
-    """일괄 변환 탭 (실행은 메인 창의 작업 시스템이 담당)."""
-    startRequested = Signal()
-    def __init__(self, parent=None):
-        super().__init__(parent); root = QHBoxLayout(self); left = QVBoxLayout()
-        left.addWidget(QLabel("여러 영상을 추가하거나 끌어다 놓으세요. 같은 설정이 전체 길이에 적용됩니다."))
-        self.table = DropTable(); self.table.filesDropped.connect(self.add_files); left.addWidget(self.table, 1)
-        h = QHBoxLayout()
-        for t, s in [("➕ 파일 추가…", lambda: self.add_files()), ("➖ 선택 제거", self._remove_rows), ("목록 비우기", lambda: self.table.setRowCount(0))]:
-            b = QPushButton(t); b.clicked.connect(s); h.addWidget(b)
-        left.addLayout(h)
-        h = QHBoxLayout(); self.ed_out = QLineEdit(); self.ed_out.setPlaceholderText("비우면 원본과 같은 폴더")
-        b = QPushButton("출력 폴더…"); b.clicked.connect(self._pick_out); h.addWidget(QLabel("출력 폴더")); h.addWidget(self.ed_out, 1); h.addWidget(b); left.addLayout(h)
-        self.btn_start = QPushButton("▶ 일괄 변환 시작"); self.btn_start.setMinimumHeight(36); self.btn_start.clicked.connect(self.startRequested); left.addWidget(self.btn_start)
-        self.lbl = QLabel(""); left.addWidget(self.lbl); root.addLayout(left, 1)
-        side = QWidget(); sv = QVBoxLayout(side); self.ex = ExtractBox(); self.q = QualityBox(); sv.addWidget(self.ex); sv.addWidget(self.q); sv.addStretch()
-        sc = QScrollArea(); sc.setWidget(side); sc.setWidgetResizable(True); sc.setFixedWidth(380); root.addWidget(sc)
-    def paths(self): return [self.table.item(r, 0).data(Qt.UserRole) for r in range(self.table.rowCount())]
-    def add_files(self, paths=None):
-        if not paths: paths, _ = QFileDialog.getOpenFileNames(self, "영상 추가", "", VIDEO_FILTER)
-        have = set(self.paths())
-        for p in paths or []:
-            if not p.lower().endswith(cv.VIDEO_EXT) or p in have: continue
-            r = self.table.rowCount(); self.table.insertRow(r)
-            it = QTableWidgetItem(os.path.basename(p)); it.setData(Qt.UserRole, p); it.setToolTip(p); self.table.setItem(r, 0, it)
-            pb = QProgressBar(); pb.setRange(0, 100); self.table.setCellWidget(r, 1, pb); self.table.setItem(r, 2, QTableWidgetItem("대기"))
-    def _remove_rows(self):
-        for r in sorted({i.row() for i in self.table.selectedIndexes()}, reverse=True): self.table.removeRow(r)
-    def _pick_out(self):
-        d = QFileDialog.getExistingDirectory(self, "출력 폴더")
-        if d: self.ed_out.setText(d)
-    def settings(self) -> cv.ConvertSettings:
-        q = self.q
-        fmt = {"apng": "png"}.get(q.fmt(), q.fmt())
-        return self.ex.settings(colors=q.sp_colors.value() if q.fmt() == "gif" else q.sp_ac.value(),
-                                palette=q.cb_pal.currentData(), dither=q.cb_dither.currentData(),
-                                encoder=q.cb_enc.currentData(), stats_mode=q.cb_stats.currentData(), fmt=fmt,
-                                webp_quality=q.sp_q.value(), mp4_quality=q.sp_mq.value(), webm_quality=q.sp_wq.value(),
-                                avif_quality=q.sp_aq.value(), apng_palette=q.chk_pal.isChecked(),
-                                target_mb=q.target(), max_attempts=q.sp_attempts.value())
-    def set_item(self, row, pct, text):
-        if row >= self.table.rowCount(): return
-        if pct >= 0: self.table.cellWidget(row, 1).setValue(pct)
-        if text: self.table.setItem(row, 2, QTableWidgetItem(text))

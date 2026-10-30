@@ -5,11 +5,18 @@
 
 1.2.0 부터 저장 파이프라인은 형식마다 분리된 인코더입니다. 팔레트는 Pillow median-cut(libimagequant 없음), 영상은 ffmpeg(libx264 / libvpx / libaom)를 서브프로세스로 호출합니다. 컨테이너 관례와 라이선스는 [docs/FORMATS.md](docs/FORMATS.md).
 
+## 1.3.0
+- 첫 화면은 **홈**. 탭 순서는 홈 · 녹화 · 편집 · 관리. 일괄 변환 탭·메뉴·코드는 뺐다. 영상 하나는 열기(Ctrl+O)로 편집한다.
+- 환경 설정은 왼쪽 목록(가로 글자)이다. 창·도구막대·버튼은 남색에서 숯색으로 이어지는 어두운 테마다.
+- 편집에서 구간을 클립으로 모아 각각 저장하거나 순서대로 이어 저장한다. 실행취소에 클립이 포함된다.
+- 마스크(단색·모자이크·흐림·확대·포털), 템플릿 추적과 OpenCV CSRT, 슬로모(S), 프레임 유지(P), 단축키 도움말(F1). 목표 용량은 저장 옵션의 MB 상한으로 맞춘다.
+- `bonggif/webpclip/` 는 WebP Clip 로직을 옮긴 것이다. 출처는 [NOTICE.md](NOTICE.md).
+
 ## 실행
 ```bat
 build_exe.bat          :: venv 생성 → 의존성+PyInstaller 설치 → dist\BongGIF\BongGIF.exe 빌드
 ```
-실행하면 **하나의 메인 창**이 열립니다. 상단 탭: `녹화` · `관리` · `편집` · `홈` · `일괄 변환` (다크 테마, 자체 제작 아이콘).
+실행하면 **하나의 메인 창**이 열립니다. 상단 탭: `홈` · `녹화` · `편집` · `관리` (어두운 테마, 자체 제작 아이콘).
 영상 바로 열기: `gif_converter.bat [영상파일]` 또는 `python BongGIF.py [영상파일]`
 
 ### 메뉴 / 단축키
@@ -18,7 +25,8 @@ build_exe.bat          :: venv 생성 → 의존성+PyInstaller 설치 → dist\
 - 편집(구간): 현재 프레임을 시작 `I` / 끝 `O`, 구간만 남기기 `Ctrl+K`
 - 편집(프레임): 구간 자르기 `Ctrl+T`, 10% 빠르게/느리게 `Ctrl+↑/↓`, 처음/이전/다음/끝 `Home/←/→/End`, 확대/축소/맞춤 `Ctrl+=/-/0`
 - 파일: 이미지 가져오기 `Ctrl+I`
-- 도구: 화면 녹화 `Ctrl+R`, 관리 `Ctrl+M`, 일괄 변환 `Ctrl+B`, 환경 설정 `Ctrl+,`, 작업 취소 `Esc`
+- 도구: 화면 녹화 `Ctrl+R`, 관리 `Ctrl+M`, 환경 설정 `Ctrl+,`, 작업 취소 `Esc`
+- 클립 `A`, 추적 `T` / `Shift+T`, 슬로모 `S`, 프레임 유지 `P`, 내보내기 `Ctrl+E`, 단축키 `F1`
 - 도움말: 로그 폴더 열기, 정보
 
 ### 진행률 · 응답성
@@ -90,7 +98,7 @@ build_exe.bat          :: venv 생성 → 의존성+PyInstaller 설치 → dist\
 - 구간 자르기는 편집기에서: `프레임` 탭의 **구간 자르기**(시작/끝, `I`/`O`로 현재 프레임 지정, `Ctrl+K` 구간만 남기기, 현재 이전/이후 삭제),
   타임라인에서 여러 프레임을 선택하면 구간이 자동 지정되고, 타임라인 우클릭 메뉴에도 같은 기능이 있습니다. 모두 `Ctrl+Z`로 되돌릴 수 있습니다.
 - 속도·크기·자르기·텍스트는 편집기 도구로, 저장은 `저장`(형식·품질·목표 용량) 하나로 합니다.
-- 일괄 변환: `도구 > 일괄 변환`(`Ctrl+B`) 탭 — 여러 영상, 같은 설정, 출력 폴더, 항목별 진행률, 성공/실패/취소 요약.
+- 여러 파일을 한 번에 바꾸는 일괄 변환은 1.3.0에서 빼었습니다. 영상 하나는 열기로 편집합니다.
 - ffmpeg 시킹은 `-ss`(입력 앞), rawvideo 파이프 스트리밍, HQ는 palettegen→paletteuse 2패스. subprocess는 인자 리스트로만 호출(공백·한글 경로 안전).
 
 ## 테스트
@@ -102,6 +110,8 @@ python smoke_test_converter.py
 python smoke_test_updater.py
 python smoke_test_crash.py
 python smoke_test_export.py
+python smoke_test_masks.py
+python smoke_test_webpclip.py
 ```
 `smoke_test_converter.py`는 ffmpeg `testsrc`로 4초 테스트 영상을 만들어 구간 추출 프레임 수, fps/크기, 목표 용량, HQ 경로, 2개 일괄 변환, 영상 드롭 → 편집기 타임라인(첫 프레임 즉시 표시·1280px·30fps 기본·원본 다시 불러오기)·타임라인 구간 자르기, 작업 스레드 진행 메시지, 저장 중 이벤트 루프 응답성(타이머 틱), 저장 알림, 로그 파일 생성 등을 검사합니다.
 

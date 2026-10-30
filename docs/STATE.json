@@ -1,7 +1,7 @@
 {
   "project": "BongGIF",
   "repo": "https://github.com/Baegovda/BongGIF",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "last_release": {
     "tag": "v1.1.6",
     "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.1.6",
@@ -25,11 +25,13 @@
     "tests_disable_via": "BONGGIF_REPORT_URL=\"\""
   },
   "tests": {
-    "smoke_test.py": 70,
-    "smoke_test_converter.py": 64,
+    "smoke_test.py": 79,
+    "smoke_test_converter.py": 58,
     "smoke_test_updater.py": 40,
     "smoke_test_crash.py": 15,
-    "smoke_test_export.py": 42
+    "smoke_test_export.py": 42,
+    "smoke_test_masks.py": 9,
+    "smoke_test_webpclip.py": 13
   },
   "parity_estimate_pct": 88,
   "backlog": [
@@ -170,10 +172,13 @@
     "python smoke_test_export.py"
   ],
   "expected_test_counts": {
-    "smoke_test.py": 70,
-    "smoke_test_converter.py": 64,
-    "smoke_test_updater.py": 29,
-    "smoke_test_export.py": 42
+    "smoke_test.py": 79,
+    "smoke_test_converter.py": 58,
+    "smoke_test_updater.py": 40,
+    "smoke_test_crash.py": 15,
+    "smoke_test_export.py": 42,
+    "smoke_test_masks.py": 9,
+    "smoke_test_webpclip.py": 13
   },
   "build_commands": [
     "build_exe.bat  (Python 3.12, PyInstaller onedir -> dist\\BongGIF\\BongGIF.exe)"

@@ -34,6 +34,6 @@ d = RangeDialog(w, w.project.frames, 5, 20); d.show(); shot(d, "07b_range_dialog
 d = SettingsDialog(w); d.show(); shot(d, "07c_settings"); d.close()
 d = OpenOptionsDialog(w, w._video["info"], 30, 1280, warn="(예시) 메모리 경고 문구"); d.show(); shot(d, "08_open_options"); d.close()
 w.save_file(os.path.join(out, "x.gif"), {"colors": 64}); w.wait_task(); shot(w.save_box, "09_saved_notice"); shot(w, "10_after_save")
-w.tabs.setCurrentIndex(w.TAB_BATCH); shot(w, "11_batch")
+w.show_tab("edit"); shot(w, "11_edit_clips")
 w.manage.set_folder(out); w.tabs.setCurrentIndex(w.TAB_MANAGE); w.manage.tree.setCurrentItem(w.manage.tree.topLevelItem(0)); shot(w, "12_manage")
 w.close()

@@ -1,8 +1,8 @@
 """BongGIF 코어: 프레임 모델, 편집 연산, 실행취소, 불러오기/내보내기 (클린룸 구현)."""
 from __future__ import annotations
 import os
-from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageSequence
 
 class Cancelled(Exception):
@@ -18,6 +18,52 @@ NULL = NullCtx()
 class Frame:
     image: Image.Image          # RGBA (불변 취급: 편집 시 새 이미지 생성)
     delay: int = 100            # ms
+
+@dataclass
+class Clip:
+    """편집 세션의 구간. start/end 는 0부터, 끝 프레임 포함."""
+    name: str
+    start: int
+    end: int
+    selected: bool = True
+    def copy(self):
+        return Clip(self.name, int(self.start), int(self.end), bool(self.selected))
+
+@dataclass
+class Mask:
+    """미리보기·저장에 그리는 가림 영역. boxes 는 프레임 번호 → (x, y, w, h)."""
+    name: str
+    x: int
+    y: int
+    w: int
+    h: int
+    effect: str = "solid"          # solid | mosaic | blur
+    color: Tuple[int, int, int] = (0, 0, 0)
+    strength: int = 16
+    feather: int = 0
+    start: int = 0
+    end: int = 10 ** 9
+    visible: bool = True
+    tracker: str = "csrt"
+    auto_track: bool = True
+    expand: int = 0
+    smooth: bool = False
+    portal: Optional[Tuple[int, int, int, int]] = None
+    boxes: Dict[int, Tuple[int, int, int, int]] = field(default_factory=dict)
+    lost: Tuple[int, ...] = ()
+    def copy(self):
+        return Mask(self.name, int(self.x), int(self.y), int(self.w), int(self.h), self.effect,
+                    tuple(self.color), int(self.strength), int(self.feather), int(self.start), int(self.end),
+                    bool(self.visible), self.tracker, bool(self.auto_track), int(self.expand), bool(self.smooth),
+                    None if self.portal is None else tuple(int(v) for v in self.portal),
+                    {int(k): tuple(v) for k, v in (self.boxes or {}).items()}, tuple(self.lost))
+    def box_at(self, index: int):
+        from .timeline_fx import interpolated_box
+        keys = {int(k): tuple(int(v) for v in val) for k, val in (self.boxes or {}).items()}
+        got = interpolated_box(keys, int(index)) if keys else None
+        if got:
+            return got
+        return (int(self.x), int(self.y), int(self.w), int(self.h))
 
 # ---------------- 순수 편집 연산 (새 프레임 리스트 반환, 작업 스레드에서 실행 가능) ----------------
 def _rng(n, start, end):
@@ -68,19 +114,71 @@ class Project:
     """프레임 목록 + 실행취소/다시실행 스택."""
     def __init__(self, frames: Optional[List[Frame]] = None, max_undo: int = 30):
         self.frames: List[Frame] = frames or []
+        self.clips: List[Clip] = []
+        self.masks: List[Mask] = []
+        self.export_crop = None          # (x, y, w, h) 또는 None. 저장 시에만 적용
+        self.slowmos: List[Tuple[int, int, float]] = []
+        self.freezes: List[Tuple[int, int]] = []
         self._undo: list = []; self._redo: list = []; self.max_undo = max_undo
 
     def _snap(self):
-        return [Frame(f.image, f.delay) for f in self.frames]
+        return ([Frame(f.image, f.delay) for f in self.frames], [c.copy() for c in self.clips],
+                [m.copy() for m in self.masks], None if self.export_crop is None else tuple(self.export_crop),
+                [tuple(s) for s in self.slowmos], [tuple(z) for z in self.freezes])
+    def _restore(self, snap):
+        frames, clips, masks, crop, slowmos, freezes = snap
+        self.frames = frames
+        self.clips = clips
+        self.masks = masks
+        self.export_crop = crop
+        self.slowmos = [tuple(s) for s in slowmos]
+        self.freezes = [tuple(z) for z in freezes]
     def checkpoint(self):
         self._undo.append(self._snap()); self._redo.clear()
         if len(self._undo) > self.max_undo: self._undo.pop(0)
     def undo(self) -> bool:
         if not self._undo: return False
-        self._redo.append(self._snap()); self.frames = self._undo.pop(); return True
+        self._redo.append(self._snap()); self._restore(self._undo.pop()); return True
     def redo(self) -> bool:
         if not self._redo: return False
-        self._undo.append(self._snap()); self.frames = self._redo.pop(); return True
+        self._undo.append(self._snap()); self._restore(self._redo.pop()); return True
+
+    def add_clip(self, name, start, end, selected=True):
+        self.checkpoint()
+        a, b = sorted((int(start), int(end)))
+        self.clips.append(Clip(name, a, b, selected))
+        return self.clips[-1]
+    def remove_clip(self, index):
+        self.checkpoint(); del self.clips[index]
+    def rename_clip(self, index, name):
+        self.checkpoint(); self.clips[index].name = name
+    def move_clip(self, index, delta):
+        j = index + int(delta)
+        if j < 0 or j >= len(self.clips): return False
+        self.checkpoint()
+        self.clips[index], self.clips[j] = self.clips[j], self.clips[index]
+        return True
+    def set_clip_selected(self, index, on):
+        self.checkpoint(); self.clips[index].selected = bool(on)
+    def clamp_clips(self):
+        n = len(self.frames)
+        if n <= 0:
+            self.clips = []; return
+        for c in self.clips:
+            c.start = min(max(0, int(c.start)), n - 1)
+            c.end = min(max(0, int(c.end)), n - 1)
+            if c.start > c.end: c.start, c.end = c.end, c.start
+    def add_slow(self, start, end, factor=0.5):
+        from .timeline_fx import apply_slow
+        self.checkpoint()
+        a, b = sorted((int(start), int(end)))
+        apply_slow(self.frames, a, b, factor)
+        self.slowmos.append((a, b, float(factor)))
+    def add_freeze(self, index, ms):
+        from .timeline_fx import apply_freeze
+        self.checkpoint()
+        apply_freeze(self.frames, int(index), int(ms))
+        self.freezes.append((int(index), int(ms)))
 
     @property
     def size(self) -> Tuple[int, int]:
