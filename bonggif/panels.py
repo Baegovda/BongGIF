@@ -14,7 +14,7 @@ from . import converter as cv
 
 VIDEO_FILTER = "동영상 (*.mp4 *.mov *.avi *.mkv *.webm);;모든 파일 (*)"
 SIZE_PRESETS = [("원본", 0), ("1280", 1280), ("960", 960), ("800", 800), ("640", 640), ("480", 480), ("320", 320), ("240", 240)]
-FORMATS = [("GIF", "gif"), ("WebP", "webp"), ("MP4", "mp4")]
+FORMATS = [("GIF", "gif"), ("WebP", "webp"), ("MP4", "mp4"), ("WebM", "webm"), ("APNG", "apng"), ("AVIF", "avif")]
 DITHERS = [("Floyd-Steinberg (HQ: sierra2_4a)", "fs"), ("Ordered (HQ: bayer)", "ordered"), ("없음", "none")]
 
 def _combo(items, cur=0):
@@ -44,7 +44,16 @@ class QualityBox(QGroupBox):
         self.sp_q = QSpinBox(); self.sp_q.setRange(1, 100); self.sp_q.setValue(80); wf.addRow("WebP 품질", self.sp_q)
         self.chk_lossless = QCheckBox("무손실"); wf.addRow(self.chk_lossless); self.stack.addWidget(w)
         m = QWidget(); mf = QFormLayout(m); mf.setContentsMargins(0, 0, 0, 0)
-        self.sp_mq = QSpinBox(); self.sp_mq.setRange(1, 10); self.sp_mq.setValue(7); mf.addRow("MP4 품질(1-10)", self.sp_mq); self.stack.addWidget(m)
+        self.sp_mq = QSpinBox(); self.sp_mq.setRange(1, 100); self.sp_mq.setValue(80); mf.addRow("MP4 품질(1-100)", self.sp_mq); self.stack.addWidget(m)
+        wm = QWidget(); wmf = QFormLayout(wm); wmf.setContentsMargins(0, 0, 0, 0)
+        self.sp_wq = QSpinBox(); self.sp_wq.setRange(1, 100); self.sp_wq.setValue(80); wmf.addRow("WebM 품질(VP8)", self.sp_wq)
+        self.cb_wcodec = _combo([("VP8", "vp8"), ("VP9", "vp9")]); wmf.addRow("코덱", self.cb_wcodec); self.stack.addWidget(wm)
+        ap = QWidget(); apf = QFormLayout(ap); apf.setContentsMargins(0, 0, 0, 0)
+        self.chk_pal = QCheckBox("팔레트 모드"); self.chk_pal.setChecked(True); apf.addRow(self.chk_pal)
+        self.sp_ac = QSpinBox(); self.sp_ac.setRange(2, 256); self.sp_ac.setValue(256); apf.addRow("색 수", self.sp_ac); self.stack.addWidget(ap)
+        av = QWidget(); avf = QFormLayout(av); avf.setContentsMargins(0, 0, 0, 0)
+        self.sp_aq = QSpinBox(); self.sp_aq.setRange(1, 100); self.sp_aq.setValue(80); avf.addRow("AVIF 품질", self.sp_aq)
+        avf.addRow(QLabel("70 이상이면 YUV 4:4:4, 짝수 크기로 자릅니다.")); self.stack.addWidget(av)
         self.chk_target = QCheckBox("목표 용량"); self.sp_target = QDoubleSpinBox(); self.sp_target.setRange(0.05, 500); self.sp_target.setValue(5); self.sp_target.setSuffix(" MB 이하")
         h = QHBoxLayout(); h.addWidget(self.chk_target); h.addWidget(self.sp_target); f.addRow(h)
         self.sp_attempts = QSpinBox(); self.sp_attempts.setRange(3, 12); self.sp_attempts.setValue(7); f.addRow("최대 시도 횟수", self.sp_attempts)
@@ -73,6 +82,9 @@ class ExportDialog(QDialog):
         if fmt == "gif": o.update(colors=q.sp_colors.value(), dither=q.cb_dither.currentData(), palette=q.cb_pal.currentData(),
                                   encoder=q.cb_enc.currentData(), stats_mode=q.cb_stats.currentData())
         elif fmt == "webp": o.update(quality=q.sp_q.value(), lossless=q.chk_lossless.isChecked())
+        elif fmt == "webm": o.update(quality=q.sp_wq.value(), webm_codec=q.cb_wcodec.currentData())
+        elif fmt == "apng": o.update(apng_palette=q.chk_pal.isChecked(), colors=q.sp_ac.value())
+        elif fmt == "avif": o.update(quality=q.sp_aq.value(), avif_quality=q.sp_aq.value())
         else: o.update(quality=q.sp_mq.value())
         return o
 
@@ -178,9 +190,13 @@ class BatchPanel(QWidget):
         if d: self.ed_out.setText(d)
     def settings(self) -> cv.ConvertSettings:
         q = self.q
-        return self.ex.settings(colors=q.sp_colors.value(), palette=q.cb_pal.currentData(), dither=q.cb_dither.currentData(),
-                                encoder=q.cb_enc.currentData(), stats_mode=q.cb_stats.currentData(), fmt=q.fmt(),
-                                webp_quality=q.sp_q.value(), target_mb=q.target(), max_attempts=q.sp_attempts.value())
+        fmt = {"apng": "png"}.get(q.fmt(), q.fmt())
+        return self.ex.settings(colors=q.sp_colors.value() if q.fmt() == "gif" else q.sp_ac.value(),
+                                palette=q.cb_pal.currentData(), dither=q.cb_dither.currentData(),
+                                encoder=q.cb_enc.currentData(), stats_mode=q.cb_stats.currentData(), fmt=fmt,
+                                webp_quality=q.sp_q.value(), mp4_quality=q.sp_mq.value(), webm_quality=q.sp_wq.value(),
+                                avif_quality=q.sp_aq.value(), apng_palette=q.chk_pal.isChecked(),
+                                target_mb=q.target(), max_attempts=q.sp_attempts.value())
     def set_item(self, row, pct, text):
         if row >= self.table.rowCount(): return
         if pct >= 0: self.table.cellWidget(row, 1).setValue(pct)

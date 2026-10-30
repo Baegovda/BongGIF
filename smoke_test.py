@@ -138,7 +138,7 @@ td = TimeDialog(w, 100, False, 1000); td.r_tot.setChecked(True); td.sp_tot.setVa
 ok("시간 설정(총 시간)", sum(f.delay for f in fs) == 2000)
 rd = RangeDialog(w, base, 1, 3); ok("구간 자르기 대화상자", rd.range() == (1, 3) and rd.keep())
 w.goto(-1); ok("마지막 프레임 이동", w.cur == len(w.project.frames) - 1); w.goto(0); ok("재생 막대 위치 표시", w.lbl_pos.text().startswith("1/"))
-sd = SaveDialog(w, "webm", w.project.frames, out, "x"); ok("저장 대화상자(5형식)", sd.q.cb_fmt.count() == 5 and sd.path().endswith("x.webm"))
+sd = SaveDialog(w, "webm", w.project.frames, out, "x"); ok("저장 대화상자(6형식)", sd.q.cb_fmt.count() == 6 and sd.path().endswith("x.webm"))
 sdl = SettingsDialog(w); ok("설정 탭 12개", sdl.findChild(QTabWidget).count() == 12); sdl.reject()
 from bonggif.prefs import to_bool, to_int, to_float
 ok("설정 값 변환(문자열 bool/숫자/잘못된 값)", to_bool("true") and not to_bool("false") and to_bool("", True) and to_int("true", 3) == 1 and to_int("false", 3) == 0

@@ -12,7 +12,8 @@ from .panels import QualityBox, pil_to_qimage
 def settings() -> QSettings:
     return QSettings(QSettings.defaultFormat(), QSettings.UserScope, "BongGIF", "BongGIF")
 
-SAVE_FORMATS = [("GIF", "gif", "gif"), ("WebP", "webp", "webp"), ("MP4", "mp4", "mp4"), ("WebM", "webm", "webm"), ("APNG", "apng", "png")]
+SAVE_FORMATS = [("GIF", "gif", "gif"), ("WebP", "webp", "webp"), ("MP4", "mp4", "mp4"),
+                ("WebM", "webm", "webm"), ("APNG", "apng", "png"), ("AVIF", "avif", "avif")]
 
 def _ok_cancel(dlg, ok="확인"):
     bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -49,8 +50,15 @@ class SaveDialog(QDialog):
         self.q.cb_fmt.blockSignals(True); self.q.cb_fmt.clear()
         for t, v, _ in SAVE_FORMATS: self.q.cb_fmt.addItem(t, v)
         self.q.cb_fmt.blockSignals(False)
-        self.q.stack.addWidget(self._simple_quality()); self.q.stack.addWidget(QLabel("APNG: 무손실 (품질 설정 없음)"))
         self.q.set_fmt(fmt); self.q._sync(); rv.addWidget(self.q)
+        g = QGroupBox("호환 · 반복"); f = QFormLayout(g)
+        self.chk_comment = QCheckBox("파일에 앱 이름·저장 시각 주석 넣기"); self.chk_comment.setChecked(True)
+        self.chk_simpix = QCheckBox("GIF·APNG: 같은 픽셀은 투명(변경 영역만)"); self.chk_simpix.setChecked(get_bool(settings(), "gif_remove_similar", True))
+        self.chk_iphone = QCheckBox("WebP: 전체 프레임(아이폰 호환)"); self.chk_iphone.setChecked(get_bool(settings(), "webp_iphone", True))
+        self.chk_finite = QCheckBox("유한 반복"); self.sp_loop = QSpinBox(); self.sp_loop.setRange(1, 65535); self.sp_loop.setValue(1)
+        h = QHBoxLayout(); h.addWidget(self.chk_finite); h.addWidget(QLabel("횟수")); h.addWidget(self.sp_loop); h.addStretch()
+        f.addRow(self.chk_comment); f.addRow(self.chk_simpix); f.addRow(self.chk_iphone); f.addRow(h)
+        self.q.cb_fmt.currentIndexChanged.connect(lambda _i: self._load_loop()); self._load_loop(); rv.addWidget(g)
         g = QGroupBox("출력 크기 제한"); f = QFormLayout(g)
         self.chk_fps = QCheckBox("최대 FPS"); self.sp_fps = QSpinBox(); self.sp_fps.setRange(1, 60); self.sp_fps.setValue(20)
         h = QHBoxLayout(); h.addWidget(self.chk_fps); h.addWidget(self.sp_fps); f.addRow(h)
@@ -73,8 +81,14 @@ class SaveDialog(QDialog):
         self.chk_open = QCheckBox("저장 후 폴더 열기"); self.chk_open.setChecked(get_bool(settings(), "open_after_save", False)); f.addRow(self.chk_open)
         rv.addWidget(g); rv.addStretch(); rv.addWidget(_ok_cancel(self, "저장"))
         sc = QScrollArea(); sc.setWidget(right); sc.setWidgetResizable(True); sc.setMinimumWidth(420); root.addWidget(sc)
-    def _simple_quality(self):
-        w = QWidget(); f = QFormLayout(w); f.setContentsMargins(0, 0, 0, 0); sp = QSpinBox(); sp.setRange(1, 10); sp.setValue(7); f.addRow("품질(1-10)", sp); w.sp = sp; return w
+    def _load_loop(self):
+        key = {"gif": "gif", "webp": "webp", "apng": "apng"}.get(self.fmt())
+        on = bool(key)
+        self.chk_finite.setEnabled(on); self.sp_loop.setEnabled(on)
+        if not key:
+            self.chk_finite.setChecked(False); return
+        self.chk_finite.setChecked(get_bool(settings(), f"{key}_finite_loop", False))
+        self.sp_loop.setValue(get_int(settings(), f"{key}_loop_count", 1, 1, 65535))
     def _browse(self):
         p, _ = QFileDialog.getSaveFileName(self, "저장 위치", os.path.join(self.cb_folder.currentText() or os.path.expanduser("~"), self.filename()), f"{self.fmt().upper()} (*.{self.ext()})")
         if p:
@@ -87,10 +101,16 @@ class SaveDialog(QDialog):
     def options(self) -> dict:
         q = self.q; fmt = q.fmt(); o = {"target_mb": q.target(), "max_attempts": q.sp_attempts.value()}
         if fmt == "gif": o.update(colors=q.sp_colors.value(), dither=q.cb_dither.currentData(), palette=q.cb_pal.currentData(),
-                                  encoder=q.cb_enc.currentData(), stats_mode=q.cb_stats.currentData())
-        elif fmt == "webp": o.update(quality=q.sp_q.value(), lossless=q.chk_lossless.isChecked())
+                                  encoder=q.cb_enc.currentData(), stats_mode=q.cb_stats.currentData(),
+                                  gif_quality=get_int(settings(), "gif_quality", 80, 1, 100))
+        elif fmt == "webp": o.update(quality=q.sp_q.value(), lossless=q.chk_lossless.isChecked(), webp_iphone=self.chk_iphone.isChecked())
         elif fmt == "mp4": o.update(quality=q.sp_mq.value())
-        elif fmt == "webm": o.update(quality=q.stack.widget(3).sp.value())
+        elif fmt == "webm": o.update(quality=q.sp_wq.value(), webm_codec=q.cb_wcodec.currentData())
+        elif fmt == "apng": o.update(apng_palette=q.chk_pal.isChecked(), colors=q.sp_ac.value(), apng_colors=q.sp_ac.value())
+        elif fmt == "avif": o.update(quality=q.sp_aq.value(), avif_quality=q.sp_aq.value())
+        o["comment"] = self.chk_comment.isChecked()
+        o["remove_similar"] = self.chk_simpix.isChecked()
+        o["loop"] = self.sp_loop.value() if self.chk_finite.isChecked() else 0
         if self.chk_fps.isChecked(): o["limit_fps"] = self.sp_fps.value()
         if self.chk_size.isChecked(): o["max_width"] = self.sp_size.value()
         if self.chk_sim.isChecked(): o["skip_similar"] = self.sp_sim.value()
@@ -206,20 +226,40 @@ class SettingsDialog(QDialog):
         f.addRow(chk("confirm_exit_unsaved", "저장하지 않은 편집이 있으면 종료 전에 확인", True))
         f = page("녹화"); f.addRow("기본 FPS", spin("rec_fps", 5, 60, 15, " fps")); f.addRow("카운트다운", spin("rec_countdown", 0, 10, 3, " 초"))
         f.addRow(chk("rec_cursor", "마우스 커서 녹화", True)); f.addRow(chk("rec_highlight", "커서 강조", False)); f.addRow(chk("rec_click", "클릭 효과", False))
+        f.addRow(chk("rec_skip_same", "같은 프레임은 합치기 (시간은 더함)", True))
         f = page("편집"); f.addRow("영상 불러오기 최대 FPS", spin("load_fps_cap", 0, 60, 30, " fps (0=원본)")); f.addRow("영상 작업 해상도(너비)", spin("load_max_w", 0, 7680, 1280, " px (0=원본)"))
         f.addRow("메모리 경고 한도", spin("mem_limit_mb", 256, 65536, 3072, " MB")); f.addRow("실행취소 단계", spin("max_undo", 5, 200, 30))
         f = page("자르기"); f.addRow(chk("crop_remember", "마지막 자르기 영역 기억", True)); f.addRow(chk("crop_darken", "선택 영역 바깥 어둡게", True))
         f = page("단축키"); t = QTableWidget(len(SHORTCUTS), 2); t.setHorizontalHeaderLabels(["동작", "키"]); t.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         for i, (a, k) in enumerate(SHORTCUTS): t.setItem(i, 0, QTableWidgetItem(a)); t.setItem(i, 1, QTableWidgetItem(k))
         t.setEditTriggers(QAbstractItemView.NoEditTriggers); f.addRow(t)
-        f = page("GIF"); f.addRow("기본 색상 수", spin("gif_colors", 2, 256, 256)); f.addRow("기본 인코더", combo("gif_encoder", [("기본(Pillow)", "pil"), ("HQ(ffmpeg)", "ffmpeg")], "pil"))
+        f = page("GIF"); f.addRow("기본 색상 수", spin("gif_colors", 2, 256, 256)); f.addRow("품질(주석 q=)", spin("gif_quality", 1, 100, 80))
+        f.addRow("기본 인코더", combo("gif_encoder", [("기본(적응 팔레트)", "pil"), ("HQ(ffmpeg)", "ffmpeg")], "pil"))
+        f.addRow(chk("gif_remove_similar", "같은 픽셀은 투명으로 (변경된 영역만 저장)", True))
+        f.addRow(chk("gif_finite_loop", "유한 반복", False)); f.addRow("반복 횟수", spin("gif_loop_count", 1, 65535, 1))
+        f.addRow(chk("gif_comment", "주석 확장 넣기", True))
         f = page("WebP"); f.addRow("기본 품질", spin("webp_quality", 1, 100, 80))
-        f = page("WebM"); f.addRow("기본 품질(1-10)", spin("webm_quality", 1, 10, 7))
-        f = page("MP4"); f.addRow("기본 품질(1-10)", spin("mp4_quality", 1, 10, 7))
-        f = page("APNG"); f.addRow(QLabel("APNG는 무손실 PNG 애니메이션으로 저장됩니다."))
+        f.addRow(chk("webp_iphone", "아이폰 호환 (전체 프레임, 배경으로 비우기)", True))
+        f.addRow(chk("webp_finite_loop", "유한 반복", False)); f.addRow("반복 횟수", spin("webp_loop_count", 1, 65535, 1))
+        f.addRow(chk("webp_comment", "EXIF 주석 넣기", True))
+        f = page("WebM"); f.addRow("기본 품질(1-100)", self._q100("webm_quality", 80))
+        f.addRow(QLabel("VP8, 타임코드 1ms, 홀수 크기는 잘라 짝수로 맞춥니다. 소리 없음."))
+        f = page("MP4"); f.addRow("기본 품질(1-100)", self._q100("mp4_quality", 80))
+        f.addRow(QLabel("H.264 High, 소리 없음. 홀수 너비·높이는 패딩 없이 자릅니다."))
+        f = page("APNG·AVIF"); f.addRow(chk("apng_palette", "APNG 팔레트 모드", True)); f.addRow("APNG 색 수", spin("apng_colors", 2, 256, 256))
+        f.addRow(chk("apng_finite_loop", "APNG 유한 반복", False)); f.addRow("APNG 반복", spin("apng_loop_count", 1, 65535, 1))
+        f.addRow(chk("apng_comment", "APNG Software 텍스트", True))
+        f.addRow("AVIF 품질", spin("avif_quality", 1, 100, 80))
+        f.addRow(QLabel("AVIF 품질 70 이상은 YUV 4:4:4. 앱 이름 주석은 넣지 않습니다."))
         f = page("고급"); f.addRow("기본 저장 폴더", self._folder("save_dir")); f.addRow("관리 탭 폴더", self._folder("manage_dir"))
         f = page("언어"); c = QComboBox(); c.addItem("한국어"); c.setEnabled(False); f.addRow("언어", c)
         v.addWidget(_ok_cancel(self, "저장"))
+    def _q100(self, key, default):
+        v = get_int(self.st, key, default, 1, 100)
+        if v <= 10:
+            v *= 10
+        s = QSpinBox(); s.setRange(1, 100); s.setValue(min(100, max(1, v))); self.w[key] = s
+        return s
     def _folder(self, key):
         w = QWidget(); h = QHBoxLayout(w); h.setContentsMargins(0, 0, 0, 0); e = QLineEdit(get_str(self.st, key, "")); b = QPushButton("…")
         b.clicked.connect(lambda: (lambda d: d and e.setText(d))(QFileDialog.getExistingDirectory(self, "폴더 선택", e.text())))

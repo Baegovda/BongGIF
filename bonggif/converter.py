@@ -79,6 +79,14 @@ class ConvertSettings:
     target_mb: float = 0.0           # 0 = 사용 안 함
     max_attempts: int = 7
     loop: int = 0
+    gif_quality: int = 80
+    remove_similar: bool = True
+    comment: bool = True
+    webp_iphone: bool = True
+    webm_quality: int = 80
+    mp4_quality: int = 80
+    apng_palette: bool = True
+    avif_quality: int = 80
 
 def clip_range(info: VideoInfo, s: ConvertSettings):
     start = max(0.0, min(s.start, info.duration))
@@ -164,16 +172,21 @@ def _global_palette(imgs, colors):
     return mont.quantize(int(colors), method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
 
 def encode_gif_pil(arrays: List[np.ndarray], path, delay, s: ConvertSettings, cancel=None, step=None):
-    imgs = [Image.fromarray(a) for a in arrays]
-    if not imgs: raise ValueError("추출된 프레임이 없습니다")
-    pal = _global_palette(imgs, s.colors) if s.palette == "global" else None
-    q = []
-    for im in imgs:
-        if cancel and cancel(): raise Cancelled()
-        q.append(_quant(im, s.colors, s.dither, pal))
-        if step: step(len(q), len(imgs), f"GIF 색상 양자화 {len(q)}/{len(imgs)}")
-    if step: step(0, 0, "GIF 파일 쓰는 중")
-    q[0].save(path, "GIF", save_all=True, append_images=q[1:], duration=delay, loop=s.loop, disposal=1, optimize=False)
+    from .encoders.common import frame_delays_ms
+    from .encoders.gifenc import write_gif
+    if not arrays: raise ValueError("추출된 프레임이 없습니다")
+    delays = delay if isinstance(delay, (list, tuple)) else [delay] * len(arrays)
+    if len(delays) != len(arrays):
+        delays = frame_delays_ms(len(arrays), 1000 / max(1, delays[0] if delays else 100))
+    frames = [Frame(Image.fromarray(a).convert("RGBA"), int(d)) for a, d in zip(arrays, delays)]
+
+    class _C:
+        def step(self, i, n, msg=None):
+            if step: step(i, n, msg or "")
+        def cancelled(self):
+            return bool(cancel and cancel())
+    write_gif(frames, path, colors=s.colors, dither=s.dither, loop=s.loop, palette=s.palette, ctx=_C(),
+              quality=s.gif_quality, remove_similar=s.remove_similar, comment=s.comment)
 
 def _run_ffmpeg_progress(args, total, msg, cancel=None, step=None):
     """ffmpeg를 -progress pipe:1 로 실행하고 frame= 값을 진행률로 전달."""
@@ -233,6 +246,9 @@ def encode_ffmpeg_hq(path_in, path_out, s: ConvertSettings, info: VideoInfo, can
         finally:
             shutil.rmtree(tmpd, ignore_errors=True)
     if not os.path.exists(path_out): raise RuntimeError("ffmpeg 출력 파일이 없습니다")
+    if s.comment:
+        from .encoders.gifenc import stamp_gif_metadata
+        stamp_gif_metadata(path_out, s.gif_quality, s.loop, comment=True)
 
 def convert_once(path_in, path_out, s: ConvertSettings, info=None, cancel=None, progress=None, step=None, prefix=""):
     info = info or probe(path_in)
@@ -248,14 +264,28 @@ def convert_once(path_in, path_out, s: ConvertSettings, info=None, cancel=None, 
         if progress: progress(i + 1, total)
         if sub: sub(i + 1, max(total, i + 1), f"프레임 추출 중 {i + 1}/{max(total, i + 1)}")
     if not arrays: raise ValueError("추출된 프레임이 없습니다 (구간 확인)")
-    delay = max(10, int(round(1000 / out_fps(info, s))))
+    from .encoders.common import frame_delays_ms
+    delays = frame_delays_ms(len(arrays), out_fps(info, s))
     if sub: sub(0, 0, f"{s.fmt.upper()} 인코딩 중 ({len(arrays)}프레임)")
-    if s.fmt == "gif": encode_gif_pil(arrays, path_out, delay, s, cancel, sub)
+    if s.fmt == "gif": encode_gif_pil(arrays, path_out, delays, s, cancel, sub)
     else:
-        frames = [Frame(Image.fromarray(a).convert("RGBA"), delay) for a in arrays]
-        if s.fmt == "webp": export_webp(frames, path_out, quality=s.webp_quality, loop=s.loop)
-        elif s.fmt == "mp4": export_mp4(frames, path_out, fps=out_fps(info, s))
-        else: raise ValueError("지원하지 않는 형식: " + s.fmt)
+        frames = [Frame(Image.fromarray(a).convert("RGBA"), int(d)) for a, d in zip(arrays, delays)]
+        if s.fmt == "webp":
+            export_webp(frames, path_out, quality=s.webp_quality, loop=s.loop, iphone=s.webp_iphone, comment=s.comment)
+        elif s.fmt == "mp4":
+            export_mp4(frames, path_out, quality=s.mp4_quality, fps=out_fps(info, s))
+        elif s.fmt == "webm":
+            from .encoders.webmenc import write_webm
+            write_webm(frames, path_out, quality=s.webm_quality)
+        elif s.fmt in ("png", "apng"):
+            from .encoders.apngenc import write_apng
+            write_apng(frames, path_out, loop=s.loop, palette=s.apng_palette, colors=s.colors, dither=s.dither,
+                       remove_similar=s.remove_similar, comment=s.comment, quality=s.gif_quality)
+        elif s.fmt == "avif":
+            from .encoders.avifenc import write_avif
+            write_avif(frames, path_out, quality=s.avif_quality, fps=out_fps(info, s))
+        else:
+            raise ValueError("지원하지 않는 형식: " + s.fmt)
     return os.path.getsize(path_out)
 
 def _degrade(s: ConvertSettings, info: VideoInfo, level: float) -> ConvertSettings:

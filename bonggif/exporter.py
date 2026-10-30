@@ -10,7 +10,7 @@ log = logging.getLogger("bonggif.export")
 def _ext_fmt(path):
     return os.path.splitext(path)[1].lower().lstrip(".")
 
-def export_gif_hq(frames, path, colors=256, dither="fs", stats_mode="full", palette="global", loop=0, ctx=None):
+def export_gif_hq(frames, path, colors=256, dither="fs", stats_mode="full", palette="global", loop=0, ctx=None, quality=None, comment=True):
     """ffmpeg palettegen/paletteuse. 프레임을 rawvideo로 stdin 전달 (지연은 중앙값 fps로 근사)."""
     from .converter import ffmpeg_exe, HQ_DITHER, _NOWIN
     from .core import _flatten
@@ -40,34 +40,22 @@ def export_gif_hq(frames, path, colors=256, dither="fs", stats_mode="full", pale
     errf.seek(0); err = errf.read(); errf.close()
     if p.returncode != 0 or not os.path.exists(path):
         raise RuntimeError("ffmpeg 실패: " + err.decode("utf-8", "replace")[-400:])
+    if comment:
+        from .encoders.gifenc import stamp_gif_metadata
+        stamp_gif_metadata(path, quality if quality is not None else max(1, min(100, int(round(int(colors) * 100 / 256)))), loop)
 
-def export_apng(frames, path, loop=0, ctx=None):
-    if ctx: ctx.step(0, 0, f"APNG 인코딩 중 ({len(frames)}프레임)")
-    imgs = [f.image for f in frames]
-    imgs[0].save(path, "PNG", save_all=True, append_images=imgs[1:], duration=[f.delay for f in frames], loop=loop, disposal=1)
+def export_apng(frames, path, loop=0, ctx=None, **kw):
+    from .encoders.apngenc import write_apng
+    return write_apng(frames, path, loop=loop, ctx=ctx, **kw)
 
-def export_webm(frames, path, quality=7, ctx=None):
-    """VP9 WebM (ffmpeg, 프레임별 지연은 concat 없이 고정 fps 복제로 근사)."""
-    from .converter import ffmpeg_exe, _NOWIN
-    from .core import _flatten
-    ctx = ctx or NULL; flat = _flatten(frames, (0, 0, 0), ctx); w, h = flat[0].size
-    fps = min(60, max(5, round(1000 / max(10, min(f.delay for f in frames)))))
-    crf = int(round(50 - 4 * float(quality)))
-    args = [ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}",
-            "-r", str(fps), "-i", "-", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:v", "libvpx-vp9", "-row-mt", "1", "-deadline", "good", "-cpu-used", "4", "-b:v", "0", "-crf", str(crf), "-pix_fmt", "yuv420p", path]
-    errf = tempfile.TemporaryFile(); p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=errf, creationflags=_NOWIN)
-    try:
-        t = 0.0; n = 0
-        for k, (f, im) in enumerate(zip(frames, flat)):
-            ctx.step(k, len(flat), f"WebM 인코딩 중 {k}/{len(flat)}"); t += f.delay / 1000 * fps; b = im.tobytes()
-            for _ in range(max(1, round(t) - n)): p.stdin.write(b); n += 1
-        p.stdin.close(); ctx.step(0, 0, "WebM 마무리 중"); p.wait()
-    except Cancelled:
-        p.kill(); p.wait(); raise
-    finally:
-        if p.poll() is None: p.kill(); p.wait()
-    errf.seek(0); err = errf.read(); errf.close()
-    if p.returncode != 0: raise RuntimeError("ffmpeg 실패: " + err.decode("utf-8", "replace")[-400:])
+def export_webm(frames, path, quality=7, ctx=None, **kw):
+    """VP8 WebM (libvpx, 타임코드 1ms). 홀수 변은 잘라 짝수로 맞춘다."""
+    from .encoders.webmenc import write_webm
+    return write_webm(frames, path, quality=quality, ctx=ctx, **kw)
+
+def export_avif(frames, path, quality=80, fps=None, ctx=None, **kw):
+    from .encoders.avifenc import write_avif
+    return write_avif(frames, path, quality=quality, fps=fps, ctx=ctx, **kw)
 
 def preprocess(frames, ctx=None, limit_fps=0, max_width=0, skip_similar=0.0, embed_progress=False,
                progress_height=4, progress_color=(61, 139, 253, 255), progress_bg=(0, 0, 0, 120), **_):
@@ -102,17 +90,32 @@ def preprocess(frames, ctx=None, limit_fps=0, max_width=0, skip_similar=0.0, emb
     return fr
 
 def export_once(frames, path, ctx=None, colors=256, dither=True, palette="perframe", encoder="pil", stats_mode="full",
-                quality=None, webp_quality=80, lossless=False, mp4_quality=7, fps=None, loop=0, **_):
+                quality=None, webp_quality=80, lossless=False, mp4_quality=7, fps=None, loop=0,
+                gif_quality=None, remove_similar=True, webp_iphone=True, webp_method=4, comment=True,
+                apng_palette=True, apng_colors=None, avif_quality=None, webm_codec="vp8", **_):
     ctx = ctx or NULL; fmt = _ext_fmt(path)
     if not frames: raise ValueError("프레임이 없습니다")
     if fmt == "gif":
-        if encoder == "ffmpeg": export_gif_hq(frames, path, colors, dither, stats_mode, palette, loop, ctx)
-        else: export_gif(frames, path, colors, dither, loop, palette, ctx)
-    elif fmt == "webp": export_webp(frames, path, quality if quality is not None else webp_quality, lossless, loop, ctx)
-    elif fmt == "mp4": export_mp4(frames, path, quality if quality is not None else mp4_quality, fps, ctx)
-    elif fmt == "png": export_apng(frames, path, loop, ctx)
-    elif fmt == "webm": export_webm(frames, path, quality if quality is not None else 7, ctx)
-    else: raise ValueError("지원하지 않는 형식: ." + fmt)
+        gq = gif_quality if gif_quality is not None else quality
+        if encoder == "ffmpeg":
+            export_gif_hq(frames, path, colors, dither, stats_mode, palette, loop, ctx, quality=gq if gq is not None else colors, comment=comment)
+        else:
+            export_gif(frames, path, colors, dither, loop, palette, ctx, quality=gq, remove_similar=remove_similar, comment=comment)
+    elif fmt == "webp":
+        export_webp(frames, path, quality if quality is not None else webp_quality, lossless, loop, ctx,
+                    iphone=webp_iphone, method=webp_method, comment=comment)
+    elif fmt == "mp4":
+        export_mp4(frames, path, quality if quality is not None else mp4_quality, fps, ctx)
+    elif fmt in ("png", "apng"):
+        export_apng(frames, path, loop, ctx, palette=apng_palette, colors=colors if apng_colors is None else apng_colors,
+                    dither=dither if isinstance(dither, str) else ("fs" if dither else "none"),
+                    remove_similar=remove_similar, comment=comment, quality=quality)
+    elif fmt == "webm":
+        export_webm(frames, path, quality if quality is not None else 80, ctx, codec=webm_codec)
+    elif fmt == "avif":
+        export_avif(frames, path, avif_quality if avif_quality is not None else (quality if quality is not None else 80), fps, ctx)
+    else:
+        raise ValueError("지원하지 않는 형식: ." + fmt)
     return os.path.getsize(path)
 
 class _Prefixed:
@@ -141,7 +144,7 @@ def export_frames(frames, path, ctx=None, target_mb=0.0, max_attempts=7, **opt) 
             c = max(2, int(round(c0 - (c0 - 8) * min(1.0, level * 1.5)))) if c0 > 8 else c0
             o = dict(opt); o["colors"] = c
             if fmt == "webp": o["quality"] = max(5, int(q0 * (1 - 0.85 * level)))
-            if fmt in ("mp4", "webm"): o["quality"] = max(1.0, 7 - 6 * level)
+            if fmt in ("mp4", "webm", "avif"): o["quality"] = max(1.0, (q0 if q0 > 10 else q0 * 10) * (1 - 0.85 * level))
             pre = f"목표 용량 시도 {attempts}/{total}: {w}px {c}색 — "
             pc = _Prefixed(ctx, pre)
             fr = frames if (w, h) == (W, H) else op_resize(frames, w, h, pc)

@@ -1,7 +1,9 @@
 # BongGIF — GIF 녹화·편집기 (Windows)
 
-화면의 원하는 영역을 녹화해 바로 편집하고 GIF / WebP / MP4 / WebM / APNG로 저장하는 데스크톱 프로그램입니다.
-(독자 구현 · Python 3.12 + PySide6)
+화면의 원하는 영역을 녹화해 바로 편집하고 GIF / WebP / MP4 / WebM / APNG / AVIF로 저장하는 데스크톱 프로그램입니다.
+(독자 구현 · Python 3.12 + PySide6 · 소스 MIT)
+
+1.2.0 부터 저장 파이프라인은 형식마다 분리된 인코더입니다. 팔레트는 Pillow median-cut(libimagequant 없음), 영상은 ffmpeg(libx264 / libvpx / libaom)를 서브프로세스로 호출합니다. 컨테이너 관례와 라이선스는 [docs/FORMATS.md](docs/FORMATS.md).
 
 ## 실행
 ```bat
@@ -41,6 +43,7 @@ build_exe.bat          :: venv 생성 → 의존성+PyInstaller 설치 → dist\
 - 항상 위·테두리만 보이는 반투명 프레임 창. 중앙의 투명 영역이 캡처 영역입니다.
 - 테두리 드래그로 이동, 모서리/가장자리로 크기 조절, 크기 프리셋(320×240 ~ 1920×1080)
 - FPS 5~30, 카운트다운 0~10초, 녹화/일시정지/정지, **F9** 시작·종료(창 포커스 시; `keyboard` 설치 시 전역), Esc 닫기
+- 15fps 는 66ms 와 67ms 가 번갈아(3프레임당 200ms) 기록됩니다. 같은 화면이 이어지면 프레임을 합치고 시간만 더합니다(설정에서 끌 수 있음).
 - 마우스 커서 표시 옵션, 실제 경과시간으로 프레임 지연 기록, 고DPI 보정
 - 캡처: `mss` → (선택) `dxcam` → Qt 화면 캡처 순으로 폴백
 
@@ -52,7 +55,7 @@ build_exe.bat          :: venv 생성 → 의존성+PyInstaller 설치 → dist\
 - 삽입: 텍스트(굵게·기울임·외곽선·그림자, 드래그로 위치), 이모지·이미지 스티커
 - 재생 막대: 처음/이전/재생/다음/끝, 위치·시간, 확대/축소/맞춤 · 타임라인: 지연/누적 시간 표시 전환
 - 관리 탭: 저장 폴더 파일 목록·정렬·미리보기·편집·이름 바꾸기·삭제
-- 저장 대화상자: 미리보기·파일 정보, 형식 5종, 품질, 목표 용량, FPS/너비/유사 프레임 제한, 진행 막대 삽입, 파일명/최근 폴더
+- 저장 대화상자: 미리보기·파일 정보, 형식 6종(GIF/WebP/MP4/WebM/APNG/AVIF), 품질, 목표 용량, FPS/너비/유사 프레임 제한, 같은 픽셀 투명·아이폰 호환 WebP·주석·유한 반복, 진행 막대 삽입, 파일명/최근 폴더
 
 ## 업데이트
 - `도움말 > 업데이트 확인`: GitHub(Baegovda/BongGIF)의 최신 릴리스를 조회해 새 버전과 릴리스 노트를 보여줍니다. `도움말 > 정보`에서 현재 버전을 확인할 수 있습니다.
@@ -76,7 +79,7 @@ build_exe.bat          :: venv 생성 → 의존성+PyInstaller 설치 → dist\
 
 ## 열기 / 저장
 - 열기: GIF, WebP, APNG, MP4/MOV/AVI/MKV/WebM, 이미지 시퀀스(PNG/JPG/BMP 여러 장)
-- 저장: GIF(색상 수 2~256, 디더링), WebP(품질·무손실), MP4(H.264 yuv420p, 홀수 크기 자동 짝수 패딩)
+- 저장: GIF(GIF89a, NETSCAPE 루프, 주석 `BongGIF 버전 (시각); q=N`, 적응 로컬 팔레트, 같은 픽셀 투명, 변경 영역만), WebP(VP8X+EXIF, ANIM 루프, ANMF, 품질 0–100), APNG(팔레트, Software 텍스트, OVER 블렌드), MP4(H.264 High, 홀수 변은 패딩 없이 크롭, 소리 없음), WebM(VP8, 타임코드 1ms), AVIF(avis, 품질 70 이상 YUV 4:4:4, 무한 반복). 자세한 표는 [docs/FORMATS.md](docs/FORMATS.md).
 
 ## 영상 → GIF (편집기에 바로 열기)
 - 영상(MP4/MOV/AVI/MKV/WebM)·GIF·WebP를 **창/캔버스/타임라인에 끌어다 놓거나** `Ctrl+O`로 열면 곧바로 편집기 프레임으로 들어옵니다.
@@ -98,6 +101,7 @@ python smoke_test.py
 python smoke_test_converter.py
 python smoke_test_updater.py
 python smoke_test_crash.py
+python smoke_test_export.py
 ```
 `smoke_test_converter.py`는 ffmpeg `testsrc`로 4초 테스트 영상을 만들어 구간 추출 프레임 수, fps/크기, 목표 용량, HQ 경로, 2개 일괄 변환, 영상 드롭 → 편집기 타임라인(첫 프레임 즉시 표시·1280px·30fps 기본·원본 다시 불러오기)·타임라인 구간 자르기, 작업 스레드 진행 메시지, 저장 중 이벤트 루프 응답성(타이머 틱), 저장 알림, 로그 파일 생성 등을 검사합니다.
 
