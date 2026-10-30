@@ -47,5 +47,7 @@ ok("흐림이 줄무늬를 섞음", blu.getpixel(px) != src.getpixel(px), f"{src
 crop = apply_masks(frames[:1], [], (10, 10, 40, 30))[0]
 ok("내보내기 자르기", crop.image.size == (40, 30))
 ok("없는 추적기는 안내", make_tracker("no-such") is None or "csrt" in tracker_choices())
+from bonggif.selftest import main as selftest_main
+ok("selftest가 CSRT를 만들고 0으로 끝남", selftest_main(["--selftest"]) == 0)
 print(f"결과: {sum(c for _, c in R)}/{len(R)} 통과")
 sys.exit(0 if all(c for _, c in R) else 1)
