@@ -4,46 +4,67 @@ import math
 from PySide6.QtCore import Qt, QRectF, QPointF
 from PySide6.QtGui import QPalette, QColor, QIcon, QPixmap, QPainter, QPen, QPainterPath, QPolygonF, QFont
 
-ACCENT = "#3d8bfd"; BG = "#1f2126"; BG2 = "#272a31"; BG3 = "#30343c"; FG = "#e6e6e6"; MUTED = "#9aa0a6"
+ACCENT = "#3d8bfd"; BG = "#1a1e27"; BG2 = "#232833"; BG3 = "#2e3542"; FG = "#e8eaef"; MUTED = "#9aa3b2"
+NAVY = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #152033, stop:1 #1c1f27)"
+BAR = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2a3344, stop:1 #1e2430)"
+ACCENT_G = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3d8bfd, stop:1 #6aa6ff)"
 
 QSS = f"""
 QWidget {{ background:{BG}; color:{FG}; font-size:9pt; }}
+QMainWindow, QDialog {{ background:{NAVY}; }}
 QMainWindow::separator {{ background:{BG3}; width:1px; height:1px; }}
-QMenuBar {{ background:{BG2}; }} QMenuBar::item:selected {{ background:{BG3}; }}
-QMenu {{ background:{BG2}; border:1px solid {BG3}; }} QMenu::item:selected {{ background:{ACCENT}; }}
-QToolBar {{ background:{BG2}; border:0; spacing:2px; padding:2px; }}
-QToolButton {{ background:transparent; border:1px solid transparent; border-radius:4px; padding:3px 6px; color:{FG}; }}
-QToolButton:hover {{ background:{BG3}; border-color:#3a3f48; }}
-QToolButton:checked {{ background:#24477a; border-color:{ACCENT}; }}
-QToolButton:disabled {{ color:#5c6066; }}
-QPushButton {{ background:{BG3}; border:1px solid #3a3f48; border-radius:4px; padding:4px 10px; }}
-QPushButton:hover {{ border-color:{ACCENT}; }} QPushButton:pressed {{ background:#24477a; }}
-QPushButton:disabled {{ color:#5c6066; border-color:#2c3036; }}
-QPushButton#primary {{ background:{ACCENT}; border-color:{ACCENT}; color:white; font-weight:bold; }}
-QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QFontComboBox, QPlainTextEdit {{ background:#16181c; border:1px solid #3a3f48; border-radius:3px; padding:2px 4px; selection-background-color:{ACCENT}; }}
-QComboBox QAbstractItemView {{ background:{BG2}; selection-background-color:{ACCENT}; }}
-QTabWidget::pane {{ border:1px solid {BG3}; top:-1px; }}
-QTabBar::tab {{ background:{BG2}; color:{MUTED}; padding:6px 16px; border:1px solid {BG3}; border-bottom:0; margin-right:1px; }}
-QTabBar::tab:selected {{ background:{BG}; color:{FG}; border-top:2px solid {ACCENT}; }}
-QTabBar::tab:hover {{ color:{FG}; }}
-QGroupBox {{ border:1px solid {BG3}; border-radius:4px; margin-top:14px; padding-top:6px; }}
-QGroupBox::title {{ subcontrol-origin:margin; left:8px; color:{MUTED}; }}
-QListWidget, QTableWidget {{ background:#16181c; border:1px solid {BG3}; }}
-QListWidget::item:selected, QTableWidget::item:selected {{ background:#24477a; }}
-QHeaderView::section {{ background:{BG2}; border:0; border-right:1px solid {BG3}; padding:4px; }}
-QSlider::groove:horizontal {{ height:4px; background:{BG3}; border-radius:2px; }}
-QSlider::sub-page:horizontal {{ background:{ACCENT}; border-radius:2px; }}
-QSlider::handle:horizontal {{ background:{FG}; width:12px; margin:-5px 0; border-radius:6px; }}
-QProgressBar {{ background:#16181c; border:1px solid {BG3}; border-radius:3px; text-align:center; }}
-QProgressBar::chunk {{ background:{ACCENT}; }}
-QStatusBar {{ background:{BG2}; }} QStatusBar QLabel {{ background:transparent; }}
-QScrollBar:horizontal, QScrollBar:vertical {{ background:{BG}; }}
-QScrollBar::handle {{ background:{BG3}; border-radius:3px; }}
+QMenuBar {{ background:{BAR}; spacing:2px; padding:2px; }}
+QMenuBar::item {{ padding:4px 10px; border-radius:4px; background:transparent; }}
+QMenuBar::item:selected {{ background:#314057; }}
+QMenu {{ background:#232833; border:1px solid #3a4454; border-radius:6px; padding:4px; }}
+QMenu::item {{ padding:5px 18px; border-radius:4px; }}
+QMenu::item:selected {{ background:{ACCENT_G}; color:white; }}
+QMenu::separator {{ height:1px; background:#3a4454; margin:4px 8px; }}
+QToolBar {{ background:{BAR}; border:0; spacing:4px; padding:4px 6px; }}
+QToolButton {{ background:transparent; border:1px solid transparent; border-radius:6px; padding:4px 8px; color:{FG}; }}
+QToolButton:hover {{ background:#314057; border-color:#46556c; }}
+QToolButton:pressed, QToolButton:checked {{ background:{ACCENT_G}; color:white; border-color:#6aa6ff; }}
+QToolButton:disabled {{ color:#5c6570; }}
+QPushButton {{ background:{BG3}; border:1px solid #46556c; border-radius:6px; padding:5px 12px; }}
+QPushButton:hover {{ border-color:#6aa6ff; background:#364256; }}
+QPushButton:pressed {{ background:#24477a; }}
+QPushButton:disabled {{ color:#5c6570; border-color:#2c333d; background:#242830; }}
+QPushButton#primary {{ background:{ACCENT_G}; border-color:#6aa6ff; color:white; font-weight:600; }}
+QPushButton#primary:hover {{ background:qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #5b9bff, stop:1 #8cbcff); }}
+QPushButton#primary:disabled {{ background:#2c3848; color:#7d8794; border-color:#2c3848; }}
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QFontComboBox, QPlainTextEdit {{
+    background:#141820; border:1px solid #3a4454; border-radius:6px; padding:3px 6px; selection-background-color:{ACCENT}; }}
+QLineEdit:focus, QSpinBox:focus, QComboBox:focus {{ border-color:#6aa6ff; }}
+QComboBox QAbstractItemView {{ background:#232833; selection-background-color:#24477a; border-radius:4px; }}
+QTabWidget::pane {{ border:1px solid #3a4454; border-radius:8px; top:-1px; background:transparent; }}
+QTabBar::tab {{ background:#232833; color:{MUTED}; padding:7px 16px; border:1px solid #3a4454; border-bottom:0; border-top-left-radius:8px; border-top-right-radius:8px; margin-right:2px; }}
+QTabBar::tab:selected {{ background:{ACCENT_G}; color:white; border-color:#6aa6ff; }}
+QTabBar::tab:hover:!selected {{ color:{FG}; background:#2c3544; }}
+QGroupBox {{ border:1px solid #3a4454; border-radius:8px; margin-top:14px; padding:8px 6px 6px 6px; background:rgba(20,24,32,80); }}
+QGroupBox::title {{ subcontrol-origin:margin; left:10px; padding:0 4px; color:{MUTED}; }}
+QListWidget, QTableWidget, QTreeWidget {{ background:#141820; border:1px solid #3a4454; border-radius:6px; }}
+QListWidget::item {{ padding:4px 6px; border-radius:4px; }}
+QListWidget::item:selected, QTableWidget::item:selected, QTreeWidget::item:selected {{ background:#24477a; color:white; }}
+QListWidget::item:hover {{ background:#2a3342; }}
+QListWidget#settingsNav {{ background:#141820; border-radius:8px; padding:4px; }}
+QListWidget#settingsNav::item {{ padding:8px 10px; }}
+QListWidget#settingsNav::item:selected {{ background:{ACCENT_G}; color:white; }}
+QHeaderView::section {{ background:#232833; border:0; border-right:1px solid #3a4454; padding:4px; }}
+QSlider::groove:horizontal {{ height:4px; background:#3a4454; border-radius:2px; }}
+QSlider::sub-page:horizontal {{ background:{ACCENT_G}; border-radius:2px; }}
+QSlider::handle:horizontal {{ background:{FG}; width:14px; margin:-5px 0; border-radius:7px; }}
+QProgressBar {{ background:#141820; border:1px solid #3a4454; border-radius:6px; text-align:center; color:{FG}; }}
+QProgressBar::chunk {{ background:{ACCENT_G}; border-radius:5px; }}
+QStatusBar {{ background:{BAR}; }} QStatusBar QLabel {{ background:transparent; }}
+QScrollBar:horizontal, QScrollBar:vertical {{ background:transparent; border:0; }}
+QScrollBar::handle {{ background:#3a4454; border-radius:4px; min-height:24px; }}
+QScrollBar::handle:hover {{ background:#4d5b70; }}
 QCheckBox::indicator, QRadioButton::indicator {{ width:14px; height:14px; }}
-QToolTip {{ background:{BG2}; color:{FG}; border:1px solid {BG3}; }}
-#sidepanel {{ background:{BG2}; }}
-#cmdbar {{ background:{BG2}; border-bottom:1px solid {BG3}; }}
-#playbar {{ background:{BG2}; }}
+QToolTip {{ background:#232833; color:{FG}; border:1px solid #6aa6ff; border-radius:4px; padding:3px; }}
+#sidepanel, #cmdbar, #playbar {{ background:{BAR}; }}
+#cmdbar {{ border-bottom:1px solid #3a4454; }}
+QScrollArea {{ background:transparent; border:0; }}
+QMessageBox {{ background:#1c2230; }}
 """
 
 def apply_dark(app):

@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from PIL import Image
 import logging, time
-from dataclasses import replace
 import bisect
 from PySide6.QtCore import Qt, QTimer, QSize, QRect, QPoint, QPointF, Signal, QSettings, QEventLoop, QElapsedTimer
 from PySide6.QtGui import (QAction, QImage, QPixmap, QIcon, QPainter, QPainterPath, QColor, QPen, QFont,
@@ -22,7 +21,7 @@ from .manage import ManagePanel
 from .prefs import get_bool, get_int, get_str, get_list, get_float, to_int
 from .core import Project, Frame, load_file, load_sequence, emoji_sticker, op_crop, op_resize, op_grayscale, op_sticker, VIDEO_EXT
 from . import APP_NAME
-from .panels import pil_to_qimage, ExportDialog, BatchPanel, VIDEO_FILTER, OpenOptionsDialog, video_settings
+from .panels import pil_to_qimage, ExportDialog, VIDEO_FILTER, OpenOptionsDialog, video_settings
 from .workers import Task, ThumbWorker, make_thumb
 from . import logutil
 
@@ -57,6 +56,9 @@ class Preview(QLabel):
         self.setStyleSheet("background:#16181c"); self.mode = None; self.img_size = (1, 1); self.zoom = None
         self.sel = None; self._p0 = None; self.overlay = None; self.overlay_pos = QPoint(10, 10); self._base = None
         self.ratio = None; self.darken = True; self.draw_layer = None; self.pen = QPen(QColor(255, 60, 60), 6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+        self.mask_overlays = []; self.export_crop_rect = None; self.hide_chrome = False; self._pan = QPointF(0, 0)
+    rectFinished = Signal(QRect)
+    dragStarted = Signal()
     def set_image(self, qi: QImage, orig_size=None):
         """orig_size: 원본 크기(미리보기용으로 축소된 qi를 받을 때 좌표계 유지)."""
         self._base = qi; self.img_size = tuple(orig_size) if orig_size else (qi.width(), qi.height()); self._redraw()
@@ -67,7 +69,7 @@ class Preview(QLabel):
         self.zoom = None if z is None else max(0.05, min(8.0, z)); self._redraw(); self.zoomChanged.emit(self._scale())
     def _offset(self):
         s = self._scale(); w, h = self.img_size
-        return (self.width() - w * s) / 2, (self.height() - h * s) / 2
+        return (self.width() - w * s) / 2 + self._pan.x(), (self.height() - h * s) / 2 + self._pan.y()
     def to_img(self, pt) -> QPoint:
         s = self._scale(); ox, oy = self._offset()
         x = int((pt.x() - ox) / s); y = int((pt.y() - oy) / s)
@@ -102,24 +104,44 @@ class Preview(QLabel):
             for k in (1, 2):   # 3분할 격자
                 x = self.sel.x() + self.sel.width() * k / 3; y = self.sel.y() + self.sel.height() * k / 3
                 p.drawLine(QPointF(x, self.sel.top()), QPointF(x, self.sel.bottom())); p.drawLine(QPointF(self.sel.left(), y), QPointF(self.sel.right(), y))
+            if self.mode == "crop" and self.sel.width() > 2:
+                p.setPen(QPen(QColor(255, 255, 255), 1 / s)); p.drawText(QPointF(self.sel.x(), max(12 / s, self.sel.y() - 4 / s)), f"자르기 {self.sel.width()}×{self.sel.height()}")
+        if getattr(self, "hide_chrome", False):
+            p.end(); self.setPixmap(pm); return
+        if self.export_crop_rect is not None and self.export_crop_rect.width() > 2:
+            r = self.export_crop_rect
+            p.setPen(QPen(QColor(255, 255, 255), 1.4 / s, Qt.DashLine)); p.setBrush(Qt.NoBrush); p.drawRect(r)
+            p.setPen(QPen(QColor(255, 255, 255), 1 / s)); p.drawText(QPointF(r.x(), max(12 / s, r.y() - 4 / s)), f"자르기 {r.width()}×{r.height()}")
+        for rect, name, active, lost in getattr(self, "mask_overlays", []) or []:
+            if active and self.mode == "mask" and self.sel is not None: rect = self.sel
+            col = QColor("#ffb020") if not lost else QColor("#e5484d")
+            p.setPen(QPen(col, (2.2 if active else 1.2) / s)); p.setBrush(Qt.NoBrush); p.drawRect(rect)
+            p.setPen(QPen(col, 1 / s)); p.drawText(QPointF(rect.x() + 10 / s, max(12 / s, rect.y() - 4 / s)), "◆ " + name)
+            if active:
+                p.setBrush(col); p.setPen(Qt.NoPen)
+                for hx, hy in _handles(rect):
+                    p.drawRect(QRectF(hx - 3 / s, hy - 3 / s, 6 / s, 6 / s))
         p.end(); self.setPixmap(pm)
     resized = Signal()
     def resizeEvent(self, e): self._redraw(); self.resized.emit()
     def wheelEvent(self, e):
-        if e.modifiers() & Qt.ControlModifier:
-            self.set_zoom(self._scale() * (1.1 if e.angleDelta().y() > 0 else 1 / 1.1)); e.accept()
-        else: super().wheelEvent(e)
+        self.set_zoom(self._scale() * (1.1 if e.angleDelta().y() > 0 else 1 / 1.1)); e.accept()
     def _img_pt(self, pos): return self.to_img(pos)
     def mousePressEvent(self, e):
-        self._p0 = self._img_pt(e.position())
+        self._p0 = self._img_pt(e.position()); self._press_btn = e.button(); self._press_pos = e.position()
+        if e.button() == Qt.RightButton:
+            return
+        if self.mode in ("crop", "rect", "mask"): self.dragStarted.emit()
         if self.mode == "place": self._grab = self._p0 - self.overlay_pos
         if self.mode == "draw" and self.draw_layer is not None: self._last = self._p0; self._stroke(self._p0, self._p0)
     def _stroke(self, a, b):
         p = QPainter(self.draw_layer); p.setRenderHint(QPainter.Antialiasing); p.setPen(self.pen); p.drawLine(a, b); p.end()
     def mouseMoveEvent(self, e):
         if self._p0 is None: return
+        if getattr(self, "_press_btn", None) == Qt.RightButton:
+            d = e.position() - self._press_pos; self._pan += d; self._press_pos = e.position(); self._redraw(); return
         p = self._img_pt(e.position())
-        if self.mode in ("crop", "rect"):
+        if self.mode in ("crop", "rect", "mask"):
             r = QRect(self._p0, p).normalized()
             if self.ratio:
                 w = r.width(); h = int(round(w / self.ratio))
@@ -131,7 +153,13 @@ class Preview(QLabel):
         elif self.mode == "draw" and self.draw_layer is not None:
             self._stroke(self._last, p); self._last = p
         self._redraw()
-    def mouseReleaseEvent(self, e): self._p0 = None
+    def mouseReleaseEvent(self, e):
+        if self.mode in ("crop", "rect", "mask") and self.sel is not None: self.rectFinished.emit(self.sel)
+        self._p0 = None
+
+def _handles(rect: QRect):
+    x, y, w, h = rect.x(), rect.y(), rect.width(), rect.height()
+    return [(x, y), (x + w / 2, y), (x + w, y), (x, y + h / 2), (x + w, y + h / 2), (x, y + h), (x + w / 2, y + h), (x + w, y + h)]
 
 class Timeline(QListWidget):
     reordered = Signal(list); filesDropped = Signal(list)
@@ -157,15 +185,28 @@ class Timeline(QListWidget):
 log = logging.getLogger("bonggif.ui")
 OPEN_FILTER = "영상/애니메이션 (*.mp4 *.mov *.avi *.mkv *.webm *.gif *.webp *.png *.apng);;모든 파일 (*)"
 
+class TrackStrip(QWidget):
+    """추적된 프레임(파랑)과 놓친 프레임(빨강)을 타임라인 위에 표시."""
+    def __init__(self):
+        super().__init__(); self.setFixedHeight(8); self.n = 1; self.spans = []
+    def paintEvent(self, e):
+        p = QPainter(self); p.fillRect(self.rect(), QColor("#141820"))
+        if self.n <= 0: return
+        w = self.width() / self.n
+        for i, kind in self.spans:
+            col = QColor("#3d8bfd") if kind == "ok" else QColor("#e5484d")
+            p.fillRect(int(i * w), 0, max(1, int(w) + 1), self.height(), col)
+
 class EditorWindow(QMainWindow):
-    """단일 메인 창: 홈 · 편집 · 일괄 변환 탭 + '영상 가져오기' 도크 + 상태바 진행률."""
+    """단일 메인 창. 탭 순서: 홈 · 녹화 · 편집 · 관리."""
     def __init__(self, project: Project | None = None):
         super().__init__(); self.project = project or Project(); self.cur = 0; self.recorder = None
         self.task: Task | None = None; self.source_path = None; self._thumbs = None; self._gen = 0; self.last_saved = None
         self.settings = QSettings(QSettings.defaultFormat(), QSettings.UserScope, "BongGIF", "BongGIF"); self.save_box = None
         from .version import __version__ as _v
         self.setWindowTitle(f"{APP_NAME} v{_v}"); self.resize(1200, 800); self.setAcceptDrops(True)
-        self.preview = Preview(); self.timeline = Timeline()
+        self.preview = Preview(); self.timeline = Timeline(); self._mask_row = None
+        self.preview.dragStarted.connect(self._mask_drag_start); self.preview.rectFinished.connect(self._mask_drag_end)
         self.timeline.currentRowChanged.connect(self._on_row); self.timeline.reordered.connect(self._on_reorder)
         self.timeline.filesDropped.connect(self._drop_paths)
         self.preview.rectChanged.connect(self._on_sel)
@@ -189,22 +230,29 @@ class EditorWindow(QMainWindow):
     def _build_actions(self):
         self._busy_actions = []
         A = self.actions_ = {}
-        A["open"] = self._act("열기(영상/GIF)…", self.open_file, "Ctrl+O")
+        A["open"] = self._act("열기…", self.open_file, "Ctrl+O")
         A["seq"] = self._act("이미지 시퀀스…", self.open_sequence)
-        A["import"] = self._act("영상 열기 (영상 → GIF)…", self.open_converter, "Ctrl+G")
+        A["import"] = self._act("영상 열기…", self.open_converter, "Ctrl+G")
         A["import_img"] = self._act("이미지 가져오기…", self.import_images, "Ctrl+I")
         A["save"] = self._act("저장…", self.save_file, "Ctrl+S")
+        A["clip_sep"] = self._act("선택 클립을 각각 저장…", lambda: self.export_selected_clips(mode="separate"))
+        A["clip_join"] = self._act("선택 클립 이어 저장…", lambda: self.export_selected_clips(mode="join"))
         A["quit"] = self._act("끝내기", self.close, "Ctrl+Q", busy_ok=True)
         A["undo"] = self._act("실행취소", self.undo, "Ctrl+Z"); A["redo"] = self._act("다시실행", self.redo, "Ctrl+Y")
-        A["delete"] = self._act("프레임 삭제", self.delete_frames, "Delete")
+        A["delete"] = self._act("삭제", self.delete_smart, "Delete")
         A["play"] = self._act("재생/정지", self.toggle_play, "Space")
-        A["first"] = self._act("첫 프레임", lambda: self.goto(0), "Home"); A["last"] = self._act("마지막 프레임", lambda: self.goto(-1), "End")
-        A["prev"] = self._act("이전 프레임", lambda: self.goto(self.cur - 1), "Left"); A["next"] = self._act("다음 프레임", lambda: self.goto(self.cur + 1), "Right")
+        A["first"] = self._act("구간 처음", self.jump_segment_start, "Home"); A["last"] = self._act("구간 끝", self.jump_segment_end, "End")
+        A["prev"] = self._act("이전 프레임", lambda: self.step_frames(-1), "Left"); A["next"] = self._act("다음 프레임", lambda: self.step_frames(1), "Right")
+        A["prev5"] = self._act("5프레임 뒤로", lambda: self.step_frames(-5), "Ctrl+Left")
+        A["next5"] = self._act("5프레임 앞으로", lambda: self.step_frames(5), "Ctrl+Right")
+        A["prev10"] = self._act("10프레임 뒤로", lambda: self.step_frames(-10), "Shift+Left")
+        A["next10"] = self._act("10프레임 앞으로", lambda: self.step_frames(10), "Shift+Right")
+        A["prev30"] = self._act("30프레임 뒤로", lambda: self.step_frames(-30), "Ctrl+Shift+Left")
+        A["next30"] = self._act("30프레임 앞으로", lambda: self.step_frames(30), "Ctrl+Shift+Right")
         A["rec"] = self._act("화면 녹화", self.open_recorder, "Ctrl+R")
-        A["batch"] = self._act("일괄 변환", self.open_batch, "Ctrl+B")
-        A["manage"] = self._act("관리", lambda: self.tabs.setCurrentIndex(self.TAB_MANAGE), "Ctrl+M", busy_ok=True)
+        A["manage"] = self._act("관리", lambda: self.show_tab("manage"), "Ctrl+M", busy_ok=True)
         A["settings"] = self._act("환경 설정…", self.open_settings, "Ctrl+,", busy_ok=True)
-        A["cancel"] = self._act("작업 취소", self.cancel_task, "Esc", busy_ok=True)
+        A["cancel"] = self._act("작업 취소", self._esc, "Esc", busy_ok=True)
         A["cut"] = self._act("프레임 구간 자르기…", self.cut_dialog, "Ctrl+T")
         A["reduce"] = self._act("프레임 줄이기…", self.reduce_dialog)
         A["time"] = self._act("프레임 시간 설정…", self.time_dialog)
@@ -214,34 +262,52 @@ class EditorWindow(QMainWindow):
         A["zoom_in"] = self._act("확대", lambda: self.preview.set_zoom(self.preview._scale() * 1.25), "Ctrl+=")
         A["zoom_out"] = self._act("축소", lambda: self.preview.set_zoom(self.preview._scale() / 1.25), "Ctrl+-")
         A["fit"] = self._act("창에 맞춤", lambda: self.preview.set_zoom(None), "Ctrl+0")
-        A["mark_a"] = self._act("현재 프레임을 구간 시작으로", lambda: self.mark_trim("a"), "I")
-        A["mark_b"] = self._act("현재 프레임을 구간 끝으로", lambda: self.mark_trim("b"), "O")
+        A["mark_a"] = self._act("구간 시작", lambda: self.mark_trim("a"), "I")
+        A["mark_b"] = self._act("구간 끝", lambda: self.mark_trim("b"), "O")
         A["keep"] = self._act("구간만 남기기", self.keep_trim, "Ctrl+K")
+        A["clip_add"] = self._act("클립 추가", self._if_idle(self.add_clip), "A")
+        A["track_f"] = self._act("앞으로 추적", self._if_idle(lambda: self.track_mask_dir(1)), "T")
+        A["track_b"] = self._act("뒤로 추적", self._if_idle(lambda: self.track_mask_dir(-1)), "Shift+T")
+        A["slow"] = self._act("슬로모 구간", self._if_idle(self.mark_slow), "S")
+        A["freeze"] = self._act("프레임 유지", self._if_idle(self.add_freeze_here), "P")
+        A["crop_mode"] = self._act("자르기 모드", self._if_idle(lambda: self.set_mode("crop")), "C")
+        A["fit_view"] = self._act("화면에 맞춤", self._if_idle(lambda: self.preview.set_zoom(None)), "F")
+        A["hide_box"] = self._act("테두리 숨기기", self._if_idle(self.toggle_chrome), "H")
+        A["key_set"] = self._act("키 고정", self._if_idle(self.set_mask_key), "K")
+        A["key_del"] = self._act("키 삭제", self._if_idle(self.clear_mask_key), "Shift+K")
+        A["export_now"] = self._act("내보내기…", self.save_file, "Ctrl+E")
+        A["keys_help"] = self._act("단축키", self.show_shortcuts, "F1", busy_ok=True)
+        A["feedback"] = self._act("의견 보내기…", self.send_feedback, busy_ok=True)
         A["logs"] = self._act("로그 폴더 열기", self.open_log_folder, busy_ok=True)
         A["about"] = self._act("정보", self.about, busy_ok=True)
         A["update"] = self._act("업데이트 확인…", self.check_updates, busy_ok=True)
         icons = {"open": "open", "save": "save", "undo": "undo", "redo": "redo", "delete": "delete", "play": "play", "first": "first", "last": "last",
-                 "prev": "prev", "next": "next", "rec": "rec", "batch": "batch", "manage": "manage", "settings": "settings", "cut": "cut",
+                 "prev": "prev", "next": "next", "rec": "rec", "manage": "manage", "settings": "settings", "cut": "cut",
                  "reduce": "reduce", "time": "time", "faster": "faster", "slower": "slower", "reverse": "reverse", "yoyo": "yoyo",
-                 "add_last": "add", "zoom_in": "zoom_in", "zoom_out": "zoom_out", "fit": "fit", "import_img": "image", "logs": "folder"}
+                 "add_last": "add", "zoom_in": "zoom_in", "zoom_out": "zoom_out", "fit": "fit", "import_img": "image", "logs": "folder",
+                 "clip_add": "add", "clip_sep": "save", "clip_join": "save"}
         for k, n in icons.items(): A[k].setIcon(icon(n))
         A["rec"].setIcon(icon("rec", "#ff5a5a"))
         mb = self.menuBar()
         self.menu_file = mb.addMenu("파일"); self.menu_edit = mb.addMenu("편집")
         self.menu_tools = mb.addMenu("도구"); self.menu_help = mb.addMenu("도움말")
-        for k in ("open", "seq", "import", "import_img"): self.menu_file.addAction(A[k])
-        self.menu_file.addSeparator(); self.menu_file.addAction(A["save"]); self.menu_file.addSeparator(); self.menu_file.addAction(A["quit"])
-        for k in ("undo", "redo", "delete", "play"): self.menu_edit.addAction(A[k])
+        for k in ("open", "import", "seq", "import_img"): self.menu_file.addAction(A[k])
+        self.menu_file.addSeparator()
+        for k in ("save", "clip_sep", "clip_join"): self.menu_file.addAction(A[k])
+        self.menu_file.addSeparator(); self.menu_file.addAction(A["quit"])
+        for k in ("undo", "redo"): self.menu_edit.addAction(A[k])
         self.menu_edit.addSeparator()
-        for k in ("cut", "reduce", "time", "faster", "slower", "reverse", "yoyo", "add_last"): self.menu_edit.addAction(A[k])
+        for k in ("delete", "cut", "reduce", "time", "faster", "slower", "reverse", "yoyo", "add_last"): self.menu_edit.addAction(A[k])
         self.menu_edit.addSeparator()
-        for k in ("mark_a", "mark_b", "keep"): self.menu_edit.addAction(A[k])
-        for k in ("rec", "manage", "batch", "cancel"): self.menu_tools.addAction(A[k])
+        for k in ("mark_a", "mark_b", "keep", "clip_add"): self.menu_edit.addAction(A[k])
+        self.menu_edit.addSeparator()
+        for k in ("play", "first", "prev", "next", "last", "zoom_in", "zoom_out", "fit"): self.menu_edit.addAction(A[k])
+        for k in ("rec", "manage", "cancel"): self.menu_tools.addAction(A[k])
         self.menu_tools.addSeparator(); self.menu_tools.addAction(A["settings"])
-        self.menu_help.addAction(A["update"]); self.menu_help.addAction(A["logs"]); self.menu_help.addSeparator(); self.menu_help.addAction(A["about"])
+        self.menu_help.addAction(A["keys_help"]); self.menu_help.addAction(A["feedback"]); self.menu_help.addAction(A["update"]); self.menu_help.addAction(A["logs"]); self.menu_help.addSeparator(); self.menu_help.addAction(A["about"])
         self.toolbar = self.addToolBar("주 도구"); self.toolbar.setMovable(False); self.toolbar.setIconSize(QSize(22, 22))
         for k, t in [("rec", "녹화"), ("open", "열기"), ("save", "저장"), (None, None), ("undo", "실행취소"), ("redo", "다시실행"),
-                     (None, None), ("manage", "관리"), ("batch", "일괄 변환"), ("settings", "설정")]:
+                     (None, None), ("manage", "관리"), ("settings", "설정")]:
             if k is None: self.toolbar.addSeparator(); continue
             A[k].setIconText(t); self.toolbar.addAction(A[k])
         for a in A.values():
@@ -256,17 +322,15 @@ class EditorWindow(QMainWindow):
         w = QWidget(); g = QVBoxLayout(w); g.addStretch()
         t = QLabel(f"<h1>{APP_NAME}</h1>무엇을 할까요?"); t.setAlignment(Qt.AlignCenter); g.addWidget(t)
         grid = QGridLayout()
-        items = [("화면 녹화", "rec", self.open_recorder), ("영상·GIF 열기", "open", self.open_file), ("이미지 가져오기", "image", self.import_images),
-                 ("일괄 변환", "batch", self.open_batch), ("관리", "manage", lambda: self.tabs.setCurrentIndex(self.TAB_MANAGE)),
-                 ("환경 설정", "settings", self.open_settings), ("저장 폴더 열기", "folder", lambda: logutil.open_folder(self._start_dir() or os.path.expanduser("~"), select=False)),
-                 ("도움말", "home", lambda: QMessageBox.information(self, APP_NAME, "영상·GIF를 끌어다 놓으면 바로 편집됩니다.\n편집 후 Ctrl+S로 저장하세요."))]
+        items = [("화면 녹화", "rec", self.open_recorder), ("열기", "open", self.open_file), ("편집", "draw", lambda: self.show_tab("edit")),
+                 ("관리", "manage", lambda: self.show_tab("manage")),
+                 ("환경 설정", "settings", self.open_settings), ("저장 폴더", "folder", lambda: logutil.open_folder(self._start_dir() or os.path.expanduser("~"), select=False))]
         for k, (text, ic, slot) in enumerate(items):
             b = QToolButton(); b.setText(text); b.setIcon(icon(ic, "#ff5a5a" if ic == "rec" else "#e6e6e6", 48)); b.setIconSize(QSize(48, 48))
             b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon); b.setFixedSize(150, 110); b.clicked.connect(lambda _=False, s=slot: s())
             grid.addWidget(b, k // 4, k % 4); self._home_buttons.append(b)
         h = QHBoxLayout(); h.addStretch(); h.addLayout(grid); h.addStretch(); g.addLayout(h)
-        g.addWidget(QLabel("<center>영상(MP4·MOV·MKV…)이나 GIF를 이 창에 끌어다 놓으면 바로 편집기로 열립니다.<br>"
-                           "편집(자르기·크기·효과·텍스트·속도) 후 저장(Ctrl+S)에서 GIF / WebP / MP4 / WebM / APNG / AVIF로 내보냅니다.</center>")); g.addStretch(); return w
+        g.addWidget(QLabel("<center>파일을 끌어다 놓거나 열기로 불러옵니다.<br>편집한 뒤 Ctrl+S로 저장합니다. 구간은 클립으로 나눠 저장할 수 있습니다.</center>")); g.addStretch(); return w
     def _build_rec_page(self):
         w = QWidget(); v = QVBoxLayout(w); st = self.settings
         g = QGroupBox("녹화 설정"); f = QFormLayout(g)
@@ -311,6 +375,18 @@ class EditorWindow(QMainWindow):
         v.addWidget(g)
         g = QGroupBox("속도"); gh = QHBoxLayout(g); self.sp_speed = QDoubleSpinBox(); self.sp_speed.setRange(0.1, 10); self.sp_speed.setValue(2.0); self.sp_speed.setSuffix(" 배")
         gh.addWidget(self.sp_speed); self._btn(gh, "적용", self.fx_speed); v.addWidget(g)
+        g = QGroupBox("클립"); gv = QVBoxLayout(g)
+        self.clip_list = QListWidget(); self.clip_list.setObjectName("clipList"); self.clip_list.setMinimumHeight(96)
+        self.clip_list.setToolTip("체크한 클립만 저장합니다. 항목을 고르면 그 구간을 미리 봅니다.")
+        self.clip_list.currentRowChanged.connect(self._preview_clip_row)
+        gv.addWidget(self.clip_list)
+        h = QHBoxLayout()
+        self._btn(h, "추가", self.add_clip, "add"); self._btn(h, "이름", self._rename_clip_dialog)
+        self._btn(h, "위로", lambda: self.move_clip(-1)); self._btn(h, "아래로", lambda: self.move_clip(1)); self._btn(h, "삭제", self.delete_clip, "delete")
+        gv.addLayout(h)
+        h = QHBoxLayout(); self._btn(h, "각각 저장", lambda: self.export_selected_clips(mode="separate"), "save")
+        self._btn(h, "이어 저장", lambda: self.export_selected_clips(mode="join"), "save"); gv.addLayout(h)
+        v.addWidget(g)
         side.addWidget(self._side_page("프레임", v))
         # 1 자르기
         f = QFormLayout(); self.cb_ratio = QComboBox()
@@ -386,14 +462,45 @@ class EditorWindow(QMainWindow):
         self.chk_bshadow = QCheckBox("그림자"); self.chk_bshadow.setChecked(True)
         f.addRow("여백", self.sp_margin); f.addRow("색", self.btn_bcolor); f.addRow("둥근 모서리", self.sp_radius); f.addRow(self.chk_bshadow)
         side.addWidget(self._side_page("액자", f, self.apply_border))
-        self.MODES = {"frame": 0, "crop": 1, "resize": 2, "draw": 3, "effect": 4, "insert": 5, "border": 6}
+        f = QFormLayout()
+        self.mask_list = QListWidget(); self.mask_list.setObjectName("maskList"); self.mask_list.setMinimumHeight(72)
+        self.mask_list.currentRowChanged.connect(self._select_mask)
+        f.addRow(self.mask_list)
+        h = QHBoxLayout(); self._btn(h, "추가", self.add_mask, "add"); self._btn(h, "복제", self.duplicate_mask); self._btn(h, "삭제", self.delete_mask, "delete"); f.addRow(h)
+        self.ed_mask_name = QLineEdit(); self.ed_mask_name.editingFinished.connect(self._apply_mask_fields)
+        self.cb_mask_fx = QComboBox()
+        for t, v in (("단색", "solid"), ("모자이크", "mosaic"), ("흐림", "blur"), ("확대", "zoom"), ("포털", "portal")): self.cb_mask_fx.addItem(t, v)
+        self.cb_mask_fx.currentIndexChanged.connect(lambda _i: self._apply_mask_fields())
+        self.sp_mask_str = QSpinBox(); self.sp_mask_str.setRange(2, 40); self.sp_mask_str.setValue(12); self.sp_mask_str.valueChanged.connect(lambda _i: self._apply_mask_fields())
+        self.btn_mask_color = ColorButton(QColor(0, 0, 0)); self.btn_mask_color.clicked.connect(self._apply_mask_fields)
+        self.sp_feather = QSpinBox(); self.sp_feather.setRange(0, 40); self.sp_feather.valueChanged.connect(lambda _i: self._apply_mask_fields())
+        self.sp_mask_a = QSpinBox(); self.sp_mask_b = QSpinBox()
+        for sp in (self.sp_mask_a, self.sp_mask_b): sp.setRange(1, 1); sp.valueChanged.connect(lambda _i: self._apply_mask_fields())
+        self.cb_tracker = QComboBox(); self.cb_tracker.addItem("CSRT (정확)", "csrt"); self.cb_tracker.addItem("KCF (빠름)", "kcf"); self.cb_tracker.addItem("MOSSE (더 빠름)", "mosse")
+        self.chk_auto_track = QCheckBox("자동 추적"); self.chk_auto_track.setChecked(True); self.chk_auto_track.setToolTip("상자를 대상에 맞춘 뒤 추적하세요.")
+        self.chk_auto_track.toggled.connect(lambda _i: self._apply_mask_fields())
+        self.chk_smooth = QCheckBox("흔들림 줄이기"); self.chk_smooth.toggled.connect(lambda _i: self._apply_mask_fields())
+        self.sp_expand = QSpinBox(); self.sp_expand.setRange(0, 80); self.sp_expand.setSuffix(" px")
+        self.lbl_track = QLabel("추적 전"); self.lbl_track.setWordWrap(True)
+        f.addRow("이름", self.ed_mask_name); f.addRow("효과", self.cb_mask_fx); f.addRow("강도", self.sp_mask_str); f.addRow("색", self.btn_mask_color)
+        f.addRow("가장자리", self.sp_feather); f.addRow("시작 프레임", self.sp_mask_a); f.addRow("끝 프레임", self.sp_mask_b)
+        h = QHBoxLayout(); self._btn(h, "시작=현재", lambda: self._mask_edge("a")); self._btn(h, "끝=현재", lambda: self._mask_edge("b")); f.addRow(h)
+        f.addRow("추적기", self.cb_tracker); f.addRow(self.chk_auto_track); f.addRow("영역 확대", self.sp_expand)
+        h = QHBoxLayout(); self._btn(h, "앞으로", lambda: self.track_mask_dir(1)); self._btn(h, "뒤로", lambda: self.track_mask_dir(-1)); self._btn(h, "중지", self.cancel_task); f.addRow(h)
+        f.addRow(self.lbl_track)
+        self.chk_export_crop = QCheckBox("저장할 때만 이 영역으로 자르기"); self.chk_export_crop.toggled.connect(self._toggle_export_crop)
+        f.addRow(self.chk_export_crop)
+        self.lbl_mask_sum = QLabel("출력 —"); self.lbl_mask_sum.setWordWrap(True); f.addRow(self.lbl_mask_sum)
+        b = QPushButton("이 설정으로 WebP 저장"); b.setObjectName("primary"); b.clicked.connect(self._export_webp_masked); f.addRow(b)
+        side.addWidget(self._side_page("마스크", f, None, cancel=False))
+        self.MODES = {"frame": 0, "crop": 1, "resize": 2, "draw": 3, "effect": 4, "insert": 5, "border": 6, "mask": 7}
         # 명령 막대
         cmd = QWidget(); cmd.setObjectName("cmdbar"); ch = QHBoxLayout(cmd); ch.setContentsMargins(6, 4, 6, 4); ch.setSpacing(2); self.mode_btns = {}
         def tb(text, ic, slot, checkable=False):
             b = QToolButton(); b.setText(text); b.setIcon(icon(ic)); b.setIconSize(QSize(24, 24)); b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
             b.setCheckable(checkable); b.setAutoRaise(True); b.clicked.connect(lambda _=False: slot()); ch.addWidget(b); return b
         for k, t, ic in (("crop", "자르기", "crop"), ("resize", "크기", "resize"), ("draw", "그리기", "draw"), ("effect", "효과", "effect"),
-                         ("insert", "삽입", "text"), ("border", "액자", "frame")):
+                         ("insert", "삽입", "text"), ("border", "액자", "frame"), ("mask", "마스크", "effect")):
             self.mode_btns[k] = tb(t, ic, lambda k=k: self.set_mode(k), True)
         ch.addSpacing(12)
         for k, t in (("delete", "삭제"), ("cut", "구간 자르기"), ("reduce", "프레임 줄이기"), ("time", "시간 설정"), ("faster", "10% 빠르게"),
@@ -424,14 +531,19 @@ class EditorWindow(QMainWindow):
         self.preview.zoomChanged.connect(lambda s: self.lbl_zoom.setText("맞춤" if self.preview.zoom is None else f"{s * 100:.0f}%"))
         cv_.addWidget(pb)
         body = QSplitter(); body.addWidget(center); body.addWidget(side); body.setStretchFactor(0, 1)
-        edit = QWidget(); rv = QVBoxLayout(edit); rv.setContentsMargins(0, 0, 0, 0); rv.addWidget(cmd); rv.addWidget(body, 1); rv.addWidget(self.timeline)
-        self.batch_panel = BatchPanel(); self.batch_panel.startRequested.connect(lambda: self.start_batch())
+        self.track_strip = TrackStrip()
+        edit = QWidget(); rv = QVBoxLayout(edit); rv.setContentsMargins(0, 0, 0, 0); rv.addWidget(cmd); rv.addWidget(body, 1); rv.addWidget(self.track_strip); rv.addWidget(self.timeline)
         self.manage = ManagePanel(get_str(self.settings, "manage_dir") or get_str(self.settings, "last_dir"))
         self.manage.editRequested.connect(lambda p: self.open_file(p))
         self.tabs = QTabWidget(); self._home_buttons = []
-        self.tabs.addTab(self._build_rec_page(), icon("rec", "#ff5a5a"), "녹화"); self.tabs.addTab(self.manage, icon("manage"), "관리")
-        self.tabs.addTab(edit, icon("draw"), "편집"); self.tabs.addTab(self._build_home(), icon("home"), "홈"); self.tabs.addTab(self.batch_panel, icon("batch"), "일괄 변환")
-        self.TAB_REC, self.TAB_MANAGE, self.TAB_EDIT, self.TAB_HOME, self.TAB_BATCH = 0, 1, 2, 3, 4
+        home = self._build_home(); home.setObjectName("home")
+        recp = self._build_rec_page(); recp.setObjectName("rec")
+        edit.setObjectName("edit"); self.manage.setObjectName("manage")
+        for wdg, ic, title in ((home, icon("home"), "홈"), (recp, icon("rec", "#ff5a5a"), "녹화"),
+                               (edit, icon("draw"), "편집"), (self.manage, icon("manage"), "관리")):
+            self.tabs.addTab(wdg, ic, title)
+        self.TAB_HOME = self.tab_index("home"); self.TAB_REC = self.tab_index("rec")
+        self.TAB_EDIT = self.tab_index("edit"); self.TAB_MANAGE = self.tab_index("manage")
         self.tabs.currentChanged.connect(lambda i: i == self.TAB_MANAGE and self.manage.refresh())
         corner = QWidget(); chl = QHBoxLayout(corner); chl.setContentsMargins(0, 2, 6, 2); chl.setSpacing(6)
         from .version import __version__ as _v
@@ -441,7 +553,7 @@ class EditorWindow(QMainWindow):
         self.set_update_state("idle")
         self.setCentralWidget(self.tabs)
         start = get_str(self.settings, "start_tab", "home")
-        self.tabs.setCurrentIndex({"rec": 0, "manage": 1, "edit": 2}.get(start, self.TAB_HOME))
+        self.show_tab({"home": "home", "rec": "rec", "edit": "edit", "manage": "manage"}.get(start, "home"))
     def _build_status(self):
         self.status = self.statusBar()
         self.lbl_status = QLabel("준비"); self.lbl_info = QLabel("")
@@ -491,7 +603,7 @@ class EditorWindow(QMainWindow):
         box = QMessageBox(QMessageBox.Warning, APP_NAME, text, QMessageBox.Ok, self); box.setModal(False); box.show(); self._last_warn = box
     def _set_busy(self, busy):
         for a in self._busy_actions: a.setEnabled(not busy)
-        for wdg in (self.tool_tabs, self.batch_panel.btn_start, self.btn_full, self.btn_opts, *self._home_buttons):
+        for wdg in (self.tool_tabs, self.btn_full, self.btn_opts, self.clip_list, *self._home_buttons):
             wdg.setEnabled(not busy)
         if not busy: self._update_enabled()
     def cancel_task(self):
@@ -514,6 +626,7 @@ class EditorWindow(QMainWindow):
         for i, f in enumerate(fr):
             it = QListWidgetItem(icon, f"{i + 1}\n{f.delay}ms"); it.setData(Qt.UserRole, i); self.timeline.addItem(it)
         self.timeline.blockSignals(False); self._label_items()
+        self.project.clamp_clips(); self._refresh_clips(); self._refresh_mask_list(); self._update_mask_summary()
         self._update_meta(keep); self._start_thumbs()
     PLACEHOLDER = "영상(MP4·MOV 등)·GIF·WebP 파일을 여기로 끌어다 놓으세요\n또는 Ctrl+O 열기 · Ctrl+R 화면 녹화"
     def _update_meta(self, keep=None, show=True):
@@ -577,7 +690,7 @@ class EditorWindow(QMainWindow):
         if 0 <= i < len(self.project.frames):
             self.cur = i; im = self.project.frames[i].image
             k = max(1, min(im.width // max(640, self.preview.width()), im.height // 360))   # 4K 등 큰 프레임은 축소본으로 표시 (GUI 스레드 < 수십 ms)
-            self.preview.set_image(pil_to_qimage(im.reduce(k) if k > 1 else im), im.size); self._update_pos()
+            self.preview.set_image(pil_to_qimage(im.reduce(k) if k > 1 else im), im.size); self._update_pos(); self._sync_mask_overlay()
             if self.tool_tabs.currentIndex() == self.MODES.get("effect"): self._fx_preview()
     def _on_row(self, r):
         if r >= 0: self.show_frame(r); self.slider.blockSignals(True); self.slider.setValue(r); self.slider.blockSignals(False)
@@ -596,7 +709,6 @@ class EditorWindow(QMainWindow):
         self._drop_paths([u.toLocalFile() for u in e.mimeData().urls() if u.isLocalFile()])
     def _drop_paths(self, paths):
         if not paths or self.is_busy(): return
-        if self.tabs.currentIndex() == self.TAB_BATCH: self.batch_panel.add_files(paths); return
         imgs = [p for p in paths if p.lower().endswith((".png", ".jpg", ".jpeg", ".bmp"))]
         if len(imgs) > 1: self.open_sequence(imgs)
         else: self.open_file(paths[0])
@@ -773,7 +885,9 @@ class EditorWindow(QMainWindow):
             if dlg.exec() != QDialog.Accepted: return None
             fmt = dlg.fmt(); options = dlg.options(); self.settings.setValue("last_fmt", fmt); path = dlg.path()
         from .exporter import export_frames
-        frames = list(self.project.frames); opts = dict(options or {})
+        frames = [Frame(f.image, f.delay) for f in self.project.frames]
+        masks = [m.copy() for m in self.project.masks]; crop = None if self.project.export_crop is None else tuple(self.project.export_crop)
+        opts = dict(options or {})
         def done(r):
             self.last_saved = path; self.last_result = r
             self.settings.setValue("last_dir", os.path.dirname(os.path.abspath(path)))
@@ -785,47 +899,329 @@ class EditorWindow(QMainWindow):
             self.dirty = False; self.mark_clean()
             if notify: self._saved_notice(path, mb, extra)
             if notify and get_bool(self.settings, "open_after_save", False): logutil.open_folder(path)
-        return self.run_task(f"저장: {os.path.basename(path)}", lambda ctx: export_frames(frames, path, ctx=ctx, **opts), done)
+        def job(ctx):
+            from .masks import apply_masks
+            fr = apply_masks(frames, masks, crop, ctx) if (masks or crop) else frames
+            return export_frames(fr, path, ctx=ctx, **opts)
+        return self.run_task(f"저장: {os.path.basename(path)}", job, done)
     def _saved_notice(self, path, mb, extra=""):
         box = QMessageBox(QMessageBox.Information, "저장 완료", f"저장했습니다.\n\n{path}\n크기 {mb:.2f} MB{extra}", QMessageBox.NoButton, self)
         bf = box.addButton("폴더 열기", QMessageBox.ActionRole); bo = box.addButton("파일 열기", QMessageBox.ActionRole); box.addButton("닫기", QMessageBox.RejectRole)
         bf.clicked.connect(lambda: logutil.open_folder(path)); bo.clicked.connect(lambda: logutil.open_file(path))
         box.setModal(False); box.show(); self.save_box = box
-    # ---- 일괄 ----
-    def open_batch(self): self.tabs.setCurrentIndex(self.TAB_BATCH)
-    def start_batch(self):
-        from . import converter as cv
-        bp = self.batch_panel; paths = bp.paths()
-        if not paths: return None
-        out_dir = bp.ed_out.text().strip(); s0 = bp.settings()
-        if out_dir: os.makedirs(out_dir, exist_ok=True)
-        for r in range(len(paths)): bp.set_item(r, 0, "대기")
+    def _mask_drag_start(self):
+        if self.preview.mode == "mask" and self._mask_row is not None: self.project.checkpoint()
+    def _mask_drag_end(self, r):
+        if self.preview.mode != "mask" or self._mask_row is None: return
+        if not (0 <= self._mask_row < len(self.project.masks)): return
+        m = self.project.masks[self._mask_row]
+        m.x, m.y, m.w, m.h = max(0, r.x()), max(0, r.y()), max(2, r.width()), max(2, r.height())
+        m.boxes[self.cur] = (m.x, m.y, m.w, m.h)
+        self._sync_mask_overlay()
+    def _sync_mask_overlay(self):
+        if not hasattr(self, "preview"): return
+        boxes = []
+        for i, m in enumerate(self.project.masks):
+            if not m.visible: continue
+            x, y, w, h = m.box_at(self.cur)
+            boxes.append((QRect(x, y, w, h), m.name, i == self._mask_row, self.cur in set(m.lost or ())))
+        self.preview.mask_overlays = boxes
+        if self.project.export_crop:
+            x, y, w, h = self.project.export_crop
+            self.preview.export_crop_rect = QRect(int(x), int(y), int(w), int(h))
+        else:
+            self.preview.export_crop_rect = None
+        if self.preview.mode == "mask" and self._mask_row is not None and 0 <= self._mask_row < len(self.project.masks):
+            x, y, w, h = self.project.masks[self._mask_row].box_at(self.cur)
+            self.preview.sel = QRect(x, y, w, h)
+        self._paint_track(); self.preview._redraw(); self._update_mask_summary()
+    def _paint_track(self):
+        if not hasattr(self, "track_strip"): return
+        n = max(1, len(self.project.frames)); spans = []
+        if self._mask_row is not None and 0 <= self._mask_row < len(self.project.masks):
+            m = self.project.masks[self._mask_row]
+            lost = set(m.lost or ())
+            for i in range(len(self.project.frames)):
+                if i in (m.boxes or {}): spans.append((i, "lost" if i in lost else "ok"))
+        self.track_strip.n = n; self.track_strip.spans = spans; self.track_strip.update()
+    def _update_mask_summary(self):
+        if not hasattr(self, "lbl_mask_sum"): return
+        fr = self.project.frames
+        if not fr:
+            self.lbl_mask_sum.setText("출력 —"); return
+        w, h = self.project.size
+        if self.project.export_crop:
+            w, h = int(self.project.export_crop[2]), int(self.project.export_crop[3])
+        ms = sum(f.delay for f in fr) or 1
+        fps = 1000.0 * len(fr) / ms
+        src = ""
+        if getattr(self, "_video", None):
+            info = self._video.get("info")
+            if info: src = f"\n원본 {info.width}×{info.height} · {info.fps:.2f}fps"
+        self.lbl_mask_sum.setText(f"출력 {w}×{h} · {len(fr)}프레임 · {ms / 1000:.2f}초{src}")
+    def _refresh_mask_list(self):
+        if not hasattr(self, "mask_list"): return
+        self.mask_list.blockSignals(True); self.mask_list.clear()
+        for m in self.project.masks:
+            it = QListWidgetItem(m.name); it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
+            it.setCheckState(Qt.Checked if m.visible else Qt.Unchecked); self.mask_list.addItem(it)
+        if self._mask_row is not None and self.project.masks:
+            self.mask_list.setCurrentRow(min(self._mask_row, len(self.project.masks) - 1))
+        self.mask_list.blockSignals(False)
+        if getattr(self, "_mask_hooked", False):
+            self.mask_list.itemChanged.disconnect(); self._mask_hooked = False
+        self.mask_list.itemChanged.connect(self._mask_vis); self._mask_hooked = True
+    def _mask_vis(self, item):
+        i = self.mask_list.row(item)
+        if 0 <= i < len(self.project.masks):
+            self.project.checkpoint(); self.project.masks[i].visible = item.checkState() == Qt.Checked
+            self._sync_mask_overlay()
+    def _select_mask(self, i):
+        self._mask_row = i if i >= 0 else None
+        self._load_mask_fields(); self._sync_mask_overlay()
+    def _load_mask_fields(self):
+        if not hasattr(self, "ed_mask_name"): return
+        i = self._mask_row
+        if i is None or not (0 <= i < len(self.project.masks)): return
+        m = self.project.masks[i]
+        for w in (self.ed_mask_name, self.cb_mask_fx, self.sp_mask_str, self.sp_feather, self.sp_mask_a, self.sp_mask_b, self.cb_tracker, self.sp_expand, self.chk_auto_track, self.chk_smooth):
+            w.blockSignals(True)
+        self.ed_mask_name.setText(m.name)
+        ix = self.cb_mask_fx.findData(m.effect); self.cb_mask_fx.setCurrentIndex(max(0, ix))
+        self.sp_mask_str.setValue(int(m.strength)); self.sp_feather.setValue(int(m.feather))
+        n = max(1, len(self.project.frames))
+        self.sp_mask_a.setRange(1, n); self.sp_mask_b.setRange(1, n)
+        self.sp_mask_a.setValue(min(n, m.start + 1)); self.sp_mask_b.setValue(min(n, m.end + 1 if m.end < 10 ** 8 else n))
+        j = self.cb_tracker.findData(m.tracker); self.cb_tracker.setCurrentIndex(max(0, j))
+        self.chk_auto_track.setChecked(m.auto_track); self.chk_smooth.setChecked(bool(getattr(m, "smooth", False))); self.sp_expand.setValue(int(m.expand))
+        self.btn_mask_color.color = QColor(*m.color); self.btn_mask_color._paint()
+        lost = len(m.lost or ()); self.lbl_track.setText(f"추적 {len(m.boxes or {})}프레임 · 놓침 {lost}")
+        for w in (self.ed_mask_name, self.cb_mask_fx, self.sp_mask_str, self.sp_feather, self.sp_mask_a, self.sp_mask_b, self.cb_tracker, self.sp_expand, self.chk_auto_track, self.chk_smooth):
+            w.blockSignals(False)
+    def _apply_mask_fields(self):
+        i = self._mask_row
+        if i is None or not (0 <= i < len(self.project.masks)) or not hasattr(self, "ed_mask_name"): return
+        m = self.project.masks[i]
+        m.name = self.ed_mask_name.text().strip() or m.name
+        m.effect = self.cb_mask_fx.currentData() or "solid"
+        m.strength = self.sp_mask_str.value(); m.feather = self.sp_feather.value()
+        m.start = self.sp_mask_a.value() - 1; m.end = self.sp_mask_b.value() - 1
+        m.tracker = self.cb_tracker.currentData() or "csrt"
+        m.auto_track = self.chk_auto_track.isChecked(); m.smooth = self.chk_smooth.isChecked(); m.expand = self.sp_expand.value()
+        m.color = (self.btn_mask_color.color.red(), self.btn_mask_color.color.green(), self.btn_mask_color.color.blue())
+        if self.mask_list.currentItem(): self.mask_list.currentItem().setText(m.name)
+        self._sync_mask_overlay()
+    def _mask_edge(self, which):
+        if which == "a": self.sp_mask_a.setValue(self.cur + 1)
+        else: self.sp_mask_b.setValue(self.cur + 1)
+        self._apply_mask_fields()
+    def add_mask(self):
+        if not self.project.frames: return None
+        from .core import Mask
+        W, H = self.project.size
+        self.project.checkpoint()
+        m = Mask(f"마스크 {len(self.project.masks) + 1}", W // 5, H // 5, max(8, W // 4), max(8, H // 4), end=len(self.project.frames) - 1)
+        self.project.masks.append(m); self._mask_row = len(self.project.masks) - 1
+        self._refresh_mask_list(); self.set_mode("mask"); return m
+    def duplicate_mask(self):
+        i = self._mask_row
+        if i is None or not (0 <= i < len(self.project.masks)): return
+        self.project.checkpoint(); c = self.project.masks[i].copy(); c.name += " 복사"; c.x += 8
+        self.project.masks.append(c); self._mask_row = len(self.project.masks) - 1; self._refresh_mask_list(); self._sync_mask_overlay()
+    def delete_mask(self):
+        i = self._mask_row
+        if i is None or not (0 <= i < len(self.project.masks)): return
+        self.project.checkpoint(); del self.project.masks[i]
+        self._mask_row = min(i, len(self.project.masks) - 1) if self.project.masks else None
+        self._refresh_mask_list(); self._sync_mask_overlay()
+    def track_mask_dir(self, direction):
+        i = self._mask_row
+        if i is None or not self.project.frames or self.is_busy(): return None
+        self._apply_mask_fields()
+        mask = self.project.masks[i].copy(); frames = list(self.project.frames); cur = self.cur
         def job(ctx):
-            res = {"ok": 0, "fail": 0, "cancel": 0}; n = len(paths)
-            for i, p in enumerate(paths):
-                name = os.path.basename(p)
-                if ctx.cancelled(): ctx.item(i, -1, "취소됨"); res["cancel"] += 1; continue
-                ctx.item(i, 0, "변환 중…")
-                def step(a, b, m, i=i, name=name):
-                    if b > 0: ctx.item(i, int(100 * a / b), "")
-                    ctx.step(i * 100 + (int(100 * a / b) if b > 0 else 0), n * 100, f"일괄 변환 {i + 1}/{n}: {name} — {m}")
-                try:
-                    info = cv.probe(p); s = replace(s0, start=0.0, end=None); out = cv.output_path(p, out_dir, s.fmt)
-                    r = cv.convert(p, out, s, info, cancel=ctx.cancelled, step=step)
-                    ctx.item(i, 100, f"완료 {r['size'] / 1048576:.2f} MB" + ("" if r["met"] else " (목표 초과)")); res["ok"] += 1
-                except cv.Cancelled: ctx.item(i, -1, "취소됨"); res["cancel"] += 1
-                except Exception as e:
-                    logging.getLogger("bonggif.batch").exception("일괄 실패 %s", p); ctx.item(i, -1, f"실패: {e}"); res["fail"] += 1
-            return res
+            from .masks import track_mask
+            return track_mask(frames, mask, cur, direction, ctx)
         def done(res):
-            bp.lbl.setText(f"완료 — 성공 {res['ok']} · 실패 {res['fail']} · 취소 {res['cancel']}")
-            self.set_status("일괄 변환 " + bp.lbl.text())
-            self.last_batch = res
-        t = self.run_task("일괄 변환", job, done)
-        if t:
-            t.item.connect(bp.set_item); bp.lbl.setText("변환 중…")
-            t.canceled.connect(lambda: bp.lbl.setText("취소됨"))
-        return t
+            boxes, lost = res
+            if 0 <= i < len(self.project.masks):
+                self.project.checkpoint(); self.project.masks[i].boxes = boxes; self.project.masks[i].lost = lost
+            self._load_mask_fields(); self._sync_mask_overlay()
+            self.set_status(f"추적 {len(boxes)}프레임 · 놓침 {len(lost)}")
+        def fail(msg): self.set_status(str(msg))
+        return self.run_task("마스크 추적", job, done, fail)
+    def _toggle_export_crop(self, on):
+        if on and self.preview.sel and self.preview.sel.width() > 2:
+            r = self.preview.sel
+            self.project.checkpoint(); self.project.export_crop = (r.x(), r.y(), r.width(), r.height())
+        elif not on:
+            self.project.checkpoint(); self.project.export_crop = None
+        self._sync_mask_overlay()
+    def _export_webp_masked(self):
+        if not self.project.frames: return
+        path, _ = QFileDialog.getSaveFileName(self, "WebP 저장", self._start_dir() or "", "WebP (*.webp)")
+        if not path: return
+        if not path.lower().endswith(".webp"): path += ".webp"
+        q = 95
+        self.save_file(path, {"quality": q, "webp_method": 4, "loop": 0}, notify=True)
+    def _typing(self):
+        fw = QApplication.focusWidget()
+        return isinstance(fw, (QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox))
+    def _if_idle(self, fn):
+        def wrap(*_a):
+            if self._typing(): return
+            return fn()
+        return wrap
+    def _esc(self):
+        if getattr(self, "_slow_arm", None) is not None:
+            self._slow_arm = None; self.set_status("슬로모 지정을 취소했습니다"); return
+        self.cancel_task()
+    def step_frames(self, n):
+        self.goto(self.cur + int(n))
+    def jump_segment_start(self):
+        if self.project.clips: self.goto(self.project.clips[0].start)
+        else: self.goto(max(0, self.sp_trim_a.value() - 1))
+    def jump_segment_end(self):
+        if self.project.clips: self.goto(self.project.clips[-1].end)
+        else: self.goto(max(0, self.sp_trim_b.value() - 1))
+    def delete_smart(self):
+        if self.preview.mode == "mask" and self._mask_row is not None:
+            self.delete_mask(); return
+        self.delete_frames()
+    def toggle_chrome(self):
+        self.preview.hide_chrome = not self.preview.hide_chrome; self.preview._redraw()
+    def set_mask_key(self):
+        if self._mask_row is None or not self.project.frames: return
+        m = self.project.masks[self._mask_row]
+        self.project.checkpoint()
+        m.boxes[self.cur] = (m.x, m.y, m.w, m.h)
+        self._sync_mask_overlay(); self.set_status(f"키 고정: {self.cur + 1}프레임")
+    def clear_mask_key(self):
+        if self._mask_row is None: return
+        m = self.project.masks[self._mask_row]
+        if self.cur in m.boxes:
+            self.project.checkpoint(); del m.boxes[self.cur]; self._sync_mask_overlay()
+    def mark_slow(self):
+        if not self.project.frames: return
+        if getattr(self, "_slow_arm", None) is None:
+            self._slow_arm = self.cur; self.set_status("슬로모 시작. 끝 프레임에서 S, 취소는 Esc"); return
+        a, b = self._slow_arm, self.cur; self._slow_arm = None
+        self.project.add_slow(a, b, 0.5); self.refresh(); self.set_status(f"슬로모 {a + 1}–{b + 1} · 0.5×")
+    def add_freeze_here(self):
+        if not self.project.frames: return
+        self.project.add_freeze(self.cur, 1500); self.refresh(); self.set_status("이 프레임을 1.5초 유지합니다")
+    def show_shortcuts(self):
+        lines = []
+        for a in self.actions_.values():
+            sc = a.shortcut().toString(QKeySequence.NativeText)
+            if sc: lines.append(f"{sc}  {a.text()}")
+        QMessageBox.information(self, "단축키", "\n".join(lines))
+    def send_feedback(self):
+        text, ok = QInputDialog.getMultiLineText(self, "의견", "불편한 점이나 바라는 기능을 적어 주세요.")
+        if not ok or not text.strip(): return
+        from . import crashreport
+        sent = crashreport.report_async("Feedback", text.strip(), "", "feedback", "사용자 의견", self.settings)
+        self.set_status("의견을 보냈습니다." if sent else "자동 보고가 꺼져 있어 보내지 않았습니다. 로그 폴더를 확인하세요.")
+    def tab_index(self, name):
+        for i in range(self.tabs.count()):
+            if self.tabs.widget(i).objectName() == name: return i
+        return 0
+    def show_tab(self, name):
+        self.tabs.setCurrentIndex(self.tab_index(name)); return self.tabs.currentIndex()
+    def _refresh_clips(self):
+        if not hasattr(self, "clip_list"): return
+        self.clip_list.blockSignals(True); self.clip_list.clear()
+        for c in self.project.clips:
+            it = QListWidgetItem(f"{c.name}  ({c.start + 1}–{c.end + 1})")
+            it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
+            it.setCheckState(Qt.Checked if c.selected else Qt.Unchecked)
+            self.clip_list.addItem(it)
+        self.clip_list.blockSignals(False)
+        if getattr(self, "_clip_hooked", False):
+            self.clip_list.itemChanged.disconnect(); self._clip_hooked = False
+        self.clip_list.itemChanged.connect(self._clip_check); self._clip_hooked = True
+    def _clip_check(self, item):
+        i = self.clip_list.row(item)
+        if 0 <= i < len(self.project.clips):
+            self.project.set_clip_selected(i, item.checkState() == Qt.Checked)
+    def add_clip(self, a=None, b=None, name=None):
+        if not self.project.frames: return None
+        if a is None: a = self.sp_trim_a.value() - 1
+        if b is None: b = self.sp_trim_b.value() - 1
+        a, b = sorted((int(a), int(b)))
+        n = len(self.project.frames)
+        a = min(max(0, a), n - 1); b = min(max(0, b), n - 1)
+        if a > b: a, b = b, a
+        label = name or f"클립 {len(self.project.clips) + 1}"
+        self.project.add_clip(label, a, b, True)
+        self._refresh_clips(); self.clip_list.setCurrentRow(len(self.project.clips) - 1)
+        self.set_status(f"클립 추가: {label} ({a + 1}–{b + 1})")
+        return self.project.clips[-1]
+    def delete_clip(self):
+        i = self.clip_list.currentRow()
+        if i < 0: return
+        self.project.remove_clip(i); self._refresh_clips()
+    def move_clip(self, delta):
+        i = self.clip_list.currentRow()
+        if i < 0: return
+        if self.project.move_clip(i, delta):
+            self._refresh_clips(); self.clip_list.setCurrentRow(i + delta)
+    def rename_clip(self, index, name):
+        if not (0 <= index < len(self.project.clips)): return
+        self.project.rename_clip(index, name); self._refresh_clips()
+    def _rename_clip_dialog(self):
+        i = self.clip_list.currentRow()
+        if i < 0: return
+        text, ok = QInputDialog.getText(self, "클립 이름", "이름", text=self.project.clips[i].name)
+        if ok and text.strip(): self.rename_clip(i, text.strip())
+    def _preview_clip_row(self, i):
+        if i < 0 or i >= len(self.project.clips) or not self.project.frames: return
+        c = self.project.clips[i]
+        self.sp_trim_a.setValue(c.start + 1); self.sp_trim_b.setValue(c.end + 1)
+        self.goto(c.start)
+    def _selected_clips(self):
+        return [c for c in self.project.clips if c.selected]
+    def _clip_frames(self, clips):
+        out = []
+        for c in clips:
+            out.extend(Frame(f.image, f.delay) for f in self.project.frames[c.start:c.end + 1])
+        return out
+    def export_selected_clips(self, folder=None, stem="클립", ext="gif", mode="separate", options=None, notify=False):
+        """선택 클립을 파일마다 또는 이어 붙여 저장. 클립 목록은 그대로 둔다."""
+        sel = self._selected_clips()
+        if not sel or self.is_busy():
+            self.set_status("저장할 클립을 체크하세요"); return None
+        if not folder:
+            folder = QFileDialog.getExistingDirectory(self, "클립 저장 폴더", self._start_dir() or os.path.expanduser("~"))
+            if not folder: return None
+        os.makedirs(folder, exist_ok=True)
+        opt = dict(options or {}); opt.setdefault("colors", 128); opt.setdefault("dither", False)
+        names = [os.path.join(folder, f"{stem}_{i:02d}.{ext}") for i in range(1, len(sel) + 1)] if mode != "join" else [os.path.join(folder, f"{stem}.{ext}")]
+        masks = [m.copy() for m in self.project.masks]; crop = None if self.project.export_crop is None else tuple(self.project.export_crop)
+        base = [Frame(f.image, f.delay) for f in self.project.frames]
+        ranges = [(c.start, c.end) for c in sel]
+        def job(ctx):
+            from .exporter import export_frames
+            from .masks import apply_masks
+            rendered = apply_masks(base, masks, None, ctx) if masks else base
+            if mode == "join":
+                sets = [[]]
+                for a, b in ranges: sets[0].extend(rendered[a:b + 1])
+                if crop: sets = [apply_masks(sets[0], [], crop, ctx)]
+            else:
+                sets = []
+                for a, b in ranges:
+                    part = rendered[a:b + 1]
+                    sets.append(apply_masks(part, [], crop, ctx) if crop else part)
+            for i, (fr, path) in enumerate(zip(sets, names)):
+                ctx.step(i, len(names), f"클립 저장 {i + 1}/{len(names)}")
+                export_frames(fr, path, ctx=ctx, **opt)
+            return names
+        def done(paths):
+            self.last_saved = paths[-1]
+            self.set_status("저장 완료: " + ", ".join(os.path.basename(p) for p in paths))
+            if notify: self._saved_notice(paths[-1], os.path.getsize(paths[-1]) / 1048576)
+        return self.run_task("클립 저장", job, done)
     # ---- 녹화 ----
     def open_recorder(self):
         from .recorder import RecorderWindow
@@ -934,6 +1330,10 @@ class EditorWindow(QMainWindow):
             w, h = self.project.size; p.draw_layer = QImage(w, h, QImage.Format_ARGB32_Premultiplied); p.draw_layer.fill(Qt.transparent); p.mode = "draw"; self._update_pen()
         elif k == "effect": p.mode = "rect"; p.sel = None; self._fx_preview()
         elif k == "resize": w, h = self.project.size; self.sp_w.blockSignals(True); self.sp_w.setValue(w); self.sp_h.setValue(h); self.sp_w.blockSignals(False)
+        elif k == "mask":
+            p.mode = "mask"; p.darken = False
+            if self.project.masks and self._mask_row is None: self._mask_row = 0
+            self._load_mask_fields(); self._sync_mask_overlay()
         p._redraw()
     def end_mode(self):
         self._leave_preview_modes(); self.tool_tabs.setCurrentIndex(0)
@@ -948,6 +1348,10 @@ class EditorWindow(QMainWindow):
         for s, v in ((self.cx, r.x()), (self.cy, r.y()), (self.cw, r.width()), (self.ch, r.height())): s.blockSignals(True); s.setValue(v); s.blockSignals(False)
         self.lbl_crop.setText(f"선택 영역: ({r.x()}, {r.y()}) {r.width()}×{r.height()}")
         if self.tool_tabs.currentIndex() == self.MODES["effect"]: self._fx_preview()
+        if self.preview.mode == "mask" and self._mask_row is not None and 0 <= self._mask_row < len(self.project.masks):
+            m = self.project.masks[self._mask_row]
+            m.x, m.y, m.w, m.h = max(0, r.x()), max(0, r.y()), max(2, r.width()), max(2, r.height())
+            m.boxes[self.cur] = (m.x, m.y, m.w, m.h)
     def _crop_from_spins(self, _=0):
         if self.preview.mode == "crop":
             self.preview.sel = QRect(self.cx.value(), self.cy.value(), self.cw.value(), self.ch.value()); self.preview._redraw()

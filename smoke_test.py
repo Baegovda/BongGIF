@@ -4,7 +4,7 @@ os.environ["BONGGIF_REPORT_URL"] = ""  # 테스트에서 실제 오류 보고 �
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 out = tempfile.mkdtemp(prefix="ff_"); os.environ["BONGGIF_DATA_DIR"] = os.path.join(out, "data")
 from PIL import Image, ImageDraw
-from PySide6.QtWidgets import QApplication, QTabWidget
+from PySide6.QtWidgets import QApplication, QTabWidget, QListView
 from PySide6.QtCore import QRect, QPoint, QSettings, QTimer, QElapsedTimer
 from bonggif import logutil
 from bonggif.editor import EditorWindow
@@ -30,7 +30,8 @@ except Exception as e: print("  capture skipped:", e)
 rec.stop(); rec.close(); ok("녹화 시작/정지 예외 없음", True)
 
 w = EditorWindow(); w.show(); app.processEvents()
-ok("단일 창: 녹화/관리/편집/홈/일괄 변환 탭", [w.tabs.tabText(i) for i in range(w.tabs.count())] == ["녹화", "관리", "편집", "홈", "일괄 변환"])
+ok("탭 순서 홈·녹화·편집·관리", [w.tabs.tabText(i) for i in range(w.tabs.count())] == ["홈", "녹화", "편집", "관리"])
+ok("시작 탭은 홈", w.tabs.currentIndex() == w.TAB_HOME == w.tab_index("home") and w.tabs.widget(0).objectName() == "home")
 ok("메뉴 참조 유지(파일/편집/도구/도움말)", [m.title() for m in (w.menu_file, w.menu_edit, w.menu_tools, w.menu_help)] == ["파일", "편집", "도구", "도움말"])
 t = w.open_file(src); ok("GIF 불러오기는 작업 스레드", t is not None and w.is_busy()); w.wait_task()
 P = w.project; ok("GIF 로드 10프레임", len(P.frames) == 10)
@@ -139,7 +140,10 @@ ok("시간 설정(총 시간)", sum(f.delay for f in fs) == 2000)
 rd = RangeDialog(w, base, 1, 3); ok("구간 자르기 대화상자", rd.range() == (1, 3) and rd.keep())
 w.goto(-1); ok("마지막 프레임 이동", w.cur == len(w.project.frames) - 1); w.goto(0); ok("재생 막대 위치 표시", w.lbl_pos.text().startswith("1/"))
 sd = SaveDialog(w, "webm", w.project.frames, out, "x"); ok("저장 대화상자(6형식)", sd.q.cb_fmt.count() == 6 and sd.path().endswith("x.webm"))
-sdl = SettingsDialog(w); ok("설정 탭 12개", sdl.findChild(QTabWidget).count() == 12); sdl.reject()
+sdl = SettingsDialog(w)
+_labels = [sdl.nav.item(i).text() for i in range(sdl.nav.count())]
+ok("설정 12항목·가로 목록", _labels == ["일반", "녹화", "편집", "자르기", "단축키", "GIF", "WebP", "WebM", "MP4", "APNG·AVIF", "고급", "언어"] and sdl.nav.flow() == QListView.TopToBottom and sdl.findChild(QTabWidget) is None)
+sdl.reject()
 from bonggif.prefs import to_bool, to_int, to_float
 ok("설정 값 변환(문자열 bool/숫자/잘못된 값)", to_bool("true") and not to_bool("false") and to_bool("", True) and to_int("true", 3) == 1 and to_int("false", 3) == 0
    and to_int("", 7) == 7 and to_int("abc", 5) == 5 and to_int("12") == 12 and to_int("3.6") == 4 and to_int(99, 0, 0, 10) == 10 and to_float("x", 1.5) == 1.5)
@@ -161,5 +165,23 @@ w.preview.set_zoom(2.0); ok("확대 표시", w.lbl_zoom.text() == "200%"); w.pre
 make_icon(os.path.join(out, "i.ico")); ok("아이콘 생성", os.path.exists(os.path.join(out, "i.ico")))
 import logging; logging.getLogger("bonggif").handlers[0].flush()
 ok("로그 파일 생성·기록", os.path.exists(logfile) and "저장" in open(logfile, encoding="utf-8").read(), logfile)
+w.set_frames([Frame(Image.new("RGBA", (40, 30), (i * 30, 90, 140, 255)), 50) for i in range(6)]); w.wait_task()
+w.sp_trim_a.setValue(1); w.sp_trim_b.setValue(2); w.add_clip()
+w.sp_trim_a.setValue(4); w.sp_trim_b.setValue(6); w.add_clip(name="끝")
+ok("클립 추가", [c.name for c in w.project.clips] == ["클립 1", "끝"] and w.clip_list.count() == 2)
+w.clip_list.setCurrentRow(0); w.move_clip(1)
+ok("클립 순서", [c.name for c in w.project.clips] == ["끝", "클립 1"])
+w.undo(); ok("클립 순서 실행취소", [c.name for c in w.project.clips] == ["클립 1", "끝"])
+w.redo(); w.rename_clip(0, "인트로"); w.clip_list.setCurrentRow(1); w.delete_clip()
+ok("클립 이름·삭제", len(w.project.clips) == 1 and w.project.clips[0].name == "인트로")
+w.add_clip(3, 5, "뒤"); w.clip_list.setCurrentRow(0); w._preview_clip_row(0)
+ok("클립 미리보기", w.cur == w.project.clips[0].start and w.sp_trim_b.value() == w.project.clips[0].end + 1)
+cd = os.path.join(out, "clips"); th = w.export_selected_clips(cd, "part", "gif", "separate", {"colors": 16, "dither": False}); w.wait_task()
+sep = [os.path.join(cd, f"part_{i:02d}.gif") for i in (1, 2)]
+got = [Image.open(p).n_frames for p in sep]
+ok("클립 각각 저장", th is not None and got == [3, 3], str(got))
+th = w.export_selected_clips(cd, "joined", "gif", "join", {"colors": 16, "dither": False}); w.wait_task()
+ok("클립 이어 저장", os.path.exists(os.path.join(cd, "joined.gif")) and Image.open(os.path.join(cd, "joined.gif")).n_frames == 6)
+w.undo(); ok("클립 추가 실행취소", len(w.project.clips) == 1)
 w.close(); print("출력:", out); print(f"결과: {sum(c for _, c in R)}/{len(R)} 통과")
 sys.exit(0 if all(c for _, c in R) else 1)

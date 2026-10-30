@@ -38,7 +38,7 @@ jobs:
           CI: "true"
         run: |
           $fail = 0
-          foreach ($t in "smoke_test.py","smoke_test_converter.py","smoke_test_updater.py","smoke_test_export.py") {
+          foreach ($t in "smoke_test.py","smoke_test_converter.py","smoke_test_updater.py","smoke_test_export.py","smoke_test_masks.py","smoke_test_webpclip.py") {
             python $t
             if ($LASTEXITCODE -ne 0) { Write-Host "::warning::$t failed (exit $LASTEXITCODE)"; $fail = 1 }
           }
@@ -51,6 +51,7 @@ jobs:
             --icon bonggif.ico --add-data "bonggif.ico;." `
             --collect-all imageio_ffmpeg --collect-submodules imageio `
             --hidden-import mss --hidden-import keyboard `
+            --hidden-import cv2 --collect-binaries cv2 --collect-data cv2 `
             BongGIF.py
 
       - name: Zip

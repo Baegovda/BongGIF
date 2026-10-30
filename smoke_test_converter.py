@@ -57,7 +57,7 @@ from PySide6.QtCore import QMimeData, QUrl, QPointF, Qt
 from PySide6.QtGui import QDropEvent
 w = EditorWindow(); w.resize(1200, 800); w.show(); app.processEvents()
 tools = w.menu_tools.actions()   # 속성 참조 → 'Internal C++ object already deleted' 방지
-ok("'도구' 메뉴 항목(녹화/일괄 변환)", all(any(k in a.text() for a in tools) for k in ("녹화", "일괄 변환")))
+ok("'도구' 메뉴 항목(녹화/관리)", all(any(k in a.text() for a in tools) for k in ("녹화", "관리")) and not any("일괄" in a.text() for a in tools))
 ok("독립 변환 창/가져오기 도크 제거", not os.path.exists(os.path.join(os.path.dirname(cv.__file__), "converter_window.py")) and not hasattr(w, "import_dock"))
 ok("빈 상태 안내 문구", "끌어다 놓" in w.preview.text() and not w.actions_["save"].isEnabled())
 def drop(widget, paths):
@@ -112,20 +112,7 @@ ok("저장(HQ+목표 용량) 완료 · GIF 20프레임", os.path.exists(go) and 
 ok("저장 중 타이머 틱 지속(최대 간격 < 150ms)", len(gaps) > 5 and max(gaps[1:]) < 150, f"틱 {len(gaps)}, 최대 {max(gaps[1:])} ms")
 ok("목표 용량 시도 단계 표시", any(m.startswith("목표 용량 시도") for m in smsgs), next((m for m in smsgs if m.startswith("목표")), ""))
 ok("저장 알림 버튼", {b.text() for b in w.save_box.buttons()} >= {"폴더 열기", "파일 열기"})
-# 일괄 변환 탭
-[a for a in tools if "일괄 변환" in a.text()][0].trigger(); app.processEvents()
-ok("도구 > 일괄 변환 → 같은 창의 탭", w.tabs.currentIndex() == w.TAB_BATCH)
-bp = w.batch_panel; bo = os.path.join(out, "batch_out"); bp.add_files([v1, v2, os.path.join(out, "not_video.txt")]); bp.ed_out.setText(bo)
-bp.ex.sp_fps.setValue(8); bp.ex.sp_w.setValue(120)
-ok("일괄 목록 2개(비디오만)", bp.table.rowCount() == 2)
-bm = []; th = w.start_batch(); th.progress.connect(lambda i, n, m: bm.append(m)); w.wait_task()
-outs = [os.path.join(bo, "테스트 영상 1.gif"), os.path.join(bo, "clip2.gif")]
-ok("일괄 변환 2개 완료(요약)", all(os.path.exists(p) for p in outs) and "성공 2" in bp.lbl.text(), bp.lbl.text())
-ok("일괄 프레임 수(32, 16)", [Image.open(p).n_frames for p in outs] == [32, 16])
-ok("일괄 상태바 메시지", any(m.startswith("일괄 변환 2/2") for m in bm), bm[-1] if bm else "")
-bp.table.setRowCount(0); bp.add_files([v1, v2]); bp.ed_out.setText(os.path.join(out, "cancel"))
-th = w.start_batch(); w.cancel_task(); w.wait_task(); ok("일괄 취소", not w.is_busy(), ", ".join(bp.table.item(i, 2).text() for i in range(2)))
-ok("작업 중 충돌 동작 비활성화 후 복구", w.actions_["save"].isEnabled())
+ok("작업 중 충돌 동작 비활성화 후 복구", w.actions_["save"].isEnabled() and not hasattr(w, "batch_panel"))
 # ---- 불러오기 전 구간 선택 대화상자 ----
 from PySide6.QtCore import QPoint as _QP
 from PySide6.QtGui import QMouseEvent as _ME

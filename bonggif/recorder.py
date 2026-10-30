@@ -36,6 +36,13 @@ class ScreenGrabber:
         qi = pm.toImage().convertToFormat(pm.toImage().Format.Format_RGBA8888)
         return Image.frombytes("RGBA", (qi.width(), qi.height()), bytes(qi.constBits()))
 
+def _same_image(a: Image.Image, b: Image.Image) -> bool:
+    """같은 화면인지. 전체 바이트 복사 없이 C 레벨 차이만 본다."""
+    if a.size != b.size or a.mode != b.mode:
+        return False
+    from PIL import ImageChops
+    return ImageChops.difference(a, b).getbbox() is None
+
 def draw_cursor(img: Image.Image, x: int, y: int):
     """간단한 화살표 커서 오버레이."""
     d = ImageDraw.Draw(img)
@@ -212,7 +219,7 @@ class RecorderWindow(QWidget):
                 if self.chk_hl.isChecked(): draw_highlight(img, cx, cy)
                 if self.chk_click.isChecked() and mouse_down(): draw_highlight(img, cx, cy, True)
                 draw_cursor(img, cx, cy)
-        if self.chk_skip.isChecked() and self.frames and img.tobytes() == self.frames[-1].image.tobytes():
+        if self.chk_skip.isChecked() and self.frames and _same_image(self.frames[-1].image, img):
             self.frames[-1].delay += delay
         else:
             if self.frames: self.frames[-1].delay = delay

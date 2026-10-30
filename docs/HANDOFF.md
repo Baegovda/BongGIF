@@ -1,6 +1,6 @@
 # HANDOFF — BongGIF
 
-_Last updated: 2026-10-30 (KST) · current version **v1.2.0** (아직 태그/릴리스 아님) · 마지막 릴리스 https://github.com/Baegovda/BongGIF/releases/tag/v1.1.6_
+_Last updated: 2026-10-30 (KST) · current version **v1.3.0** (태그 없음) · 직전 릴리스 v1.2.0_
 
 ## Current state
 Stable. All smoke tests green (70 / 64 / 40 / 15). Self-update v1.1.2 → v1.1.3 verified on the owner's PC (update.log: backup → copy → restart, no rollback). Owner installs to `%LOCALAPPDATA%\Programs\BongGIF`.
@@ -8,7 +8,8 @@ Stable. All smoke tests green (70 / 64 / 40 / 15). Self-update v1.1.2 → v1.1.3
 ## Version history
 | ver | summary |
 |---|---|
-| 1.2.0 | 저장 파이프라인 재구성: GIF89a/WebP(EXIF)/APNG/MP4 High/WebM VP8/AVIF. 팔레트는 median-cut. 문서 docs/FORMATS.md. 릴리스 태그는 아직 없음 |
+| 1.3.0 | 홈 첫 탭, 설정 왼쪽 목록, 다크 그라데이션, 클립·마스크·추적, 일괄 변환 제거, webpclip 로직 이식. 태그 없음 |
+| 1.2.0 | 저장 파이프라인 재구성. 태그 v1.2.0 |
 | 1.0.0 | First public release: single window, recorder, editor, streaming video load, save GIF/WebP/MP4/WebM/APNG, batch, dark theme + drawn icons, effects, manage tab, settings, GitHub Actions release |
 | 1.1.0 | GitHub self-updater, 업데이트 확인 menu, daily auto-check, SHA256 assets |
 | 1.1.1 | Video range-selection dialog before loading (preview playback, handles, I/O keys) |
@@ -40,6 +41,8 @@ Record (fps, presets, countdown, cursor/highlight/click, pin, direct save) · Ed
 - `requirements.txt` pins PySide6 <6.9; dev box uses 6.12 — verify before bumping.
 
 ## Session log (append newest first)
+- 2026-10-30: v1.3.0 작업. 일괄 변환 제거, 클립/마스크/CSRT·템플릿 추적, webpclip 포팅, 테마. 릴리스 태그 안 함.
+
 - 2026-10-30: v1.2.0 작업 트리. `bonggif/encoders/` (gif/webp/apng/mp4/webm/avif). 녹화 15fps 66/67ms·동일 프레임 합치기. 설정 탭은 12 유지. `smoke_test_export.py` 추가. 소스 MIT, libimagequant 없음. 태그/릴리스는 하지 않음.
 - 2026-10-26: agent setup kit: docs/SETUP_AGENT.md, docs/agent-env.json, docs/mcp.example.json, scripts/bootstrap_agent.{sh,ps1} (docs only, no release). New agent: run bootstrap first.
 - 2026-10-26: v1.1.6: relay deployed at https://bonggif-report.revaptor.workers.dev (Cloudflare account of owner, workers.dev subdomain revaptor); end-to-end test issue #1 OK, closed. Redeploy: cd relay && npx wrangler deploy.

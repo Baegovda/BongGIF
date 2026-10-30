@@ -5,8 +5,8 @@ from PySide6.QtCore import Qt, QSettings, QSize
 from PySide6.QtGui import QPixmap, QColor, QIcon
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QGridLayout, QLabel, QPushButton, QSlider,
                                QSpinBox, QDoubleSpinBox, QComboBox, QCheckBox, QLineEdit, QGroupBox, QDialogButtonBox,
-                               QFileDialog, QListWidget, QListWidgetItem, QRadioButton, QTabWidget, QWidget, QColorDialog,
-                               QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QScrollArea, QButtonGroup)
+                               QFileDialog, QListWidget, QListWidgetItem, QRadioButton, QTabWidget, QWidget, QColorDialog, QStackedWidget,
+                               QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QScrollArea, QButtonGroup, QFrame)
 from .panels import QualityBox, pil_to_qimage
 
 def settings() -> QSettings:
@@ -205,15 +205,23 @@ class ImageImportDialog(QDialog):
 SHORTCUTS = [("열기", "Ctrl+O"), ("저장", "Ctrl+S"), ("화면 녹화 / 녹화 시작·종료", "Ctrl+R / F9"), ("실행취소 / 다시실행", "Ctrl+Z / Ctrl+Y"),
              ("재생/정지", "Space"), ("처음/이전/다음/마지막 프레임", "Home / ← / → / End"), ("프레임 삭제", "Delete"),
              ("구간 시작/끝 지정", "I / O"), ("구간만 남기기", "Ctrl+K"), ("프레임 구간 자르기", "Ctrl+T"), ("확대/축소/맞춤", "Ctrl++ / Ctrl+- / Ctrl+0"),
-             ("일괄 변환", "Ctrl+B"), ("환경 설정", "Ctrl+,"), ("작업 취소", "Esc")]
+             ("클립 추가", "Ctrl+Shift+A"), ("환경 설정", "Ctrl+,"), ("작업 취소", "Esc")]
 
 class SettingsDialog(QDialog):
     """환경 설정: 일반 · 녹화 · 편집 · 자르기 · 단축키 · GIF · WebP · WebM · MP4 · APNG · 고급 · 언어."""
     def __init__(self, parent=None):
-        super().__init__(parent); self.setWindowTitle("환경 설정"); self.resize(620, 460); st = settings(); self.st = st
-        v = QVBoxLayout(self); self.tabs = QTabWidget(); self.tabs.setTabPosition(QTabWidget.West); v.addWidget(self.tabs, 1); self.w = {}
+        super().__init__(parent); self.setWindowTitle("환경 설정"); self.resize(760, 520); st = settings(); self.st = st
+        root = QHBoxLayout(self)
+        self.nav = QListWidget(); self.nav.setObjectName("settingsNav"); self.nav.setFixedWidth(168)
+        self.nav.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.nav.setToolTip("항목을 고르면 오른쪽 설정이 바뀝니다.")
+        self.pages = QStackedWidget()
+        root.addWidget(self.nav)
+        right = QVBoxLayout(); right.addWidget(self.pages, 1); self.w = {}
         def page(title):
-            w = QWidget(); f = QFormLayout(w); self.tabs.addTab(w, title); return f
+            w = QWidget(); f = QFormLayout(w)
+            sc = QScrollArea(); sc.setWidgetResizable(True); sc.setFrameShape(QFrame.NoFrame); sc.setWidget(w)
+            self.pages.addWidget(sc); self.nav.addItem(title); return f
         def spin(key, lo, hi, val, suf=""):
             s = QSpinBox(); s.setRange(lo, hi); s.setValue(get_int(st, key, val, lo, hi)); s.setSuffix(suf); self.w[key] = s; return s
         def chk(key, text, val):
@@ -235,11 +243,11 @@ class SettingsDialog(QDialog):
         t.setEditTriggers(QAbstractItemView.NoEditTriggers); f.addRow(t)
         f = page("GIF"); f.addRow("기본 색상 수", spin("gif_colors", 2, 256, 256)); f.addRow("품질(주석 q=)", spin("gif_quality", 1, 100, 80))
         f.addRow("기본 인코더", combo("gif_encoder", [("기본(적응 팔레트)", "pil"), ("HQ(ffmpeg)", "ffmpeg")], "pil"))
-        f.addRow(chk("gif_remove_similar", "같은 픽셀은 투명으로 (변경된 영역만 저장)", True))
+        f.addRow(chk("gif_remove_similar", "같은 픽셀은 투명하게 저장", True))
         f.addRow(chk("gif_finite_loop", "유한 반복", False)); f.addRow("반복 횟수", spin("gif_loop_count", 1, 65535, 1))
         f.addRow(chk("gif_comment", "주석 확장 넣기", True))
         f = page("WebP"); f.addRow("기본 품질", spin("webp_quality", 1, 100, 80))
-        f.addRow(chk("webp_iphone", "아이폰 호환 (전체 프레임, 배경으로 비우기)", True))
+        f.addRow(chk("webp_iphone", "아이폰에서도 재생 (전체 프레임)", True))
         f.addRow(chk("webp_finite_loop", "유한 반복", False)); f.addRow("반복 횟수", spin("webp_loop_count", 1, 65535, 1))
         f.addRow(chk("webp_comment", "EXIF 주석 넣기", True))
         f = page("WebM"); f.addRow("기본 품질(1-100)", self._q100("webm_quality", 80))
@@ -253,7 +261,8 @@ class SettingsDialog(QDialog):
         f.addRow(QLabel("AVIF 품질 70 이상은 YUV 4:4:4. 앱 이름 주석은 넣지 않습니다."))
         f = page("고급"); f.addRow("기본 저장 폴더", self._folder("save_dir")); f.addRow("관리 탭 폴더", self._folder("manage_dir"))
         f = page("언어"); c = QComboBox(); c.addItem("한국어"); c.setEnabled(False); f.addRow("언어", c)
-        v.addWidget(_ok_cancel(self, "저장"))
+        self.nav.currentRowChanged.connect(self.pages.setCurrentIndex); self.nav.setCurrentRow(0)
+        right.addWidget(_ok_cancel(self, "저장")); root.addLayout(right, 1)
     def _q100(self, key, default):
         v = get_int(self.st, key, default, 1, 100)
         if v <= 10:

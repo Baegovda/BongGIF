@@ -5,3 +5,4 @@ mss>=9.0
 imageio>=2.31
 imageio-ffmpeg>=0.4.9
 keyboard>=0.13.5
+opencv-contrib-python-headless>=4.10,<4.13
