@@ -4,9 +4,9 @@
   "version": "1.3.0",
   "pending_release": {
     "tag": "v1.3.0",
-    "sha": "ab6a0b6dd7f0a401237946a5bbcb3a0b482dcc33",
-    "run": "https://github.com/Baegovda/BongGIF/actions/runs/41115607903",
-    "note": "실패 태그 bd38d61 삭제 후 main에 재지정. run 41115607903은 converter 타이머 틱 387ms(한도 150)로 57/58 실패. CI 한도만 750ms로 완화. 버전 1.3.0. 태그 재지정은 머지 후."
+    "sha": "083b82f8a8848e2e92788957f71f3c4211789c79",
+    "run": "https://github.com/Baegovda/BongGIF/actions/runs/41116887877",
+    "note": "릴리스 없음 확인 후 실패 태그 ab6a0b6 삭제. main 083b82f에 v1.3.0 재지정. 자산은 이 run 결과 대기. 버전 1.3.0."
   },
   "last_release": {
     "tag": "v1.1.6",
