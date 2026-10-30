@@ -1,7 +1,7 @@
 {
   "project": "BongGIF",
   "repo": "https://github.com/Baegovda/BongGIF",
-  "version": "1.1.6",
+  "version": "1.2.0",
   "last_release": {
     "tag": "v1.1.6",
     "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.1.6",
@@ -28,10 +28,26 @@
     "smoke_test.py": 70,
     "smoke_test_converter.py": 64,
     "smoke_test_updater.py": 40,
-    "smoke_test_crash.py": 15
+    "smoke_test_crash.py": 15,
+    "smoke_test_export.py": 42
   },
-  "parity_estimate_pct": 84,
+  "parity_estimate_pct": 88,
   "backlog": [
+    {
+      "id": "export-rebirth",
+      "priority": 0,
+      "status": "done",
+      "title": "포맷별 인코더 (GIF/WebP/APNG/MP4/WebM/AVIF)",
+      "accept": [
+        "GIF89a NETSCAPE 주석 로컬팔레트 6/7cs",
+        "WebP VP8X EXIF ANMF",
+        "APNG 팔레트 OVER",
+        "MP4 High 짝수 크롭 무음",
+        "WebM VP8 1ms",
+        "AVIF avis yuv444",
+        "smoke_test_export"
+      ]
+    },
     {
       "id": "text-anim",
       "priority": 1,
@@ -150,12 +166,14 @@
     "set QT_QPA_PLATFORM=offscreen",
     "python smoke_test.py",
     "python smoke_test_converter.py",
-    "python smoke_test_updater.py"
+    "python smoke_test_updater.py",
+    "python smoke_test_export.py"
   ],
   "expected_test_counts": {
     "smoke_test.py": 70,
     "smoke_test_converter.py": 64,
-    "smoke_test_updater.py": 29
+    "smoke_test_updater.py": 29,
+    "smoke_test_export.py": 42
   },
   "build_commands": [
     "build_exe.bat  (Python 3.12, PyInstaller onedir -> dist\\BongGIF\\BongGIF.exe)"

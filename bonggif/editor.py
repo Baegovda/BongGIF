@@ -266,7 +266,7 @@ class EditorWindow(QMainWindow):
             grid.addWidget(b, k // 4, k % 4); self._home_buttons.append(b)
         h = QHBoxLayout(); h.addStretch(); h.addLayout(grid); h.addStretch(); g.addLayout(h)
         g.addWidget(QLabel("<center>영상(MP4·MOV·MKV…)이나 GIF를 이 창에 끌어다 놓으면 바로 편집기로 열립니다.<br>"
-                           "편집(자르기·크기·효과·텍스트·속도) 후 저장(Ctrl+S)에서 GIF / WebP / MP4 / WebM / APNG로 내보냅니다.</center>")); g.addStretch(); return w
+                           "편집(자르기·크기·효과·텍스트·속도) 후 저장(Ctrl+S)에서 GIF / WebP / MP4 / WebM / APNG / AVIF로 내보냅니다.</center>")); g.addStretch(); return w
     def _build_rec_page(self):
         w = QWidget(); v = QVBoxLayout(w); st = self.settings
         g = QGroupBox("녹화 설정"); f = QFormLayout(g)
@@ -280,8 +280,9 @@ class EditorWindow(QMainWindow):
         self.rec_click = QCheckBox("클릭 효과"); self.rec_click.setChecked(get_bool(st, "rec_click", False))
         self.rec_pin = QCheckBox("녹화 창 항상 위"); self.rec_pin.setChecked(True)
         self.rec_direct = QCheckBox("녹화 후 편집 없이 바로 GIF 저장"); self.rec_direct.setChecked(get_bool(st, "rec_direct", False))
+        self.rec_skip = QCheckBox("같은 프레임은 합치기"); self.rec_skip.setChecked(get_bool(st, "rec_skip_same", True))
         f.addRow("프레임 속도", self.rec_fps); f.addRow("크기", self.rec_size)
-        for c in (self.rec_cd, self.rec_cursor, self.rec_hl, self.rec_click, self.rec_pin, self.rec_direct): f.addRow(c)
+        for c in (self.rec_cd, self.rec_cursor, self.rec_hl, self.rec_click, self.rec_skip, self.rec_pin, self.rec_direct): f.addRow(c)
         v.addWidget(g); b = QPushButton(icon("rec", "#ff5a5a"), "  녹화 영역 열기 (Ctrl+R / F9 시작·종료)"); b.setObjectName("primary"); b.setMinimumHeight(48)
         b.clicked.connect(self.open_recorder); v.addWidget(b); self._home_buttons.append(b); v.addStretch(); return w
     def _side_page(self, title, body, ok=None, cancel=True):
@@ -831,9 +832,10 @@ class EditorWindow(QMainWindow):
         self.recorder = RecorderWindow(); self.recorder.finished.connect(self._rec_done)
         st = self.settings
         for k, v in (("rec_fps", self.rec_fps.value()), ("rec_countdown", (self._cd_secs or 3) if self.rec_cd.isChecked() else 0), ("rec_cursor", self.rec_cursor.isChecked()),
-                     ("rec_highlight", self.rec_hl.isChecked()), ("rec_click", self.rec_click.isChecked()), ("rec_direct", self.rec_direct.isChecked())): st.setValue(k, v)
+                     ("rec_highlight", self.rec_hl.isChecked()), ("rec_click", self.rec_click.isChecked()), ("rec_skip_same", self.rec_skip.isChecked()),
+                     ("rec_direct", self.rec_direct.isChecked())): st.setValue(k, v)
         self.recorder.configure(min(30, self.rec_fps.value()), (self._cd_secs or 3) if self.rec_cd.isChecked() else 0, self.rec_cursor.isChecked(), self.rec_hl.isChecked(),
-                                self.rec_click.isChecked(), self.rec_pin.isChecked(), self.rec_size.currentIndex())
+                                self.rec_click.isChecked(), self.rec_pin.isChecked(), self.rec_size.currentIndex(), self.rec_skip.isChecked())
         self.recorder.show(); return self.recorder
     def _rec_done(self, frames):
         if self.recorder: self.recorder.close()

@@ -38,7 +38,7 @@ jobs:
           CI: "true"
         run: |
           $fail = 0
-          foreach ($t in "smoke_test.py","smoke_test_converter.py","smoke_test_updater.py") {
+          foreach ($t in "smoke_test.py","smoke_test_converter.py","smoke_test_updater.py","smoke_test_export.py") {
             python $t
             if ($LASTEXITCODE -ne 0) { Write-Host "::warning::$t failed (exit $LASTEXITCODE)"; $fail = 1 }
           }

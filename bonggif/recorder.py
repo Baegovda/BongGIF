@@ -71,15 +71,17 @@ class RecorderWindow(QWidget):
         self.frames: list = []; self.state = "idle"; self._drag = None; self._countdown = 0
         self.grabber = None; self._t_last = 0.0
         self._build_bar()
-        self.timer = QTimer(self); self.timer.setTimerType(Qt.PreciseTimer); self.timer.timeout.connect(self._tick)
+        self.timer = QTimer(self); self.timer.setTimerType(Qt.PreciseTimer); self.timer.setSingleShot(True); self.timer.timeout.connect(self._tick)
+        self._interval_rem = 0
         self.cd_timer = QTimer(self); self.cd_timer.timeout.connect(self._cd_tick)
         QShortcut(QKeySequence("F9"), self, activated=self.toggle)
         QShortcut(QKeySequence("Esc"), self, activated=self.close)
         self._global_hotkey()
 
-    def configure(self, fps=15, countdown=3, cursor=True, highlight=False, click=False, pin=True, size_index=0):
+    def configure(self, fps=15, countdown=3, cursor=True, highlight=False, click=False, pin=True, size_index=0, skip_same=True):
         self.sp_fps.setValue(fps); self.sp_cd.setValue(countdown); self.chk_cursor.setChecked(cursor)
         self.chk_hl.setChecked(highlight); self.chk_click.setChecked(click); self.chk_pin.setChecked(pin)
+        self.chk_skip.setChecked(bool(skip_same))
         if size_index: self.cb_size.setCurrentIndex(min(size_index, self.cb_size.count() - 1))
     def _pin(self, on):
         vis = self.isVisible(); self.setWindowFlag(Qt.WindowStaysOnTopHint, on)
@@ -98,11 +100,12 @@ class RecorderWindow(QWidget):
         self.sp_cd = QSpinBox(); self.sp_cd.setRange(0, 10); self.sp_cd.setValue(3); self.sp_cd.setSuffix("초")
         self.chk_cursor = QCheckBox("커서"); self.chk_cursor.setChecked(True)
         self.chk_hl = QCheckBox("강조"); self.chk_click = QCheckBox("클릭")
+        self.chk_skip = QCheckBox("동일 프레임 생략"); self.chk_skip.setChecked(True)
         self.chk_pin = QCheckBox("항상 위"); self.chk_pin.setChecked(True); self.chk_pin.toggled.connect(self._pin)
         self.lbl_mem = QLabel("0 MB")
         self.lbl = QLabel("대기"); btn_close = QPushButton("✕"); btn_close.clicked.connect(self.close)
         for w in (self.btn_rec, self.btn_pause, self.btn_stop, self.cb_size, self.sp_fps, QLabel("카운트다운"),
-                  self.sp_cd, self.chk_cursor, self.chk_hl, self.chk_click, self.chk_pin, self.lbl, self.lbl_mem): lay.addWidget(w)
+                  self.sp_cd, self.chk_cursor, self.chk_hl, self.chk_click, self.chk_skip, self.chk_pin, self.lbl, self.lbl_mem): lay.addWidget(w)
         lay.addStretch(); lay.addWidget(btn_close)
 
     def capture_rect(self) -> QRect:
@@ -183,16 +186,20 @@ class RecorderWindow(QWidget):
             try: self.grabber = ScreenGrabber()
             except Exception as e: self.lbl.setText(f"캡처 불가: {e}"); self.state = "idle"; return
         self.state = "rec"; self.update(); self.btn_pause.setEnabled(True); self.btn_stop.setEnabled(True)
-        self.btn_rec.setText("■ 종료 (F9)"); self._t_last = time.perf_counter()
-        self.timer.start(int(1000 / self.sp_fps.value()))
+        self.btn_rec.setText("■ 종료 (F9)"); self._t_last = time.perf_counter(); self._interval_rem = 0
+        self._schedule()
+    def _schedule(self):
+        from .encoders.common import next_interval_ms
+        ms, self._interval_rem = next_interval_ms(self.sp_fps.value(), self._interval_rem)
+        self.timer.start(ms)
     def pause(self):
-        if self.state == "rec": self.state = "pause"; self.btn_pause.setText("재개")
-        elif self.state == "pause": self.state = "rec"; self.btn_pause.setText("일시정지"); self._t_last = time.perf_counter()
+        if self.state == "rec": self.state = "pause"; self.timer.stop(); self.btn_pause.setText("재개")
+        elif self.state == "pause":
+            self.state = "rec"; self.btn_pause.setText("일시정지"); self._t_last = time.perf_counter(); self._schedule()
         self.update()
     def _tick(self):
         if self.state != "rec": return
-        now = time.perf_counter(); delay = max(10, int(round((now - self._t_last) * 1000))); self._t_last = now
-        if self.frames: self.frames[-1].delay = delay   # 실제 경과 시간을 이전 프레임 지연으로
+        now = time.perf_counter(); delay = max(1, int(round((now - self._t_last) * 1000))); self._t_last = now
         r = self.capture_rect(); tl = self.mapToGlobal(r.topLeft()); dpr = self.devicePixelRatioF()
         x, y, w, h = int(tl.x() * dpr), int(tl.y() * dpr), int(r.width() * dpr), int(r.height() * dpr)
         try:
@@ -205,9 +212,14 @@ class RecorderWindow(QWidget):
                 if self.chk_hl.isChecked(): draw_highlight(img, cx, cy)
                 if self.chk_click.isChecked() and mouse_down(): draw_highlight(img, cx, cy, True)
                 draw_cursor(img, cx, cy)
-        self.frames.append(Frame(img, int(1000 / self.sp_fps.value())))
+        if self.chk_skip.isChecked() and self.frames and img.tobytes() == self.frames[-1].image.tobytes():
+            self.frames[-1].delay += delay
+        else:
+            if self.frames: self.frames[-1].delay = delay
+            self.frames.append(Frame(img, int(1000 / max(1, self.sp_fps.value()))))
         self.lbl.setText(f"녹화 중 {len(self.frames)}프레임")
         self.lbl_mem.setText(f"{len(self.frames) * w * h * 4 / 1048576:.0f} MB")
+        if self.state == "rec": self._schedule()
     def stop(self):
         self.timer.stop(); self.cd_timer.stop(); self.state = "idle"; self.update()
         self.btn_rec.setText("● 녹화 (F9)"); self.btn_pause.setEnabled(False); self.btn_stop.setEnabled(False)

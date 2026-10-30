@@ -207,47 +207,19 @@ def _flatten(frames, bg=(255, 255, 255), ctx=None):
         c = Image.new("RGBA", f.image.size, bg + (255,)); c.alpha_composite(f.image); out.append(c.convert("RGB"))
     return out
 
-def export_gif(frames, path, colors=256, dither=True, loop=0, palette="perframe", ctx=None):
-    """Pillow GIF. dither: True/False 또는 'fs'|'ordered'|'none', palette: 'global'|'perframe'."""
-    from .converter import _quant, _global_palette
-    ctx = ctx or NULL
-    d = ("fs" if dither else "none") if isinstance(dither, bool) else str(dither)
-    flat = _flatten(frames, ctx=ctx); n = len(flat)
-    pal = None
-    if palette == "global":
-        ctx.step(0, 0, "전역 팔레트 생성 중"); pal = _global_palette(flat, colors)
-    imgs = []
-    for i, im in enumerate(flat):
-        ctx.step(i, n, f"GIF 색상 양자화 {i}/{n}"); imgs.append(_quant(im, colors, d, pal))
-    ctx.step(0, 0, "GIF 파일 쓰는 중")
-    imgs[0].save(path, "GIF", save_all=True, append_images=imgs[1:], duration=[f.delay for f in frames],
-                 loop=loop, disposal=2)
+def export_gif(frames, path, colors=256, dither=True, loop=0, palette="perframe", ctx=None, **kw):
+    """GIF89a. dither: True/False 또는 'fs'|'ordered'|'none', palette: 'global'|'perframe'."""
+    from .encoders.gifenc import write_gif
+    return write_gif(frames, path, colors=colors, dither=dither, loop=loop, palette=palette, ctx=ctx, **kw)
 
-def export_webp(frames, path, quality=80, lossless=False, loop=0, ctx=None):
-    imgs = [f.image for f in frames]
-    if ctx: ctx.step(0, 0, f"WebP 인코딩 중 ({len(imgs)}프레임)")
-    imgs[0].save(path, "WEBP", save_all=True, append_images=imgs[1:], duration=[f.delay for f in frames],
-                 loop=loop, quality=int(quality), lossless=lossless, method=4)
+def export_webp(frames, path, quality=80, lossless=False, loop=0, ctx=None, **kw):
+    from .encoders.webpenc import write_webp
+    return write_webp(frames, path, quality=quality, lossless=lossless, loop=loop, ctx=ctx, **kw)
 
-def export_mp4(frames, path, quality=7, fps=None, ctx=None):
-    """H.264 yuv420p, 짝수 크기 패딩. 프레임별 지연은 고정 fps 복제로 근사."""
-    import numpy as np, imageio.v2 as iio
-    ctx = ctx or NULL; imgs = _flatten(frames, (0, 0, 0), ctx); w, h = imgs[0].size; W, H = w + w % 2, h + h % 2
-    if not fps: fps = min(30, max(5, round(1000 / max(10, min(f.delay for f in frames)))))
-    wr = iio.get_writer(path, format="FFMPEG", mode="I", fps=fps, codec="libx264", quality=float(quality),
-                        pixelformat="yuv420p", macro_block_size=1, ffmpeg_log_level="error")
-    t = 0.0; n = 0
-    try:
-        for k, (f, im) in enumerate(zip(frames, imgs)):
-            ctx.step(k, len(imgs), f"MP4 인코딩 중 {k}/{len(imgs)}")
-            if (W, H) != (w, h):
-                c = Image.new("RGB", (W, H)); c.paste(im); im = c
-            arr = np.asarray(im); t += f.delay / 1000 * fps
-            target = max(n + 1, round(t))
-            while n < target:
-                wr.append_data(arr); n += 1
-    finally:
-        wr.close()
+def export_mp4(frames, path, quality=7, fps=None, ctx=None, **kw):
+    """H.264 High, yuv420p. 홀수 변은 잘라 짝수로 맞춘다. 오디오 트랙 없음."""
+    from .encoders.mp4enc import write_mp4
+    return write_mp4(frames, path, quality=quality, fps=fps, ctx=ctx, **kw)
 
 def export(frames, path, ctx=None, **opt):
     """확장자로 형식 결정. 고급 옵션(encoder/target_mb 등)은 exporter.export_frames 참고."""
