@@ -7,6 +7,10 @@ on:
 permissions:
   contents: write
 
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: utf-8
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -31,7 +35,6 @@ jobs:
           python -m pip install -r requirements.txt pyinstaller
 
       - name: Smoke tests (offscreen)
-        continue-on-error: true   # timing checks can flake on shared runners
         shell: pwsh
         env:
           QT_QPA_PLATFORM: offscreen
@@ -57,8 +60,14 @@ jobs:
       - name: Verify frozen OpenCV
         shell: pwsh
         run: |
-          & "$PWD\dist\BongGIF\BongGIF.exe" --selftest
-          if ($LASTEXITCODE -ne 0) { Write-Error "frozen cv2 selftest failed (exit $LASTEXITCODE)"; exit 1 }
+          # --windowed exe: `&` does not wait, so $LASTEXITCODE stays empty.
+          $out = Join-Path $PWD selftest.out.txt
+          $err = Join-Path $PWD selftest.err.txt
+          $p = Start-Process -FilePath "$PWD\dist\BongGIF\BongGIF.exe" -ArgumentList '--selftest' -Wait -PassThru -WorkingDirectory "$PWD" -RedirectStandardOutput $out -RedirectStandardError $err
+          Get-Content $out, $err
+          $text = "$(Get-Content -Raw $out)$(Get-Content -Raw $err)"
+          if ($p.ExitCode -ne 0) { Write-Error "frozen cv2 selftest failed (exit $($p.ExitCode))"; exit 1 }
+          if ($text -notmatch 'selftest ok') { Write-Error "frozen cv2 selftest output missing 'selftest ok'"; exit 1 }
 
       - name: Zip
         shell: pwsh
