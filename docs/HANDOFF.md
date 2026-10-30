@@ -1,6 +1,6 @@
 # HANDOFF — BongGIF
 
-_Last updated: 2026-10-30 (KST) · current version **v1.3.0** (태그 없음) · 직전 릴리스 v1.2.0_
+_Last updated: 2026-10-30 (KST) · current version **v1.3.0** (태그 v1.3.0은 푸시됨, 릴리스 자산은 워크플로 실패로 없음) · 직전 성공 릴리스 v1.2.0_
 
 ## Current state
 Stable. All smoke tests green (70 / 64 / 40 / 15). Self-update v1.1.2 → v1.1.3 verified on the owner's PC (update.log: backup → copy → restart, no rollback). Owner installs to `%LOCALAPPDATA%\Programs\BongGIF`.
@@ -8,7 +8,7 @@ Stable. All smoke tests green (70 / 64 / 40 / 15). Self-update v1.1.2 → v1.1.3
 ## Version history
 | ver | summary |
 |---|---|
-| 1.3.0 | 홈 첫 탭, 설정 왼쪽 목록, 다크 그라데이션, 클립·마스크·추적, 일괄 변환 제거, webpclip 로직 이식. 태그 없음 |
+| 1.3.0 | 홈 첫 탭, 설정 왼쪽 목록, 다크 그라데이션, 클립·마스크·추적, 일괄 변환 제거, webpclip 로직 이식. 태그 v1.3.0은 푸시됐으나 릴리스 워크플로가 selftest 대기와 스모크 cp1252에서 실패. 자산 없음 |
 | 1.2.0 | 저장 파이프라인 재구성. 태그 v1.2.0 |
 | 1.0.0 | First public release: single window, recorder, editor, streaming video load, save GIF/WebP/MP4/WebM/APNG, batch, dark theme + drawn icons, effects, manage tab, settings, GitHub Actions release |
 | 1.1.0 | GitHub self-updater, 업데이트 확인 menu, daily auto-check, SHA256 assets |
@@ -41,7 +41,8 @@ Record (fps, presets, countdown, cursor/highlight/click, pin, direct save) · Ed
 - `requirements.txt` pins PySide6 <6.9; dev box uses 6.12 — verify before bumping.
 
 ## Session log (append newest first)
-- 2026-10-30: 릴리스 빌드용 cv2 훅과 `BongGIF.exe --selftest`. 버전 1.3.0 유지. 태그 안 함.
+- 2026-10-30: 릴리스 워크플로. windowed exe는 Start-Process -Wait로 종료 코드를 받고, 출력에 `selftest ok`가 없으면 실패. 워크플로 env `PYTHONUTF8`/`PYTHONIOENCODING`. 스모크 실패는 빌드를 막음. 버전 1.3.0 유지. 리눅스 스모크 79/58/40/15/42/10/13 통과. 태그는 다시 안 함.
+- 2026-10-30: 릴리스 빌드용 cv2 훅과 `BongGIF.exe --selftest`. 버전 1.3.0 유지. 이후 태그 v1.3.0 푸시(run 41114097847 실패).
 - 2026-10-30: v1.3.0 작업. 일괄 변환 제거, 클립/마스크/CSRT·템플릿 추적, webpclip 포팅, 테마. 릴리스 태그 안 함.
 
 - 2026-10-30: v1.2.0 작업 트리. `bonggif/encoders/` (gif/webp/apng/mp4/webm/avif). 녹화 15fps 66/67ms·동일 프레임 합치기. 설정 탭은 12 유지. `smoke_test_export.py` 추가. 소스 MIT, libimagequant 없음. 태그/릴리스는 하지 않음.
