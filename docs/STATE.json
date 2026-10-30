@@ -30,7 +30,7 @@
     "smoke_test_updater.py": 40,
     "smoke_test_crash.py": 15,
     "smoke_test_export.py": 42,
-    "smoke_test_masks.py": 9,
+    "smoke_test_masks.py": 10,
     "smoke_test_webpclip.py": 13
   },
   "parity_estimate_pct": 88,
@@ -177,7 +177,7 @@
     "smoke_test_updater.py": 40,
     "smoke_test_crash.py": 15,
     "smoke_test_export.py": 42,
-    "smoke_test_masks.py": 9,
+    "smoke_test_masks.py": 10,
     "smoke_test_webpclip.py": 13
   },
   "build_commands": [

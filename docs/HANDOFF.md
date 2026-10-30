@@ -41,6 +41,7 @@ Record (fps, presets, countdown, cursor/highlight/click, pin, direct save) · Ed
 - `requirements.txt` pins PySide6 <6.9; dev box uses 6.12 — verify before bumping.
 
 ## Session log (append newest first)
+- 2026-10-30: 릴리스 빌드용 cv2 훅과 `BongGIF.exe --selftest`. 버전 1.3.0 유지. 태그 안 함.
 - 2026-10-30: v1.3.0 작업. 일괄 변환 제거, 클립/마스크/CSRT·템플릿 추적, webpclip 포팅, 테마. 릴리스 태그 안 함.
 
 - 2026-10-30: v1.2.0 작업 트리. `bonggif/encoders/` (gif/webp/apng/mp4/webm/avif). 녹화 15fps 66/67ms·동일 프레임 합치기. 설정 탭은 12 유지. `smoke_test_export.py` 추가. 소스 MIT, libimagequant 없음. 태그/릴리스는 하지 않음.

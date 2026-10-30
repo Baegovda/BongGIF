@@ -51,8 +51,14 @@ jobs:
             --icon bonggif.ico --add-data "bonggif.ico;." `
             --collect-all imageio_ffmpeg --collect-submodules imageio `
             --hidden-import mss --hidden-import keyboard `
-            --hidden-import cv2 --collect-binaries cv2 --collect-data cv2 `
+            --hidden-import cv2 --additional-hooks-dir hooks `
             BongGIF.py
+
+      - name: Verify frozen OpenCV
+        shell: pwsh
+        run: |
+          & "$PWD\dist\BongGIF\BongGIF.exe" --selftest
+          if ($LASTEXITCODE -ne 0) { Write-Error "frozen cv2 selftest failed (exit $LASTEXITCODE)"; exit 1 }
 
       - name: Zip
         shell: pwsh
