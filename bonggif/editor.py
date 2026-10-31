@@ -197,6 +197,130 @@ class TrackStrip(QWidget):
             col = QColor("#3d8bfd") if kind == "ok" else QColor("#e5484d")
             p.fillRect(int(i * w), 0, max(1, int(w) + 1), self.height(), col)
 
+_CLIP_COLORS = ("#3d8bfd", "#f0a202", "#3ddc97", "#e5484d", "#c084fc", "#22d3ee")
+
+class ClipLane(QWidget):
+    """타임라인 트랙의 클립 범위. 빈 곳 드래그로 추가, 가운데로 이동, 가장자리로 길이 조절."""
+    committed = Signal(int, int, int)
+    picked = Signal(int)
+    removeRequested = Signal(int)
+    def __init__(self):
+        super().__init__()
+        self.setFixedHeight(32)
+        self.setMouseTracking(True)
+        self.n = 1
+        self.clips = []
+        self._drag = None
+        self._hover = None
+    def set_clips(self, n, clips):
+        self.n = max(1, int(n or 1))
+        self.clips = list(clips)
+        self.update()
+    def _x0(self, frame):
+        return int(frame / self.n * max(1, self.width()))
+    def _x1(self, frame):
+        return int((frame + 1) / self.n * max(1, self.width()))
+    def _frame_at(self, x):
+        if self.width() <= 0:
+            return 0
+        return min(self.n - 1, max(0, int(x / self.width() * self.n)))
+    def _hit(self, x):
+        for i in range(len(self.clips) - 1, -1, -1):
+            a, b = self.clips[i][0], self.clips[i][1]
+            x0, x1 = self._x0(a), max(self._x0(a) + 10, self._x1(b))
+            if x0 <= x <= x1:
+                if x - x0 <= 6:
+                    return i, "start"
+                if x1 - x <= 6:
+                    return i, "end"
+                return i, "move"
+        return None, None
+    def _live(self):
+        if not self._drag:
+            return self.clips
+        i, mode, _x, a0, b0, anchor = self._drag
+        fr = self._frame_at(self._hover if self._hover is not None else _x)
+        clips = list(self.clips)
+        a, b = a0, b0
+        if mode == "move":
+            delta = fr - anchor
+            a = min(max(0, a0 + delta), self.n - 1)
+            b = min(max(0, b0 + delta), self.n - 1)
+            if b - a != b0 - a0:
+                if delta < 0:
+                    b = min(self.n - 1, a + (b0 - a0))
+                else:
+                    a = max(0, b - (b0 - a0))
+        elif mode == "start":
+            a = min(fr, b0)
+        elif mode == "end":
+            b = max(fr, a0)
+        elif mode == "new":
+            a, b = sorted((anchor, fr))
+        row = clips[i] if 0 <= i < len(clips) else (a, b, "", True, -1)
+        shown = (a, b, row[2], row[3], row[4] if mode != "new" else -1)
+        if mode == "new":
+            clips = clips + [shown]
+        elif 0 <= i < len(clips):
+            clips[i] = shown
+        return clips
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor("#10141c"))
+        p.setPen(QPen(QColor("#2a3140")))
+        p.drawRect(0, 0, self.width() - 1, self.height() - 1)
+        for i, (a, b, name, selected, _idx) in enumerate(self._live()):
+            x0, x1 = self._x0(a), max(self._x0(a) + 8, self._x1(b))
+            col = QColor(_CLIP_COLORS[i % len(_CLIP_COLORS)])
+            if not selected:
+                col.setAlpha(90)
+            p.fillRect(x0, 4, max(8, x1 - x0), self.height() - 8, col)
+            p.setPen(QColor("#0b0e14"))
+            label = name or f"{a + 1}"
+            p.drawText(QRect(x0 + 4, 4, max(8, x1 - x0 - 6), self.height() - 8), Qt.AlignVCenter | Qt.AlignLeft, label)
+        p.end()
+    def mousePressEvent(self, e):
+        if e.button() == Qt.RightButton:
+            i, _mode = self._hit(e.position().x())
+            if i is not None:
+                self.picked.emit(self.clips[i][4])
+                m = QMenu(self)
+                m.addAction("이 클립 삭제", lambda idx=self.clips[i][4]: self.removeRequested.emit(idx))
+                m.exec(e.globalPosition().toPoint())
+            return
+        if e.button() != Qt.LeftButton:
+            return
+        x = e.position().x()
+        i, mode = self._hit(x)
+        if i is None:
+            fr = self._frame_at(x)
+            self._drag = (-1, "new", x, fr, fr, fr)
+            self._hover = x
+        else:
+            a, b = self.clips[i][0], self.clips[i][1]
+            self._drag = (i, mode, x, a, b, self._frame_at(x))
+            self._hover = x
+            self.picked.emit(self.clips[i][4])
+        self.update()
+    def mouseMoveEvent(self, e):
+        self._hover = e.position().x()
+        if self._drag:
+            self.update()
+    def mouseReleaseEvent(self, e):
+        if not self._drag or e.button() != Qt.LeftButton:
+            return
+        live = self._live()
+        i, mode, *_ = self._drag
+        self._drag = None
+        self.update()
+        if mode == "new":
+            a, b = live[-1][0], live[-1][1]
+            if b >= a:
+                self.committed.emit(-1, a, b)
+            return
+        row = live[i]
+        self.committed.emit(row[4], row[0], row[1])
+
 class EditorWindow(QMainWindow):
     """단일 메인 창. 탭 순서: 홈 · 녹화 · 편집 · 관리."""
     def __init__(self, project: Project | None = None):
@@ -237,6 +361,7 @@ class EditorWindow(QMainWindow):
         A["save"] = self._act("저장…", self.save_file, "Ctrl+S")
         A["clip_sep"] = self._act("선택 클립을 각각 저장…", lambda: self.export_selected_clips(mode="separate"))
         A["clip_join"] = self._act("선택 클립 이어 저장…", lambda: self.export_selected_clips(mode="join"))
+        A["clip_all"] = self._act("클립 모두 움짤로 빼기", self.export_checked_gifs, "Ctrl+Shift+E")
         A["quit"] = self._act("끝내기", self.close, "Ctrl+Q", busy_ok=True)
         A["undo"] = self._act("실행취소", self.undo, "Ctrl+Z"); A["redo"] = self._act("다시실행", self.redo, "Ctrl+Y")
         A["delete"] = self._act("삭제", self.delete_smart, "Delete")
@@ -285,7 +410,7 @@ class EditorWindow(QMainWindow):
                  "prev": "prev", "next": "next", "rec": "rec", "manage": "manage", "settings": "settings", "cut": "cut",
                  "reduce": "reduce", "time": "time", "faster": "faster", "slower": "slower", "reverse": "reverse", "yoyo": "yoyo",
                  "add_last": "add", "zoom_in": "zoom_in", "zoom_out": "zoom_out", "fit": "fit", "import_img": "image", "logs": "folder",
-                 "clip_add": "add", "clip_sep": "save", "clip_join": "save"}
+                 "clip_add": "add", "clip_sep": "save", "clip_join": "save", "clip_all": "save"}
         for k, n in icons.items(): A[k].setIcon(icon(n))
         A["rec"].setIcon(icon("rec", "#ff5a5a"))
         mb = self.menuBar()
@@ -293,7 +418,7 @@ class EditorWindow(QMainWindow):
         self.menu_tools = mb.addMenu("도구"); self.menu_help = mb.addMenu("도움말")
         for k in ("open", "import", "seq", "import_img"): self.menu_file.addAction(A[k])
         self.menu_file.addSeparator()
-        for k in ("save", "clip_sep", "clip_join"): self.menu_file.addAction(A[k])
+        for k in ("save", "clip_sep", "clip_join", "clip_all"): self.menu_file.addAction(A[k])
         self.menu_file.addSeparator(); self.menu_file.addAction(A["quit"])
         for k in ("undo", "redo"): self.menu_edit.addAction(A[k])
         self.menu_edit.addSeparator()
@@ -384,8 +509,15 @@ class EditorWindow(QMainWindow):
         self._btn(h, "추가", self.add_clip, "add"); self._btn(h, "이름", self._rename_clip_dialog)
         self._btn(h, "위로", lambda: self.move_clip(-1)); self._btn(h, "아래로", lambda: self.move_clip(1)); self._btn(h, "삭제", self.delete_clip, "delete")
         gv.addLayout(h)
+        h = QHBoxLayout(); self.sp_clip_a = QSpinBox(); self.sp_clip_b = QSpinBox()
+        for sp in (self.sp_clip_a, self.sp_clip_b): sp.setRange(1, 1)
+        h.addWidget(QLabel("시작")); h.addWidget(self.sp_clip_a); h.addWidget(QLabel("끝")); h.addWidget(self.sp_clip_b)
+        gv.addLayout(h)
+        self.sp_clip_a.valueChanged.connect(self._clip_spins_edited)
+        self.sp_clip_b.valueChanged.connect(self._clip_spins_edited)
         h = QHBoxLayout(); self._btn(h, "각각 저장", lambda: self.export_selected_clips(mode="separate"), "save")
         self._btn(h, "이어 저장", lambda: self.export_selected_clips(mode="join"), "save"); gv.addLayout(h)
+        b = self._btn(gv, "클립 모두 움짤로 빼기", self.export_checked_gifs, "save"); b.setObjectName("exportAllClips")
         self.audio_list = QListWidget(); self.audio_list.setObjectName("audioStarts"); self.audio_list.setMinimumHeight(72)
         self.audio_list.setToolTip("소리 에너지가 커지는 프레임. 누르면 그 지점을 구간 시작으로 둡니다.")
         self.audio_list.itemClicked.connect(self._pick_audio_start)
@@ -540,7 +672,11 @@ class EditorWindow(QMainWindow):
         cv_.addWidget(pb)
         body = QSplitter(); body.addWidget(center); body.addWidget(side); body.setStretchFactor(0, 1)
         self.track_strip = TrackStrip()
-        edit = QWidget(); rv = QVBoxLayout(edit); rv.setContentsMargins(0, 0, 0, 0); rv.addWidget(cmd); rv.addWidget(body, 1); rv.addWidget(self.track_strip); rv.addWidget(self.timeline)
+        self.clip_lane = ClipLane()
+        self.clip_lane.committed.connect(self._lane_commit)
+        self.clip_lane.picked.connect(self._lane_pick)
+        self.clip_lane.removeRequested.connect(self._lane_remove)
+        edit = QWidget(); rv = QVBoxLayout(edit); rv.setContentsMargins(0, 0, 0, 0); rv.addWidget(cmd); rv.addWidget(body, 1); rv.addWidget(self.clip_lane); rv.addWidget(self.track_strip); rv.addWidget(self.timeline)
         self.manage = ManagePanel(get_str(self.settings, "manage_dir") or get_str(self.settings, "last_dir"))
         self.manage.editRequested.connect(lambda p: self.open_file(p))
         self.tabs = QTabWidget(); self._home_buttons = []
@@ -1138,6 +1274,7 @@ class EditorWindow(QMainWindow):
         self.tabs.setCurrentIndex(self.tab_index(name)); return self.tabs.currentIndex()
     def _refresh_clips(self):
         if not hasattr(self, "clip_list"): return
+        row = self.clip_list.currentRow()
         self.clip_list.blockSignals(True); self.clip_list.clear()
         for c in self.project.clips:
             it = QListWidgetItem(f"{c.name}  ({c.start + 1}–{c.end + 1})")
@@ -1148,6 +1285,46 @@ class EditorWindow(QMainWindow):
         if getattr(self, "_clip_hooked", False):
             self.clip_list.itemChanged.disconnect(); self._clip_hooked = False
         self.clip_list.itemChanged.connect(self._clip_check); self._clip_hooked = True
+        if self.clip_list.count():
+            self.clip_list.setCurrentRow(min(max(0, row), self.clip_list.count() - 1))
+        self._sync_clip_bounds_spins()
+        self._sync_clip_lane()
+    def _sync_clip_lane(self):
+        if not hasattr(self, "clip_lane"): return
+        n = len(self.project.frames)
+        rows = [(c.start, c.end, c.name, c.selected, i) for i, c in enumerate(self.project.clips)]
+        self.clip_lane.set_clips(n, rows)
+    def _sync_clip_bounds_spins(self):
+        if not hasattr(self, "sp_clip_a"): return
+        n = max(1, len(self.project.frames))
+        i = self.clip_list.currentRow()
+        self._clip_spin_lock = True
+        self.sp_clip_a.setRange(1, n); self.sp_clip_b.setRange(1, n)
+        if 0 <= i < len(self.project.clips):
+            c = self.project.clips[i]
+            self.sp_clip_a.setValue(c.start + 1); self.sp_clip_b.setValue(c.end + 1)
+            self.sp_clip_a.setEnabled(True); self.sp_clip_b.setEnabled(True)
+        else:
+            self.sp_clip_a.setEnabled(False); self.sp_clip_b.setEnabled(False)
+        self._clip_spin_lock = False
+    def _clip_spins_edited(self):
+        if getattr(self, "_clip_spin_lock", False): return
+        i = self.clip_list.currentRow()
+        if i < 0: return
+        if self.project.set_clip_bounds(i, self.sp_clip_a.value() - 1, self.sp_clip_b.value() - 1):
+            self._refresh_clips(); self.clip_list.setCurrentRow(i)
+    def _lane_pick(self, index):
+        if 0 <= index < self.clip_list.count():
+            self.clip_list.setCurrentRow(index)
+    def _lane_commit(self, index, start, end):
+        if index < 0:
+            self.add_clip(start, end)
+            return
+        if self.project.set_clip_bounds(index, start, end):
+            self._refresh_clips(); self.clip_list.setCurrentRow(index)
+    def _lane_remove(self, index):
+        if 0 <= index < len(self.project.clips):
+            self.project.remove_clip(index); self._refresh_clips()
     def _clip_check(self, item):
         i = self.clip_list.row(item)
         if 0 <= i < len(self.project.clips):
@@ -1230,6 +1407,7 @@ class EditorWindow(QMainWindow):
         if i < 0 or i >= len(self.project.clips) or not self.project.frames: return
         c = self.project.clips[i]
         self.sp_trim_a.setValue(c.start + 1); self.sp_trim_b.setValue(c.end + 1)
+        self._sync_clip_bounds_spins()
         self.goto(c.start)
     def _selected_clips(self):
         return [c for c in self.project.clips if c.selected]
@@ -1274,6 +1452,78 @@ class EditorWindow(QMainWindow):
             self.set_status("저장 완료: " + ", ".join(os.path.basename(p) for p in paths))
             if notify: self._saved_notice(paths[-1], os.path.getsize(paths[-1]) / 1048576)
         return self.run_task("클립 저장", job, done)
+    def export_checked_gifs(self, folder=None, options=None, ext=None, notify=False):
+        """체크된 클립을 원본이름_클립01.ext 로 한 폴더에 저장. 하나는 실패해도 계속한다."""
+        sel = self._selected_clips()
+        if not sel or not self.project.frames or self.is_busy():
+            self.set_status("저장할 클립을 체크하세요"); return None
+        if folder is None or options is None or ext is None:
+            base = self._source_stem()
+            dlg = SaveDialog(self, get_str(self.settings, "last_fmt", "gif"), self.project.frames,
+                             get_str(self.settings, "save_dir") or self._start_dir() or os.path.expanduser("~"), base)
+            if dlg.exec() != QDialog.Accepted:
+                return None
+            options = dlg.options(); ext = dlg.ext(); folder = os.path.dirname(dlg.path())
+            self.settings.setValue("last_fmt", dlg.fmt())
+        from .clipsave import clip_export_name, source_stem, unique_path
+        os.makedirs(folder, exist_ok=True)
+        stem = source_stem(self.source_path)
+        opt = dict(options or {})
+        paths, labels = [], []
+        for i, c in enumerate(sel, 1):
+            path = unique_path(folder, clip_export_name(stem, i, ext))
+            paths.append(path); labels.append(c.name)
+        masks = [m.copy() for m in self.project.masks]
+        crop = None if self.project.export_crop is None else tuple(self.project.export_crop)
+        base_frames = [Frame(f.image, f.delay) for f in self.project.frames]
+        ranges = [(c.start, c.end) for c in sel]
+        def job(ctx):
+            from .exporter import export_frames
+            from .masks import apply_masks
+            from .core import Cancelled
+            rendered = apply_masks(base_frames, masks, None, ctx) if masks else base_frames
+            out = {"ok": [], "fail": [], "cancelled": False, "folder": folder}
+            for i, ((a, b), path) in enumerate(zip(ranges, paths)):
+                if ctx.cancelled():
+                    out["cancelled"] = True
+                    break
+                ctx.step(i, len(paths), f"클립 저장 {i + 1}/{len(paths)}: {os.path.basename(path)}")
+                try:
+                    part = [Frame(f.image, f.delay) for f in rendered[a:b + 1]]
+                    if crop:
+                        part = apply_masks(part, [], crop, ctx)
+                    export_frames(part, path, ctx=ctx, **opt)
+                    out["ok"].append(path)
+                except Cancelled:
+                    out["cancelled"] = True
+                    break
+                except Exception as exc:
+                    out["fail"].append((os.path.basename(path), str(exc)))
+            return out
+        def done(result):
+            self.last_clip_export = result
+            ok_n, fail_n = len(result["ok"]), len(result["fail"])
+            tail = " · 취소됨" if result.get("cancelled") else ""
+            self.set_status(f"클립 움짤 성공 {ok_n}개, 실패 {fail_n}개{tail}")
+            if notify:
+                self._clip_export_notice(result)
+        return self.run_task("클립 모두 움짤로 빼기", job, done)
+    def _source_stem(self):
+        from .clipsave import source_stem
+        return source_stem(self.source_path)
+    def _clip_export_notice(self, result):
+        ok_n, fail_n = len(result["ok"]), len(result["fail"])
+        lines = [f"성공 {ok_n}개, 실패 {fail_n}개"]
+        if result.get("cancelled"):
+            lines.append("중간에 취소했습니다.")
+        for name, err in result["fail"]:
+            lines.append(f"실패 {name}: {err}")
+        box = QMessageBox(QMessageBox.Information, "클립 움짤", "\n".join(lines), QMessageBox.NoButton, self)
+        bf = box.addButton("폴더 열기", QMessageBox.ActionRole)
+        box.addButton("닫기", QMessageBox.RejectRole)
+        folder = result.get("folder") or ""
+        bf.clicked.connect(lambda: logutil.open_folder(folder, select=False))
+        box.setModal(False); box.show(); self.save_box = box
     # ---- 녹화 ----
     def open_recorder(self):
         from .recorder import RecorderWindow

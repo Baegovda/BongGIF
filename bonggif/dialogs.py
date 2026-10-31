@@ -205,7 +205,7 @@ class ImageImportDialog(QDialog):
 SHORTCUTS = [("열기", "Ctrl+O"), ("저장", "Ctrl+S"), ("화면 녹화 / 녹화 시작·종료", "Ctrl+R / F9"), ("실행취소 / 다시실행", "Ctrl+Z / Ctrl+Y"),
              ("재생/정지", "Space"), ("처음/이전/다음/마지막 프레임", "Home / ← / → / End"), ("프레임 삭제", "Delete"),
              ("구간 시작/끝 지정", "I / O"), ("구간만 남기기", "Ctrl+K"), ("프레임 구간 자르기", "Ctrl+T"), ("확대/축소/맞춤", "Ctrl++ / Ctrl+- / Ctrl+0"),
-             ("클립 추가", "Ctrl+Shift+A"), ("환경 설정", "Ctrl+,"), ("작업 취소", "Esc")]
+             ("클립 추가", "A"), ("클립 모두 움짤로 빼기", "Ctrl+Shift+E"), ("환경 설정", "Ctrl+,"), ("작업 취소", "Esc")]
 
 class SettingsDialog(QDialog):
     """환경 설정: 일반 · 녹화 · 편집 · 자르기 · 단축키 · GIF · WebP · WebM · MP4 · APNG · 고급 · 언어."""
