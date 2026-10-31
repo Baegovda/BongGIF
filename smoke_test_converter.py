@@ -172,5 +172,24 @@ gif = os.path.join(out, "skip.gif"); w.project.frames and None
 from PIL import Image as _I
 _I.new("RGB", (40, 30), "red").save(gif, save_all=True, append_images=[_I.new("RGB", (40, 30), "blue")], duration=100, loop=0)
 w.open_file(gif); w.wait_task(); ok("GIF는 대화상자 없이 바로 열기", getattr(w, "range_dlg", None) is None and len(w.project.frames) == 2)
+from bonggif.converter import VideoInfo, fit_edit_budget, EDIT_RAM_MB, iter_images
+long = VideoInfo("x", 60.0, 30.0, 1920, 1080)
+fc, mw, trimmed = fit_edit_budget(long, 30, 1280)
+s60 = video_settings(long, fc, mw)
+nbytes = cv.estimate_frames(long, s60) * cv.out_size(long, s60)[0] * cv.out_size(long, s60)[1] * 4
+ok("60초 1080p는 메모리 상한 아래", trimmed and nbytes <= EDIT_RAM_MB * 1048576, f"{nbytes/1048576:.0f}MB {fc:g}fps {mw}px")
+short = VideoInfo("x", 10.0, 30.0, 1920, 1080)
+fc2, mw2, trimmed2 = fit_edit_budget(short, 30, 1280)
+ok("10초 1080p 설정은 그대로", (not trimmed2) and fc2 == 30 and mw2 == 1280)
+info1 = cv.probe(v1); s1 = video_settings(info1, 0, 0)
+rgb = Image.fromarray(next(cv.iter_frames(v1, s1, info1))).convert("RGBA")
+rgba = next(iter_images(v1, s1, info1))
+ok("RGBA 디코드가 RGB와 같음", rgb.size == rgba.size and rgb.tobytes() == rgba.tobytes(), f"{rgb.size}")
+t0 = time.perf_counter()
+w.range_auto = True
+w.load_video(v1, ask=False, pick=False); w.wait_task(); w.wait_task()
+load_s = time.perf_counter() - t0
+limit = 12 if os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS") else 8
+ok("짧은 영상 로드 시간·프레임 수", len(w.project.frames) == 100 and load_s < limit, f"{load_s:.2f}s {len(w.project.frames)}프레임")
 w.close(); print("출력:", out); print(f"결과: {sum(x for _, x in R)}/{len(R)} 통과")
 sys.exit(0 if all(x for _, x in R) else 1)

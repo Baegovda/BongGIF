@@ -897,13 +897,14 @@ class EditorWindow(QMainWindow):
         if not path: path, _ = QFileDialog.getOpenFileName(self, "영상 열기", self._start_dir(), VIDEO_FILTER)
         return self.load_video(path) if path else None
 
-    # ---- 스트리밍 불러오기: 첫 프레임 즉시 표시, 썸네일은 작업 스레드에서 같이 생성 ----
-    def _stream(self, label, gen, source, on_done=None):
+    # ---- 스트리밍 불러오기: 첫 프레임을 바로 표시. 영상 썸네일은 프레임이 쌓인 뒤 채운다. ----
+    def _stream(self, label, gen, source, on_done=None, thumbs=True):
         self._loading = {"first": True, "source": source}
         def job(ctx):
             batch = []; last = time.monotonic(); count = 0
             for fr, i, n, msg in gen(ctx):
-                batch.append((fr, make_thumb(fr.image))); count += 1
+                thumb = make_thumb(fr.image) if thumbs else None
+                batch.append((fr, thumb)); count += 1
                 ctx.step(i, n, f"{msg} {i}/{n}" if n else f"{msg} {i}")
                 now = time.monotonic()
                 if len(batch) == 1 and count == 1 or now - last > 0.15 or len(batch) >= 24:
@@ -914,14 +915,22 @@ class EditorWindow(QMainWindow):
             ld = self._loading; self._loading = None
             if not self.project.frames:
                 self.refresh(); self._warn("불러온 프레임이 없습니다."); return
-            self._thumbs_ready = True; self._gen += 1; self._invalidate_pcache()
+            self._thumbs_ready = True if thumbs else None
+            self._gen += 1; self._invalidate_pcache()
             self._update_meta(0); self.timeline.setCurrentRow(0)
             log.info("불러오기 완료 %s: %d프레임 %s", ld and ld["source"], len(self.project.frames), self.project.size)
             self.set_status(f"불러오기 완료: {len(self.project.frames)}프레임 · {self.project.size[0]}×{self.project.size[1]} — 편집한 뒤 저장(Ctrl+S)")
+            if not thumbs:
+                self._start_thumbs()
             if on_done: on_done()
         t = self.run_task(label, job, fin, on_cancel=lambda: (fin(), self.set_status(f"불러오기 취소 — 지금까지 {len(self.project.frames)}프레임을 불러왔습니다")))
         if t: t.partial.connect(self._on_partial)
         return t
+    def _blank_thumb(self):
+        icon = getattr(self, "_blank_icon", None)
+        if icon is None:
+            pm = QPixmap(96, 72); pm.fill(QColor(60, 62, 70)); icon = QIcon(pm); self._blank_icon = icon
+        return icon
     def _on_partial(self, items):
         ld = self._loading
         if ld is None: return
@@ -933,7 +942,8 @@ class EditorWindow(QMainWindow):
         self.timeline.setUpdatesEnabled(False)
         for k, (fr, qi) in enumerate(items):
             self.project.frames.append(fr)
-            it = QListWidgetItem(QIcon(QPixmap.fromImage(qi)), f"{start + k + 1}\n{fr.delay}ms"); it.setData(Qt.UserRole, start + k)
+            icon = QIcon(QPixmap.fromImage(qi)) if qi is not None else self._blank_thumb()
+            it = QListWidgetItem(icon, f"{start + k + 1}\n{fr.delay}ms"); it.setData(Qt.UserRole, start + k)
             self.timeline.addItem(it)
         self.timeline.setUpdatesEnabled(True)
         if start == 0: self.show_frame(0)
@@ -957,14 +967,18 @@ class EditorWindow(QMainWindow):
                     self.load_video(path, f2, w2, a, None if b >= info.duration - 1e-3 else b, ask, pick=False)
                 def no_(): self.range_dlg = None; self.set_status("불러오기 취소")
                 dlg.accepted.connect(ok_); dlg.rejected.connect(no_); dlg.open(); self.set_status("불러올 구간을 선택하세요"); return
-            s = video_settings(info, fps_cap, max_w, start, end); n = cv.estimate_frames(info, s); ow, oh = cv.out_size(info, s)
+            explicit_full = fps_cap == 0 and max_w == 0
+            fc, mw, trimmed = (fps_cap, max_w, False) if explicit_full else cv.fit_edit_budget(info, fps_cap, max_w)
+            self._budget_trimmed = trimmed
+            use_fps, use_w = (fc, mw) if trimmed else (fps_cap, max_w)
+            s = video_settings(info, use_fps, use_w, start, end); n = cv.estimate_frames(info, s); ow, oh = cv.out_size(info, s)
             mb = n * ow * oh * 4 / 1048576
             if mb > self.MEM_LIMIT_MB and ask:
-                dlg = OpenOptionsDialog(self, info, fps_cap or 0, max_w or 0, start, end,
+                dlg = OpenOptionsDialog(self, info, use_fps or 0, use_w or 0, start, end,
                                         warn=f"이대로 불러오면 메모리를 약 {mb:.0f} MB 사용합니다. 시간 범위를 줄이거나 FPS·해상도를 낮추세요.")
                 if dlg.exec() != QDialog.Accepted: self.set_status("불러오기 취소"); return
                 f2, w2, a2, b2 = dlg.values(); self.load_video(path, f2, w2, a2, b2, ask=False, pick=False); return
-            self._stream_video(path, info, s, fps_cap, max_w)
+            self._stream_video(path, info, s, use_fps, use_w)
         return self.run_task(f"영상 정보 읽기: {os.path.basename(path)}", lambda ctx: (ctx.step(0, 0, "영상 정보 읽는 중…"), cv.probe(path))[1], done)
     def _stream_video(self, path, info, s, fps_cap, max_w):
         from . import converter as cv
@@ -972,16 +986,18 @@ class EditorWindow(QMainWindow):
         delay = max(10, int(round(1000 / fps)))
         def gen(ctx):
             step = 1000.0 / fps   # 누적 반올림으로 지연 오차가 쌓이지 않게 (33,34,33… → 실제 길이 유지)
-            for i, arr in enumerate(cv.iter_frames(path, s, info, ctx.cancelled)):
+            for i, im in enumerate(cv.iter_images(path, s, info, ctx.cancelled)):
                 d = max(10, int(round((i + 1) * step)) - int(round(i * step)))
-                yield Frame(Image.fromarray(arr).convert("RGBA"), d), i + 1, max(n, i + 1), "영상 디코딩 중"
+                yield Frame(im, d), i + 1, max(n, i + 1), "영상 디코딩 중"
         def after():
             reduced = (ow, oh) != (info.width, info.height) or abs(fps - info.fps) > 0.01
-            self.lbl_banner.setText(f"원본 {info.width}×{info.height} · {info.fps:.3g}fps 영상을 편집용 {ow}×{oh} · {fps:.3g}fps로 불러왔습니다."
-                                    if reduced else f"원본 {info.width}×{info.height} · {info.fps:.3g}fps 그대로 불러왔습니다.")
-            self.btn_full.setVisible(reduced); self.banner.show()
+            note = f"원본 {info.width}×{info.height} · {info.fps:.3g}fps 영상을 편집용 {ow}×{oh} · {fps:.3g}fps로 불러왔습니다." if reduced else f"원본 {info.width}×{info.height} · {info.fps:.3g}fps 그대로 불러왔습니다."
+            if getattr(self, "_budget_trimmed", False):
+                note += " 길어서 메모리 상한에 맞춰 낮췄습니다. 원본 해상도로 다시 불러올 수 있습니다."
+            self.lbl_banner.setText(note)
+            self.btn_full.setVisible(reduced or getattr(self, "_budget_trimmed", False)); self.banner.show()
         self.banner.hide()
-        return self._stream(f"영상 불러오기: {os.path.basename(path)}", gen, path, after)
+        return self._stream(f"영상 불러오기: {os.path.basename(path)}", gen, path, after, thumbs=False)
     def reload_video(self, full=False):
         v = getattr(self, "_video", None)
         if not v or self.is_busy(): return None
