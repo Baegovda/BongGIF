@@ -111,26 +111,79 @@ def _vf(info, s, w, h, fps):
     sp = max(0.05, float(s.speed))
     return f"setpts=PTS/{sp:.6g},fps={fps:.6g},scale={w}:{h}:flags=lanczos"
 
+# 편집 버퍼(RGBA)가 이 값을 넘기면 fps·너비를 낮춘다. 10초 1080p·30fps·1280px(약 1.05GB)는 그대로 둔다.
+EDIT_RAM_MB = 1152
+
+def _decode_args(path, s, info, pix_fmt):
+    a, b = clip_range(info, s)
+    w, h = out_size(info, s)
+    fps = out_fps(info, s)
+    args = [ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-nostdin", "-threads", "0",
+            "-ss", f"{a:.3f}", "-t", f"{max(0.001, b - a):.3f}", "-i", path, "-an",
+            "-vf", _vf(info, s, w, h, fps), "-f", "rawvideo", "-pix_fmt", pix_fmt, "-"]
+    return args, w, h
+
+def _read_raw(args, nbytes, cancel):
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
+                         creationflags=_NOWIN, bufsize=nbytes * 2)
+    try:
+        while True:
+            if cancel and cancel():
+                raise Cancelled()
+            buf = p.stdout.read(nbytes)
+            if not buf or len(buf) < nbytes:
+                break
+            yield buf
+    finally:
+        try:
+            p.stdout.close()
+        except Exception:
+            pass
+        if p.poll() is None:
+            p.kill()
+        p.wait()
+
 def iter_frames(path: str, s: ConvertSettings, info: Optional[VideoInfo] = None,
                 cancel: Optional[Callable[[], bool]] = None) -> Iterator[np.ndarray]:
     """선택 구간의 프레임을 RGB ndarray로 스트리밍."""
-    info = info or probe(path); a, b = clip_range(info, s)
-    w, h = out_size(info, s); fps = out_fps(info, s)
-    args = [ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-ss", f"{a:.3f}", "-t", f"{max(0.001, b - a):.3f}",
-            "-i", path, "-an", "-vf", _vf(info, s, w, h, fps), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, creationflags=_NOWIN, bufsize=w * h * 3 * 2)
-    n = w * h * 3
-    try:
-        while True:
-            if cancel and cancel(): raise Cancelled()
-            buf = p.stdout.read(n)
-            if not buf or len(buf) < n: break
-            yield np.frombuffer(buf, np.uint8).reshape(h, w, 3)
-    finally:
-        try: p.stdout.close()
-        except Exception: pass
-        if p.poll() is None: p.kill()
-        p.wait()
+    info = info or probe(path)
+    args, w, h = _decode_args(path, s, info, "rgb24")
+    for buf in _read_raw(args, w * h * 3, cancel):
+        yield np.frombuffer(buf, np.uint8).reshape(h, w, 3)
+
+def iter_images(path: str, s: ConvertSettings, info: Optional[VideoInfo] = None,
+                cancel: Optional[Callable[[], bool]] = None):
+    """편집기용 RGBA. ffmpeg가 알파까지 써서 numpy 변환을 건너뛴다. 스케일은 lanczos 그대로."""
+    info = info or probe(path)
+    args, w, h = _decode_args(path, s, info, "rgba")
+    for buf in _read_raw(args, w * h * 4, cancel):
+        yield Image.frombytes("RGBA", (w, h), buf)
+
+def fit_edit_budget(info: VideoInfo, fps_cap, max_w, cap_mb: float = EDIT_RAM_MB):
+    """RGBA 추정이 cap_mb 를 넘으면 fps, 그다음 너비를 낮춘다. 이미 아래면 입력을 그대로 돌려준다."""
+    limit = float(cap_mb) * 1048576
+    fc = 0.0 if not fps_cap or fps_cap <= 0 else float(fps_cap)
+    mw = 0 if not max_w or max_w <= 0 else int(max_w)
+
+    def cost(fps_c, width):
+        s = ConvertSettings(fps=fps_c, width=width)
+        n = estimate_frames(info, s)
+        w, h = out_size(info, s)
+        return n * w * h * 4
+
+    if cost(fc, mw) <= limit:
+        return fc, mw, False
+    chosen = fc if fc else float(info.fps or 30)
+    for f in (24, 20, 15, 12, 10, 8):
+        if chosen and f >= chosen - 0.05:
+            continue
+        chosen = float(f)
+        if cost(chosen, mw) <= limit:
+            return chosen, mw, True
+    width = mw if mw else int(info.width)
+    while cost(chosen, width) > limit and width > 480:
+        width = max(480, int(width * 0.85) // 2 * 2)
+    return chosen, width, True
 
 def grab_frame(path: str, t: float, max_w: int = 640, info: Optional[VideoInfo] = None) -> Optional[Image.Image]:
     """미리보기용 단일 프레임 (빠른 시킹, 작은 크기로 디코딩)."""
