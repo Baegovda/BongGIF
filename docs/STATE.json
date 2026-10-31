@@ -4,18 +4,107 @@
   "version": "1.6.0",
   "pending_release": {
     "tag": null,
-    "note": "1.6.0 은 태그하지 않음. 직전 태그는 v1.5.0."
+    "sha": null,
+    "run": null,
+    "note": "대기 중인 태그 없음. 최신 공개 릴리스는 v1.6.0."
   },
   "last_release": {
-    "tag": "v1.3.0",
-    "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.3.0",
+    "tag": "v1.6.0",
+    "sha": "422e262a109aa98ea662efd4c2382a2fe29dba3e",
+    "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.6.0",
+    "run": "https://github.com/Baegovda/BongGIF/actions/runs/41179233995",
     "assets": [
-      "BongGIF-v1.3.0-win64.zip",
-      "BongGIF-v1.3.0-win64.zip.sha256"
+      "BongGIF-v1.6.0-win64.zip",
+      "BongGIF-v1.6.0-win64.zip.sha256"
     ],
-    "zip_bytes": 152584497,
-    "date": "2026-10-30"
+    "zip_bytes": 136814339,
+    "date": "2026-10-31"
   },
+  "release_history": [
+    {
+      "tag": "v1.6.0",
+      "sha": "422e262a109aa98ea662efd4c2382a2fe29dba3e",
+      "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.6.0",
+      "run": "https://github.com/Baegovda/BongGIF/actions/runs/41179233995",
+      "assets": [
+        "BongGIF-v1.6.0-win64.zip",
+        "BongGIF-v1.6.0-win64.zip.sha256"
+      ],
+      "zip_bytes": 136814339,
+      "date": "2026-10-31",
+      "conclusion": "success"
+    },
+    {
+      "tag": "v1.5.0",
+      "sha": "75b5228dfa6e51124d5abb539825f0adc736029d",
+      "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.5.0",
+      "run": "https://github.com/Baegovda/BongGIF/actions/runs/41177788469",
+      "assets": [
+        "BongGIF-v1.5.0-win64.zip",
+        "BongGIF-v1.5.0-win64.zip.sha256"
+      ],
+      "zip_bytes": 136811149,
+      "date": "2026-10-31",
+      "conclusion": "success"
+    },
+    {
+      "tag": "v1.4.0",
+      "sha": "6135ad789c48eb8f845c87e2aac28f70eca8ca70",
+      "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.4.0",
+      "run": "https://github.com/Baegovda/BongGIF/actions/runs/41175624067",
+      "assets": [
+        "BongGIF-v1.4.0-win64.zip",
+        "BongGIF-v1.4.0-win64.zip.sha256"
+      ],
+      "zip_bytes": 136801956,
+      "date": "2026-10-31",
+      "conclusion": "success"
+    },
+    {
+      "tag": "v1.3.0",
+      "sha": "083b82f8a8848e2e92788957f71f3c4211789c79",
+      "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.3.0",
+      "run": "https://github.com/Baegovda/BongGIF/actions/runs/41116887877",
+      "assets": [
+        "BongGIF-v1.3.0-win64.zip",
+        "BongGIF-v1.3.0-win64.zip.sha256"
+      ],
+      "zip_bytes": 152584497,
+      "date": "2026-10-30",
+      "conclusion": "success",
+      "retag": {
+        "note": "공개 릴리스가 없는 실패 태그를 두 번 지우고 main 083b82f에 다시 달았다.",
+        "attempts": [
+          {
+            "sha": "bd38d61a8865e88f43321acb01f3d0a6c980f0ea",
+            "run": "https://github.com/Baegovda/BongGIF/actions/runs/41114097847",
+            "conclusion": "failure",
+            "release": false
+          },
+          {
+            "sha": "ab6a0b6dd7f0a401237946a5bbcb3a0b482dcc33",
+            "run": "https://github.com/Baegovda/BongGIF/actions/runs/41115607903",
+            "conclusion": "failure",
+            "release": false,
+            "note": "converter 타이머 틱 최대 387ms, 한도 150ms, 57/58"
+          }
+        ]
+      }
+    },
+    {
+      "tag": "v1.2.0",
+      "sha": "1b767a5402f2c71be94441a7a6b49f15b9289a24",
+      "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.2.0",
+      "run": "https://github.com/Baegovda/BongGIF/actions/runs/41109104209",
+      "assets": [
+        "BongGIF-v1.2.0-win64.zip",
+        "BongGIF-v1.2.0-win64.zip.sha256"
+      ],
+      "zip_bytes": 106073723,
+      "date": "2026-10-30",
+      "conclusion": "success"
+    }
+  ],
   "language": {
     "ui": "ko",
     "user": "ko"
