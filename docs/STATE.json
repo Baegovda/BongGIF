@@ -2,19 +2,17 @@
   "project": "BongGIF",
   "repo": "https://github.com/Baegovda/BongGIF",
   "version": "1.6.0",
-  "pending_release": {
-    "tag": null,
-    "note": "1.6.0 은 태그하지 않음. 직전 태그는 v1.5.0."
-  },
+  "pending_release": null,
   "last_release": {
-    "tag": "v1.3.0",
-    "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.3.0",
+    "tag": "v1.6.0",
+    "sha": "422e262a109aa98ea662efd4c2382a2fe29dba3e",
+    "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.6.0",
+    "run": "https://github.com/Baegovda/BongGIF/actions/runs/41179233995",
     "assets": [
-      "BongGIF-v1.3.0-win64.zip",
-      "BongGIF-v1.3.0-win64.zip.sha256"
+      "BongGIF-v1.6.0-win64.zip",
+      "BongGIF-v1.6.0-win64.zip.sha256"
     ],
-    "zip_bytes": 152584497,
-    "date": "2026-10-30"
+    "date": "2026-10-31"
   },
   "language": {
     "ui": "ko",
