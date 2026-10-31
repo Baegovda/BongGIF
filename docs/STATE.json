@@ -3,8 +3,10 @@
   "repo": "https://github.com/Baegovda/BongGIF",
   "version": "1.5.0",
   "pending_release": {
-    "tag": null,
-    "note": "1.5.0 은 태그하지 않음. 직전 태그는 v1.4.0."
+    "tag": "v1.5.0",
+    "sha": "75b5228dfa6e51124d5abb539825f0adc736029d",
+    "run": "https://github.com/Baegovda/BongGIF/actions/runs/41177788469",
+    "note": "태그 푸시됨. 자산은 이 run 결과 대기. 버전 1.5.0."
   },
   "last_release": {
     "tag": "v1.3.0",
