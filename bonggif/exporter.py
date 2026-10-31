@@ -124,7 +124,7 @@ class _Prefixed:
     def cancelled(self): return self.ctx.cancelled()
 
 def export_frames(frames, path, ctx=None, target_mb=0.0, max_attempts=7, **opt) -> dict:
-    """target_mb>0이면 크기·색상(·WebP/MP4 품질)을 함께 낮추며 이진 탐색."""
+    """target_mb>0이면 품질·너비를 먼저 낮추고, 그래도 넘치면 fps를 줄인다."""
     ctx = ctx or NULL; t0 = time.monotonic()
     pre = {k: opt.pop(k) for k in ("limit_fps", "max_width", "skip_similar", "embed_progress", "progress_height", "progress_color", "progress_bg") if k in opt}
     if pre: frames = preprocess(frames, ctx, **pre)
@@ -135,22 +135,31 @@ def export_frames(frames, path, ctx=None, target_mb=0.0, max_attempts=7, **opt) 
         return {"size": size, "attempts": 1, "met": True, "width": frames[0].image.width, "colors": opt.get("colors", 256)}
     limit = int(target_mb * 1048576); fmt = _ext_fmt(path); W, H = frames[0].image.size
     c0 = int(opt.get("colors", 256)); q0 = int(opt.get("webp_quality", opt.get("quality") or 80))
+    base_fps = 1000.0 / max(10, median(f.delay for f in frames))
     tmp = tempfile.mkdtemp(prefix="ffexp_"); best = None; last = None; attempts = 0; total = max(3, int(max_attempts))
     try:
-        def trial(level):
+        def trial(level, drop_fps=False):
             nonlocal attempts, best, last
             attempts += 1
             w = max(16, int(round(W * (1 - 0.8 * level)))); h = max(16, int(round(H * w / W)))
             c = max(2, int(round(c0 - (c0 - 8) * min(1.0, level * 1.5)))) if c0 > 8 else c0
+            cap = 0
+            if drop_fps:
+                cap = max(8, int(round(base_fps * max(0.25, 1 - 0.75 * min(1.0, level)))))
+                if cap >= base_fps - 0.5:
+                    cap = max(8, int(base_fps * 0.5))
             o = dict(opt); o["colors"] = c
             if fmt == "webp": o["quality"] = max(5, int(q0 * (1 - 0.85 * level)))
             if fmt in ("mp4", "webm", "avif"): o["quality"] = max(1.0, (q0 if q0 > 10 else q0 * 10) * (1 - 0.85 * level))
-            pre = f"목표 용량 시도 {attempts}/{total}: {w}px {c}색 — "
+            fps_label = cap or max(1, int(round(base_fps)))
+            pre = f"목표 용량 시도 {attempts}/{total}: {w}px {c}색 {fps_label}fps — "
             pc = _Prefixed(ctx, pre)
             fr = frames if (w, h) == (W, H) else op_resize(frames, w, h, pc)
+            if cap:
+                fr = preprocess(fr, pc, limit_fps=cap)
             tp = os.path.join(tmp, f"t{attempts}.{fmt}"); size = export_once(fr, tp, pc, **o)
-            log.info("target attempt %d level=%.3f %dx%d %d colors -> %d B (limit %d)", attempts, level, w, h, c, size, limit)
-            r = {"level": level, "path": tp, "size": size, "width": w, "colors": c}
+            log.info("target attempt %d level=%.3f %dx%d %d colors fps=%s -> %d B (limit %d)", attempts, level, w, h, c, fps_label, size, limit)
+            r = {"level": level, "path": tp, "size": size, "width": w, "colors": c, "fps": fps_label}
             last = r
             if size <= limit and (best is None or level < best["level"]): best = r
             return size
@@ -161,7 +170,14 @@ def export_frames(frames, path, ctx=None, target_mb=0.0, max_attempts=7, **opt) 
                     mid = (lo + hi) / 2
                     if trial(mid) <= limit: hi = mid
                     else: lo = mid
+            elif attempts < total:
+                for lv in (0.35, 0.7, 1.0):
+                    if attempts >= total:
+                        break
+                    if trial(lv, True) <= limit:
+                        break
         r = best or last; shutil.copyfile(r["path"], path)
-        return {"size": os.path.getsize(path), "attempts": attempts, "met": best is not None, "width": r["width"], "colors": r["colors"]}
+        return {"size": os.path.getsize(path), "attempts": attempts, "met": best is not None,
+                "width": r["width"], "colors": r["colors"], "fps": r.get("fps")}
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

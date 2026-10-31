@@ -30,7 +30,11 @@ for path in root.rglob("*"):
         continue
     if path.suffix.lower() in _SKIP_SUFFIX:
         continue
-    dest = str(Path("cv2") / path.relative_to(root).parent)
+    # Cascade XML and models are not used by CSRT. The native module stays.
+    rel = path.relative_to(root)
+    if "data" in rel.parts:
+        continue
+    dest = str(Path("cv2") / rel.parent)
     if path.suffix.lower() in _NATIVE or ".so." in path.name:
         binaries.append((str(path), dest))
     else:
