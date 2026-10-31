@@ -8,12 +8,7 @@ if not exist .venv (
 call .venv\Scripts\activate.bat || goto :err
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt pyinstaller || goto :err
-python -m bonggif.icon bonggif.ico || goto :err
-pyinstaller --noconfirm --clean --onedir --windowed --name BongGIF ^
-  --icon bonggif.ico --add-data "bonggif.ico;." ^
-  --collect-all imageio_ffmpeg --collect-submodules imageio ^
-  --hidden-import mss --hidden-import keyboard ^
-  BongGIF.py || goto :err
+python scripts\build_frozen.py || goto :err
 echo.
 echo Build OK: dist\BongGIF\BongGIF.exe
 pause

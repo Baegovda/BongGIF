@@ -56,6 +56,10 @@ class QualityBox(QGroupBox):
         avf.addRow(QLabel("70 이상이면 YUV 4:4:4, 짝수 크기로 자릅니다.")); self.stack.addWidget(av)
         self.chk_target = QCheckBox("목표 용량"); self.sp_target = QDoubleSpinBox(); self.sp_target.setRange(0.05, 500); self.sp_target.setValue(5); self.sp_target.setSuffix(" MB 이하")
         h = QHBoxLayout(); h.addWidget(self.chk_target); h.addWidget(self.sp_target); f.addRow(h)
+        h = QHBoxLayout()
+        for label, mb in (("5 MB", 5.0), ("8 MB", 8.0), ("디스코드 10 MB", 10.0), ("25 MB", 25.0)):
+            b = QPushButton(label); b.setProperty("targetMb", mb); b.clicked.connect(lambda _=False, m=mb: self.apply_preset(m)); h.addWidget(b)
+        f.addRow("프리셋", h)
         self.sp_attempts = QSpinBox(); self.sp_attempts.setRange(3, 12); self.sp_attempts.setValue(7); f.addRow("최대 시도 횟수", self.sp_attempts)
         for x in (self.cb_fmt, self.cb_enc, self.cb_pal, self.cb_dither): x.currentIndexChanged.connect(self.changed)
         self.chk_target.toggled.connect(self.changed); self.changed.connect(self._sync); self._sync()
@@ -67,6 +71,11 @@ class QualityBox(QGroupBox):
     def set_fmt(self, fmt):
         i = self.cb_fmt.findData(fmt)
         if i >= 0: self.cb_fmt.setCurrentIndex(i)
+    def apply_preset(self, mb):
+        """5/8/10/25 MB. 10 은 디스코드 첨부 상한. 품질·너비·fps 는 저장 때 낮춘다."""
+        self.chk_target.setChecked(True)
+        self.sp_target.setValue(float(mb))
+        self.changed.emit()
     def target(self): return self.sp_target.value() if self.chk_target.isChecked() else 0.0
 
 class ExportDialog(QDialog):

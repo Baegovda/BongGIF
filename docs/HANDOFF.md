@@ -1,6 +1,6 @@
 # HANDOFF — BongGIF
 
-_Last updated: 2026-10-30 (KST) · current version **v1.3.0** (태그 v1.3.0 = ab6a0b6. run 41115607903은 타이머 틱 한 줄로 실패, 자산 없음) · 직전 성공 릴리스 v1.2.0_
+_Last updated: 2026-10-31 (KST) · current version **v1.4.0** (태그 없음) · 직전 성공 릴리스 v1.3.0_
 
 ## Current state
 Stable. All smoke tests green (70 / 64 / 40 / 15). Self-update v1.1.2 → v1.1.3 verified on the owner's PC (update.log: backup → copy → restart, no rollback). Owner installs to `%LOCALAPPDATA%\Programs\BongGIF`.
@@ -8,7 +8,8 @@ Stable. All smoke tests green (70 / 64 / 40 / 15). Self-update v1.1.2 → v1.1.3
 ## Version history
 | ver | summary |
 |---|---|
-| 1.3.0 | 홈 첫 탭, 설정 왼쪽 목록, 다크 그라데이션, 클립·마스크·추적, 일괄 변환 제거, webpclip 로직 이식. 실패 태그(bd38d61) 삭제 후 ab6a0b6에 v1.3.0 재지정. run 41115607903은 converter 타이머만 실패. 자산 없음 |
+| 1.4.0 | 소리 시작점, 목표 용량 5/8/10/25 MB, fps는 품질·너비로 부족할 때만. 패키지에서 cv2/data·다른 언어 qm·안 쓰는 Qt 라이브러리 제외. 태그 없음 |
+| 1.3.0 | 홈 첫 탭, 설정 왼쪽 목록, 다크 그라데이션, 클립·마스크·추적, 일괄 변환 제거, webpclip 로직 이식. 태그 v1.3.0 = 083b82f, zip 152,584,497 B |
 | 1.2.0 | 저장 파이프라인 재구성. 태그 v1.2.0 |
 | 1.0.0 | First public release: single window, recorder, editor, streaming video load, save GIF/WebP/MP4/WebM/APNG, batch, dark theme + drawn icons, effects, manage tab, settings, GitHub Actions release |
 | 1.1.0 | GitHub self-updater, 업데이트 확인 menu, daily auto-check, SHA256 assets |
@@ -41,6 +42,7 @@ Record (fps, presets, countdown, cursor/highlight/click, pin, direct save) · Ed
 - `requirements.txt` pins PySide6 <6.9; dev box uses 6.12 — verify before bumping.
 
 ## Session log (append newest first)
+- 2026-10-31: v1.4.0. 소리 시작점(실측 프레임 9·22), 용량 프리셋, 11,424,169→10,101,862 B(시도 6). 리눅스 zip 254,512,164→234,678,140. 슬림 후 selftest ok cv2 4.12.0 TrackerCSRT. 태그 안 함.
 - 2026-10-30: `smoke_test_converter.py` 저장 중 타이머 틱만 CI/`GITHUB_ACTIONS`에서 750ms, 로컬 150ms. 실측 최대 간격은 그대로 출력. 다른 단정·버전·패키징은 그대로. run 41115607903은 이 한 줄(최대 387ms)로 57/58. 태그는 다시 안 함.
 - 2026-10-30: 공개 릴리스 없음 확인 후 원격 태그 v1.3.0 삭제. ab6a0b6에 다시 푸시. run https://github.com/Baegovda/BongGIF/actions/runs/41115607903 . 버전 1.3.0 유지.
 - 2026-10-30: 릴리스 워크플로. windowed exe는 Start-Process -Wait로 종료 코드를 받고, 출력에 `selftest ok`가 없으면 실패. 워크플로 env `PYTHONUTF8`/`PYTHONIOENCODING`. 스모크 실패는 빌드를 막음. 버전 1.3.0 유지. 리눅스 스모크 79/58/40/15/42/10/13 통과. 태그는 다시 안 함.

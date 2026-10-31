@@ -48,14 +48,9 @@ jobs:
           exit $fail
 
       - name: Build (PyInstaller onedir)
+        shell: pwsh
         run: |
-          python -m bonggif.icon bonggif.ico
-          pyinstaller --noconfirm --clean --onedir --windowed --name BongGIF `
-            --icon bonggif.ico --add-data "bonggif.ico;." `
-            --collect-all imageio_ffmpeg --collect-submodules imageio `
-            --hidden-import mss --hidden-import keyboard `
-            --hidden-import cv2 --additional-hooks-dir hooks `
-            BongGIF.py
+          python scripts/build_frozen.py
 
       - name: Verify frozen OpenCV
         shell: pwsh

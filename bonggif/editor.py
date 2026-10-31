@@ -386,6 +386,14 @@ class EditorWindow(QMainWindow):
         gv.addLayout(h)
         h = QHBoxLayout(); self._btn(h, "각각 저장", lambda: self.export_selected_clips(mode="separate"), "save")
         self._btn(h, "이어 저장", lambda: self.export_selected_clips(mode="join"), "save"); gv.addLayout(h)
+        self.audio_list = QListWidget(); self.audio_list.setObjectName("audioStarts"); self.audio_list.setMinimumHeight(72)
+        self.audio_list.setToolTip("소리 에너지가 커지는 프레임. 누르면 그 지점을 구간 시작으로 둡니다.")
+        self.audio_list.itemClicked.connect(self._pick_audio_start)
+        gv.addWidget(self.audio_list)
+        h = QHBoxLayout()
+        b = self._btn(h, "소리로 시작점", self.find_audio_starts); b.setObjectName("audioStartsBtn")
+        self._btn(h, "후보를 클립으로", self.clips_from_audio)
+        gv.addLayout(h)
         v.addWidget(g)
         side.addWidget(self._side_page("프레임", v))
         # 1 자르기
@@ -1144,6 +1152,50 @@ class EditorWindow(QMainWindow):
         i = self.clip_list.row(item)
         if 0 <= i < len(self.project.clips):
             self.project.set_clip_selected(i, item.checkState() == Qt.Checked)
+    def _project_fps(self):
+        fr = self.project.frames
+        if not fr:
+            return 15.0
+        d = sum(f.delay for f in fr) / len(fr)
+        return max(1.0, 1000.0 / max(10, d))
+    def find_audio_starts(self):
+        """원본 파일의 소리 피크로 클립 시작 후보를 채운다. 네트워크로 보내지 않는다."""
+        if not self.project.frames or not self.source_path:
+            self.set_status("소리 분석은 원본 파일을 연 뒤에 할 수 있습니다")
+            return None
+        if self.is_busy():
+            return None
+        path, fps, n = self.source_path, self._project_fps(), len(self.project.frames)
+        def job(ctx):
+            ctx.step(0, 1, "소리 분석 중")
+            from .audioevents import suggest_starts
+            return suggest_starts(path, fps, n)
+        return self.run_task("소리 이벤트", job, self._show_audio_starts)
+    def _show_audio_starts(self, ev):
+        self.audio_marks = [int(i) for i in (ev or [])]
+        self.audio_list.clear()
+        if not self.audio_marks:
+            self.set_status("소리 트랙이 없거나 시작점 후보가 없습니다")
+            return
+        for i in self.audio_marks:
+            sec = sum(f.delay for f in self.project.frames[:i]) / 1000.0
+            self.audio_list.addItem(f"{i + 1}프레임 · {sec:.2f}초")
+        self.set_status(f"소리 시작점 {len(self.audio_marks)}개")
+    def _pick_audio_start(self, item):
+        i = self.audio_list.row(item)
+        marks = getattr(self, "audio_marks", [])
+        if 0 <= i < len(marks):
+            fr = marks[i]
+            self.show_frame(fr)
+            self.sp_trim_a.setValue(fr + 1)
+    def clips_from_audio(self):
+        marks = list(getattr(self, "audio_marks", []))
+        if not marks or not self.project.frames:
+            return
+        n = len(self.project.frames)
+        ends = marks[1:] + [n]
+        for a, b in zip(marks, ends):
+            self.add_clip(a, max(a, min(n - 1, b - 1)), name=f"소리 {a + 1}")
     def add_clip(self, a=None, b=None, name=None):
         if not self.project.frames: return None
         if a is None: a = self.sp_trim_a.value() - 1
