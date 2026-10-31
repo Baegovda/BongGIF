@@ -160,6 +160,20 @@ class Project:
         return True
     def set_clip_selected(self, index, on):
         self.checkpoint(); self.clips[index].selected = bool(on)
+    def set_clip_bounds(self, index, start, end):
+        """구간 이동·길이 조절. 값이 같으면 실행취소를 쌓지 않는다."""
+        n = len(self.frames)
+        if n <= 0 or not (0 <= int(index) < len(self.clips)):
+            return False
+        a, b = sorted((int(start), int(end)))
+        a = min(max(0, a), n - 1)
+        b = min(max(0, b), n - 1)
+        c = self.clips[int(index)]
+        if c.start == a and c.end == b:
+            return False
+        self.checkpoint()
+        c.start, c.end = a, b
+        return True
     def clamp_clips(self):
         n = len(self.frames)
         if n <= 0:

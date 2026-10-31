@@ -1,10 +1,10 @@
 {
   "project": "BongGIF",
   "repo": "https://github.com/Baegovda/BongGIF",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "pending_release": {
     "tag": null,
-    "note": "1.4.0 은 태그하지 않음. 직전 공개 릴리스는 v1.3.0."
+    "note": "1.5.0 은 태그하지 않음. 직전 태그는 v1.4.0."
   },
   "last_release": {
     "tag": "v1.3.0",
@@ -30,7 +30,7 @@
     "tests_disable_via": "BONGGIF_REPORT_URL=\"\""
   },
   "tests": {
-    "smoke_test.py": 79,
+    "smoke_test.py": 88,
     "smoke_test_converter.py": 58,
     "smoke_test_updater.py": 40,
     "smoke_test_crash.py": 15,
@@ -177,7 +177,7 @@
     "python smoke_test_export.py"
   ],
   "expected_test_counts": {
-    "smoke_test.py": 79,
+    "smoke_test.py": 88,
     "smoke_test_converter.py": 58,
     "smoke_test_updater.py": 40,
     "smoke_test_crash.py": 15,

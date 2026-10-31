@@ -183,5 +183,46 @@ ok("클립 각각 저장", th is not None and got == [3, 3], str(got))
 th = w.export_selected_clips(cd, "joined", "gif", "join", {"colors": 16, "dither": False}); w.wait_task()
 ok("클립 이어 저장", os.path.exists(os.path.join(cd, "joined.gif")) and Image.open(os.path.join(cd, "joined.gif")).n_frames == 6)
 w.undo(); ok("클립 추가 실행취소", len(w.project.clips) == 1)
+# 한 트랙에서 클립 3개를 움짤로
+w.set_frames([Frame(Image.new("RGBA", (32, 24), (i * 12, 40, 90, 255)), 40) for i in range(12)]); w.wait_task()
+w.source_path = os.path.join(out, "샘플 영상.mp4")
+w.add_clip(0, 2, "앞"); w.add_clip(3, 6, "중"); w.add_clip(7, 9, "뒤")
+ok("트랙 클립 3개·체크", len(w.project.clips) == 3 and all(c.selected for c in w.project.clips) and w.clip_lane.clips and len(w.clip_lane.clips) == 3)
+ok("구간 길이 조절", w.project.set_clip_bounds(0, 0, 1) and (w.project.clips[0].start, w.project.clips[0].end) == (0, 1))
+w.undo(); ok("길이 조절 취소", (w.project.clips[0].start, w.project.clips[0].end) == (0, 2))
+w.clip_lane.committed.emit(-1, 10, 11); ok("트랙에서 클립 추가", len(w.project.clips) == 4 and w.project.clips[-1].start == 10)
+w.project.remove_clip(3); w._refresh_clips()
+ok("모두 움짤 메뉴", w.actions_["clip_all"].text() == "클립 모두 움짤로 빼기" and "Shift" in w.actions_["clip_all"].shortcut().toString() and w.actions_["clip_all"].shortcut().toString().endswith("E"))
+batch = os.path.join(out, "batch"); os.makedirs(batch)
+open(os.path.join(batch, "샘플 영상_클립01.gif"), "wb").write(b"x")
+th = w.export_checked_gifs(batch, {"colors": 8, "dither": False}, "gif", notify=False); w.wait_task()
+res = w.last_clip_export
+names = [os.path.basename(p) for p in res["ok"]]
+def _gif_len(path):
+    im = Image.open(path); ds = []
+    for i in range(im.n_frames):
+        im.seek(i); ds.append(int(im.info.get("duration") or 0))
+    return im.n_frames, sum(ds)
+got = [_gif_len(p) for p in res["ok"]]
+ok("클립 3개 파일", th is not None and len(res["ok"]) == 3 and res["fail"] == [], str(names))
+ok("중복 이름 회피", names == ["샘플 영상_클립01_2.gif", "샘플 영상_클립02.gif", "샘플 영상_클립03.gif"], str(names))
+ok("프레임 수·길이", got == [(3, 120), (4, 160), (3, 120)], str(got))
+import bonggif.exporter as ex
+real = ex.export_frames
+def boom(frames, path, ctx=None, **kw):
+    boom.n += 1
+    if boom.n == 2:
+        raise RuntimeError("일부러 실패")
+    return real(frames, path, ctx=ctx, **kw)
+boom.n = 0
+ex.export_frames = boom
+try:
+    bad = os.path.join(out, "batch_fail")
+    th = w.export_checked_gifs(bad, {"colors": 8, "dither": False}, "gif", notify=False); w.wait_task()
+finally:
+    ex.export_frames = real
+res2 = w.last_clip_export
+ok("하나 실패해도 나머지 완료", len(res2["ok"]) == 2 and len(res2["fail"]) == 1 and all(os.path.exists(p) and Image.open(p).n_frames > 0 for p in res2["ok"]),
+   f"성공 {len(res2['ok'])} 실패 {res2['fail']}")
 w.close(); print("출력:", out); print(f"결과: {sum(c for _, c in R)}/{len(R)} 통과")
 sys.exit(0 if all(c for _, c in R) else 1)
