@@ -7,7 +7,7 @@
 1. `git clone https://github.com/Baegovda/BongGIF && cd BongGIF && bash scripts/bootstrap_agent.sh` (Windows: `scripts\bootstrap_agent.ps1`). Must print `OVERALL PASS`. That script runs four smoke tests, not the seven in `run_tests.bat`.
 2. If your host supports MCP: install servers listed in `docs/agent-env.json` → `mcp_servers` (template `docs/mcp.example.json`). GitHub = useful, REA = optional/clean-room.
 3. Read `docs/SETUP_AGENT.md` (box vs user PC), then `docs/HANDOFF.md` (what's done/next) and `docs/STATE.json` (version, backlog, tests).
-4. Continue the first STATE.json backlog item whose `status` is `todo` (skip `done`). As of the 2026-11-02 handoff that is `text-anim` (text intro/outro). Update HANDOFF.md + STATE.json at the end of every session.
+4. Continue the first STATE.json backlog item whose `status` is `todo` (skip `done`). As of the 2026-11-02 handoff that is `bubbles` (speech-bubble stickers). Update HANDOFF.md + STATE.json at the end of every session.
 
 ## 1. Purpose
 BongGIF = Windows desktop GIF recorder/editor (Python 3.12 + PySide6 + ffmpeg via imageio-ffmpeg). Workflow/UX modeled on popular GIF tools (record → edit frames → save GIF/WebP/MP4/WebM/APNG), **clean-room implementation**.
