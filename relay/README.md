@@ -11,9 +11,9 @@ labeled `auto-report` on `Baegovda/BongGIF`. Users need no GitHub account. Same 
    repository access **only Baegovda/BongGIF**, permission **Issues: Read and write**. Copy it.
 4. `npx wrangler secret put GITHUB_TOKEN` and paste the token.
 5. Create label once: `gh label create auto-report --repo Baegovda/BongGIF --color B60205` (optional; GitHub creates it on first use if the token may).
-6. `npx wrangler deploy` → note URL, e.g. `https://bonggif-report.<subdomain>.workers.dev`.
-7. Check: `curl https://bonggif-report.<subdomain>.workers.dev/` → `{"ok":true,...}`.
-8. Set `ENDPOINT = "https://bonggif-report.<subdomain>.workers.dev/report"` in `bonggif/crashreport.py`, bump version, release.
+6. `npx wrangler deploy`.
+7. Check: `curl https://bonggif-report.revaptor.workers.dev/` → `{"ok":true,...}`.
+8. `bonggif/crashreport.py`의 `ENDPOINT`는 이미 `https://bonggif-report.revaptor.workers.dev/report` 이다. KV id `6824be73bb144e038496588eb32be102`는 `wrangler.toml`과 같다. 빈 문자열로 두면 보고가 꺼지고, 테스트는 `BONGGIF_REPORT_URL=""`를 쓴다.
 
 ## Endpoint
 `POST /report` · headers `Content-Type: application/json`, `X-BongGIF-Key: <APP_KEY>` · body schema 1:

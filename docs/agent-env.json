@@ -41,5 +41,20 @@
     "installed_app": "%LOCALAPPDATA%\\Programs\\BongGIF (owner tests self-update; agents must NOT touch it)",
     "present": ["git", "gh", "node"]
   },
-  "secrets": "none in repo. Worker secret GITHUB_TOKEN lives only in Cloudflare."
+  "secrets": "none in repo. Worker secret GITHUB_TOKEN lives only in Cloudflare.",
+  "tests": {
+    "counts": {
+      "smoke_test.py": 88,
+      "smoke_test_converter.py": 62,
+      "smoke_test_updater.py": 40,
+      "smoke_test_crash.py": 15,
+      "smoke_test_export.py": 42,
+      "smoke_test_masks.py": 10,
+      "smoke_test_webpclip.py": 33
+    },
+    "run_tests.bat": "all seven",
+    "bootstrap": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py"],
+    "release_yml": "all except smoke_test_crash.py; a failure fails the job",
+    "import_check_omits": ["cv2", "keyboard"]
+  }
 }
