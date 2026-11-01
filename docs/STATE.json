@@ -131,7 +131,7 @@
     "tests_disable_via": "BONGGIF_REPORT_URL=\"\""
   },
   "tests": {
-    "smoke_test.py": 88,
+    "smoke_test.py": 120,
     "smoke_test_converter.py": 62,
     "smoke_test_updater.py": 40,
     "smoke_test_crash.py": 15,
@@ -297,10 +297,10 @@
     "release.yml": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_export.py", "smoke_test_masks.py", "smoke_test_webpclip.py"],
     "release_blocks_on_failure": true,
     "ci.yml": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py", "smoke_test_export.py", "smoke_test_masks.py", "smoke_test_webpclip.py"],
-    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 동작은 그대로. ci.yml은 pull_request(main)와 push(main), ubuntu-latest, 7개 전부. 기대 88/88 62/62 40/40 15/15 42/42 10/10 33/33. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
+    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 동작은 그대로. ci.yml은 pull_request(main)와 push(main), ubuntu-latest, 7개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 33/33. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
   },
   "expected_test_counts": {
-    "smoke_test.py": 88,
+    "smoke_test.py": 120,
     "smoke_test_converter.py": 62,
     "smoke_test_updater.py": 40,
     "smoke_test_crash.py": 15,
@@ -337,7 +337,7 @@
     "pin": "PySide6>=6.5,<6.9 (install from requirements.txt; job rejects anything outside that range)",
     "env": ["QT_QPA_PLATFORM=offscreen", "BONGGIF_REPORT_URL=", "CI=true"],
     "expected": {
-      "smoke_test.py": "88/88",
+      "smoke_test.py": "120/120",
       "smoke_test_converter.py": "62/62",
       "smoke_test_updater.py": "40/40",
       "smoke_test_crash.py": "15/15",
@@ -439,5 +439,23 @@
       "scripts/bootstrap_agent.sh",
       "scripts/bootstrap_agent.ps1"
     ]
+  },
+  "recorder_frame": {
+    "edge_px": 16,
+    "handle_len_px": 48,
+    "min_hit_px": 10,
+    "move": ["title bar", "toolbar", "border", "grip icon drawn in code", "arrow 1px", "shift+arrow 10px"],
+    "resize": ["corners and edge midpoints", "live WxH", "typed width and height", "presets 320x240 through 1920x1080"],
+    "snap_px": 12,
+    "snap_targets": ["screen edges", "other top-level window edges"],
+    "locked_states": ["countdown", "rec", "pause"],
+    "lock_indicator": "위치 고정",
+    "lock_reason": "Frames in one take must share a size. Moving during the take also shifts the picture. Stop returns to idle, which can move and resize again.",
+    "windows_hit_test": "WM_NCHITTEST. Move is HTCAPTION, resize is HTLEFT and the other HT codes, the capture hole is HTTRANSPARENT. Physical pixels convert with each monitor's native origin and devicePixelRatio.",
+    "other_platforms": "QWindow.startSystemMove and startSystemResize, then manual drag. Offscreen and minimal platforms use manual drag only.",
+    "capture_api": "capture_rect() is still the transparent hole. Chrome sits outside it.",
+    "preset_index": "Recorder PRESETS order is unchanged, so the record-page combo index still matches through 1280x720. 1920x1080 is index 6 on the capture window only.",
+    "version_bumped": false,
+    "smoke_test_py": 120
   }
 }

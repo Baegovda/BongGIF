@@ -61,8 +61,10 @@ build_exe.bat          :: venv 생성 → 의존성+PyInstaller 설치 → dist\
 개발 실행: `python -m venv .venv && .venv\Scripts\pip install -r requirements.txt && .venv\Scripts\python BongGIF.py [파일]`
 
 ## 녹화
-- 항상 위·테두리만 보이는 반투명 프레임 창. 중앙의 투명 영역이 캡처 영역입니다.
-- 테두리 드래그로 이동, 모서리/가장자리로 크기 조절, 크기 프리셋(320×240 ~ 1920×1080)
+- 항상 위인 반투명 프레임 창. 중앙의 투명 영역만 캡처하고, 제목 막대·도구 막대·테두리는 캡처되지 않습니다.
+- 제목 막대, 하단 도구 막대, 바깥 테두리를 끌어 이동합니다. 점 손잡이가 있습니다. 방향키는 1px, Shift+방향키는 10px입니다(너비·높이 칸에 포커스가 있으면 그 숫자를 바꿉니다).
+- 모서리 4개와 변 중앙 손잡이 4개로 크기를 조절합니다. 히트 영역은 10px 이상이고 커서가 방향에 맞게 바뀝니다. 현재 크기는 가로×세로로 실시간 표시됩니다. 너비·높이를 입력하거나 프리셋(320×240 ~ 1920×1080)을 고릅니다. 화면 가장자리와 다른 창 가장자리에 붙습니다.
+- 카운트다운·녹화·일시정지 동안에는 위치와 크기가 고정되고 제목에 `위치 고정`이 보입니다. 정지하면 다시 옮길 수 있습니다.
 - 캡처 창의 FPS는 5~30, 카운트다운 0~10초입니다. 녹화 탭의 FPS 스핀은 1~60이고, 그 크기 목록은 1280×720까지입니다(1920×1080은 캡처 창 프리셋에만 있습니다). 녹화/일시정지/정지, **F9** 시작·종료(창 포커스 시; `keyboard` 설치 시 전역), Esc 닫기. `dxcam`은 선택 import이며 `requirements.txt`에 없습니다.
 - 15fps 지연은 66, 67, 67ms 입니다(3프레임 = 200ms, GIF에서는 6센티초와 7센티초). 같은 화면이 이어지면 프레임을 합치고 시간만 더합니다(설정에서 끌 수 있음).
 - 마우스 커서 표시 옵션, 실제 경과시간으로 프레임 지연 기록, 고DPI 보정
@@ -128,6 +130,6 @@ python smoke_test_webpclip.py
 ```
 `smoke_test_converter.py`는 ffmpeg `testsrc`로 테스트 영상을 만들어 구간 추출 프레임 수, fps/크기, 목표 용량, HQ 경로, WebP·MP4 출력, 영상 드롭 → 편집기 타임라인(첫 프레임 즉시 표시·1280px·30fps 기본·원본 다시 불러오기)·타임라인 구간 자르기, 구간 선택 대화상자, 작업 스레드 진행 메시지, 저장 중 이벤트 루프 응답성(타이머 틱), 저장 알림, 긴 영상의 메모리 상한, RGBA 디코드 등을 검사합니다. 일괄 변환 창은 없는지(`batch_panel` 없음, 도구 메뉴에 '일괄' 없음)도 봅니다.
 
-검사 수(성공 경로): `smoke_test.py` 88, `smoke_test_converter.py` 62, `smoke_test_updater.py` 40, `smoke_test_crash.py` 15, `smoke_test_export.py` 42, `smoke_test_masks.py` 10, `smoke_test_webpclip.py` 33. `run_tests.bat`가 일곱을 모두 돌립니다. `scripts/bootstrap_agent.sh`와 `.ps1`은 앞의 네 개만 돌립니다. 릴리스 워크플로는 `smoke_test_crash.py`를 빼고, 실패한 스모크는 빌드를 막습니다.
+검사 수(성공 경로): `smoke_test.py` 120, `smoke_test_converter.py` 62, `smoke_test_updater.py` 40, `smoke_test_crash.py` 15, `smoke_test_export.py` 42, `smoke_test_masks.py` 10, `smoke_test_webpclip.py` 33. `run_tests.bat`가 일곱을 모두 돌립니다. `scripts/bootstrap_agent.sh`와 `.ps1`은 앞의 네 개만 돌립니다. 릴리스 워크플로는 `smoke_test_crash.py`를 빼고, 실패한 스모크는 빌드를 막습니다.
 
 QA 스크린샷: `python qa_screens.py` → `qa_shots/*.png` (오프스크린)

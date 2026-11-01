@@ -156,7 +156,7 @@ jobs:
             fi
             echo "::endgroup::"
           }
-          run_suite smoke_test.py 88
+          run_suite smoke_test.py 120
           run_suite smoke_test_converter.py 62
           run_suite smoke_test_updater.py 40
           run_suite smoke_test_crash.py 15
@@ -167,4 +167,4 @@ jobs:
             echo "::error::one or more smoke suites failed"
             exit 1
           fi
-          echo "All 7 smoke suites passed (88/62/40/15/42/10/33)"
+          echo "All 7 smoke suites passed (120/62/40/15/42/10/33)"

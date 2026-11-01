@@ -3,7 +3,7 @@
 _Last updated: 2026-11-02 (KST) · `bonggif/version.py` **1.6.0** · 대기 중인 릴리스 없음 · 새 태그 없음_
 
 ## Current state
-main은 `c4a45115d74055b5afdc7648a82fe8bfe1cbcf6c` (`c4a4511`, 2026-10-31 23:48 KST). 이 커밋은 PR **#15** 머지(2026-10-31T14:48:49Z)이고, 태그 **v1.6.0** = `422e262a109aa98ea662efd4c2382a2fe29dba3e`보다 문서 커밋 하나 앞이다. 코드 버전은 그대로 1.6.0이다. 최신 공개 릴리스는 v1.6.0이다. [run 41179233995](https://github.com/Baegovda/BongGIF/actions/runs/41179233995) 성공, `BongGIF-v1.6.0-win64.zip` 136,814,339 B + `.sha256`. v1.0.0 zip에는 `.sha256`이 없다. v1.1.0부터는 zip과 `.sha256`이 있다.
+origin/main은 `bd5c3888961f923ddc9d2fb7ad87d33aa1055d02` (`bd5c388`, PR **#17**). #17은 CI 워크플로와 문서만 더했다. 제품 코드의 기준은 PR **#15** 머지 `c4a4511`(2026-10-31T14:48:49Z, 2026-10-31 23:48 KST)이다. 태그 **v1.6.0** = `422e262a109aa98ea662efd4c2382a2fe29dba3e`보다 문서·CI 커밋이 앞이다. 코드 버전은 그대로 1.6.0이다. 이 브랜치의 녹화 프레임 변경은 아직 머지 전이고, 버전을 올리지 않았다. 최신 공개 릴리스는 v1.6.0이다. [run 41179233995](https://github.com/Baegovda/BongGIF/actions/runs/41179233995) 성공, `BongGIF-v1.6.0-win64.zip` 136,814,339 B + `.sha256`. v1.0.0 zip에는 `.sha256`이 없다. v1.1.0부터는 zip과 `.sha256`이 있다.
 
 같은 시각에 **#6 #8 #10 #12 #14**는 머지되지 않고 닫혔다. #15 본문이 그 PR들을 superseded로 적었다(태그 SHA·run은 #15에 모였고, 그 PR들이 적던 "자산 대기"는 워크플로가 이미 성공한 뒤라 넣지 않음).
 
@@ -15,7 +15,7 @@ main은 `c4a45115d74055b5afdc7648a82fe8bfe1cbcf6c` (`c4a4511`, 2026-10-31 23:48 
 
 | file | checks |
 |---|---|
-| `smoke_test.py` | 88 |
+| `smoke_test.py` | 120 |
 | `smoke_test_converter.py` | 62 |
 | `smoke_test_updater.py` | 40 |
 | `smoke_test_crash.py` | 15 |
@@ -23,18 +23,18 @@ main은 `c4a45115d74055b5afdc7648a82fe8bfe1cbcf6c` (`c4a4511`, 2026-10-31 23:48 
 | `smoke_test_masks.py` | 10 |
 | `smoke_test_webpclip.py` | 33 |
 
-합계 290. 예전에 적힌 70/64/40/15는 v1.1.x 기준이라 현재 파일과 맞지 않는다. 돌리는 집합도 셋이다.
+합계 322. 예전에 적힌 70/64/40/15는 v1.1.x 기준이라 현재 파일과 맞지 않는다. 돌리는 집합도 셋이다.
 
 - `run_tests.bat`: 7개 전부.
 - `scripts/bootstrap_agent.sh`, `scripts/bootstrap_agent.ps1`: 앞 4개만. `OVERALL PASS`는 export/masks/webpclip을 포함하지 않는다. import 검사도 `cv2`와 `keyboard`를 보지 않는다.
 - `.github/workflows/release.yml`: `smoke_test_crash.py`를 뺀 6개. 실패하면 `exit $fail`로 빌드를 막는다. `::warning::`를 찍지만 비차단이 아니다. 태그 push `v*`만. 이 파일의 동작은 바꾸지 않는다.
-- `.github/workflows/ci.yml`: `pull_request`(대상 `main`)와 `push`(main). 러너 **ubuntu-latest**, Python 3.12, `requirements.txt` 그대로(`PySide6>=6.5,<6.9`), pip 캐시. `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. 7개 전부, 기대 줄은 `88/88` `62/62` `40/40` `15/15` `42/42` `10/10` `33/33`. 개수가 다르거나 종료 코드가 0이 아니면 잡이 실패한다. 각 스위트 stdin은 `/dev/null`이다. WebM `subprocess.run`이 stdin을 닫지 않아, 터미널을 물려받으면 `SIGTTIN`으로 멈추고 열린 stdin이면 읽다 멈춘다. imageio-ffmpeg에 `libaom-av1`·`libx264`·`libvpx`·`libvpx-vp9`가 없으면 distro `ffmpeg`를 설치하고 `IMAGEIO_FFMPEG_EXE`를 둔다. export의 "인코더 없음" 분기는 실패 체크라 40으로 통과시키지 않는다. 빌드·릴리스 업로드는 하지 않는다. windows-latest는 release.yml에만 둔다. PR마다 PySide6+OpenCV를 윈도우에서 한 번 더 받지 않기 위해서다. 7개 오프스크린은 리눅스에서 이미 통과한 기록이 있다. 결과 줄 검사는 `grep -a`다. export 로그에 APNG tEXt NUL이 있어, `-a` 없이는 grep이 바이너리로 보고 `42/42` 줄을 숨긴다. 첫 녹색 런은 [41332687797](https://github.com/Baegovda/BongGIF/actions/runs/41332687797) (success). 런 시각 2026-11-01T17:40:38Z–17:41:45Z (67초). 잡 `smoke (ubuntu)` 17:40:41Z–17:41:44Z (1분 3초). 스모크 단계 36초. PySide6 6.8.3. 번들 ffmpeg에 libaom-av1이 있어 distro ffmpeg는 쓰지 않았다. 바로 앞 [41332512818](https://github.com/Baegovda/BongGIF/actions/runs/41332512818)은 7개 결과가 모두 N/N이었는데 그 NUL 때문에 실패했다.
+- `.github/workflows/ci.yml`: `pull_request`(대상 `main`)와 `push`(main). 러너 **ubuntu-latest**, Python 3.12, `requirements.txt` 그대로(`PySide6>=6.5,<6.9`), pip 캐시. `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. 7개 전부, 기대 줄은 `120/120` `62/62` `40/40` `15/15` `42/42` `10/10` `33/33`. 개수가 다르거나 종료 코드가 0이 아니면 잡이 실패한다. 각 스위트 stdin은 `/dev/null`이다. WebM `subprocess.run`이 stdin을 닫지 않아, 터미널을 물려받으면 `SIGTTIN`으로 멈추고 열린 stdin이면 읽다 멈춘다. imageio-ffmpeg에 `libaom-av1`·`libx264`·`libvpx`·`libvpx-vp9`가 없으면 distro `ffmpeg`를 설치하고 `IMAGEIO_FFMPEG_EXE`를 둔다. export의 "인코더 없음" 분기는 실패 체크라 40으로 통과시키지 않는다. 빌드·릴리스 업로드는 하지 않는다. windows-latest는 release.yml에만 둔다. PR마다 PySide6+OpenCV를 윈도우에서 한 번 더 받지 않기 위해서다. 7개 오프스크린은 리눅스에서 이미 통과한 기록이 있다. 결과 줄 검사는 `grep -a`다. export 로그에 APNG tEXt NUL이 있어, `-a` 없이는 grep이 바이너리로 보고 `42/42` 줄을 숨긴다. 첫 녹색 런은 [41332687797](https://github.com/Baegovda/BongGIF/actions/runs/41332687797) (success). 런 시각 2026-11-01T17:40:38Z–17:41:45Z (67초). 잡 `smoke (ubuntu)` 17:40:41Z–17:41:44Z (1분 3초). 스모크 단계 36초. PySide6 6.8.3. 번들 ffmpeg에 libaom-av1이 있어 distro ffmpeg는 쓰지 않았다. 바로 앞 [41332512818](https://github.com/Baegovda/BongGIF/actions/runs/41332512818)은 7개 결과가 모두 N/N이었는데 그 NUL 때문에 실패했다.
 
 Linux 오프스크린 결과(2026-11-02, Python 3.12.3, `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`):
 
 - `bash scripts/bootstrap_agent.sh` → `OVERALL PASS`. 88/88, 62/62, 40/40, 15/15. PySide6 6.8.3, imageio-ffmpeg 7.0.2, Qt 오프스크린 통과.
 - 부트스트랩이 빼는 세 개도 같은 venv에서 통과: `smoke_test_export.py` 42/42 (libaom-av1 있음), `smoke_test_masks.py` 10/10, `smoke_test_webpclip.py` 33/33.
-- 첫 실행은 파이프 안에서 ffmpeg가 터미널을 물려받아 `SIGTTIN`으로 멈췄다(WebM `subprocess.run`이 stdin을 닫지 않음). 제어 터미널 없이 다시 돌리니 위 결과가 나왔다. 제품 실패는 아니다.
+- 첫 실행은 파이프 안에서 ffmpeg가 터미널을 물려받아 `SIGTTIN`으로 멈췄다(WebM `subprocess.run`이 stdin을 닫지 않음). 제어 터미널 없이 다시 돌리니 위 결과가 나왔다. 제품 실패는 아니다. 이 88/88은 녹화 프레임 변경 전이다. 변경 후 수는 표의 120이다.
 
 ## 다음 작업
 백로그에서 `status`가 `todo`인 항목 중 priority가 가장 높은 것은 **#1 텍스트 인트로/아웃트로** (`text-anim`)다. `export-rebirth`(priority 0)는 done이다. 새 릴리스나 태그는 만들지 않는다.
@@ -61,7 +61,7 @@ Linux 오프스크린 결과(2026-11-02, Python 3.12.3, `QT_QPA_PLATFORM=offscre
 SHA는 `git rev-parse <tag>^{commit}`와 릴리스 자산 크기로 확인했다. v1.2.0–v1.6.0 태그 시각은 2026-10-31 (KST). v1.3.0 GitHub Release `createdAt`은 2026-10-30T19:37:47Z (KST 2026-10-31 04:37)이다.
 
 ## Done (지금 있는 것)
-녹화(캡처 창 fps 5–30·프리셋 1920×1080, 녹화 탭 fps 1–60·프리셋은 1280×720까지, 카운트다운, 커서/강조/클릭, 핀, 바로 저장, 15fps 66/67/67ms, 같은 프레임 합치기) · 편집(자르기 비율/어둡게/기억, 크기/회전/반전, 그리기, EFFECTS 18항목=효과 없음+필터 17, 실시간 미리보기, 텍스트/이모지/이미지 스티커, 액자, 프레임 삭제/자르기/줄이기/시간/속도/역재생/요요/끝에 추가, 실행취소) · 재생 막대·확대 · 저장 6형식(GIF/WebP/MP4/WebM/APNG/AVIF) · 관리 · 홈이 첫 탭(홈/녹화/편집/관리) · 설정 왼쪽 목록 12항목(단축키 표는 읽기 전용) · 클립·마스크·CSRT · 소리 시작점 · 자체 업데이트. 일괄 변환 탭은 없다.
+녹화(캡처 창 fps 5–30·프리셋 1920×1080, 녹화 탭 fps 1–60·프리셋은 1280×720까지, 제목·도구막대·테두리 이동, 손잡이 8개, 카운트다운·녹화·일시정지 때 위치 고정, 카운트다운, 커서/강조/클릭, 핀, 바로 저장, 15fps 66/67/67ms, 같은 프레임 합치기) · 편집(자르기 비율/어둡게/기억, 크기/회전/반전, 그리기, EFFECTS 18항목=효과 없음+필터 17, 실시간 미리보기, 텍스트/이모지/이미지 스티커, 액자, 프레임 삭제/자르기/줄이기/시간/속도/역재생/요요/끝에 추가, 실행취소) · 재생 막대·확대 · 저장 6형식(GIF/WebP/MP4/WebM/APNG/AVIF) · 관리 · 홈이 첫 탭(홈/녹화/편집/관리) · 설정 왼쪽 목록 12항목(단축키 표는 읽기 전용) · 클립·마스크·CSRT · 소리 시작점 · 자체 업데이트. 일괄 변환 탭은 없다.
 
 ## UX 추정 88%
 v1.1.4 핸드오프는 **84%**였다. v1.2.0 커밋 `1b767a5`가 `docs/STATE.json`만 **88**로 올렸고 HANDOFF는 84로 남았다. `PARITY.md`는 저장소에 없고 `.gitignore`에도 없다(`qa_shots/`만 무시된다. `DONE*`, `PROGRESS.json`도 무시 목록에 없다). 남은 UX 백로그 9개는 그때와 같다. 88은 체크리스트를 다시 센 값이 아니다. 두 문서를 88로 맞춘다. 새로 측정하지 않았다.
@@ -89,6 +89,7 @@ v1.1.4 핸드오프는 **84%**였다. v1.2.0 커밋 `1b767a5`가 `docs/STATE.jso
 GitHub 저장소 설정에서 **Automatically delete head branches** (`deleteBranchOnMerge`)를 켠다. 지금은 false라 머지된 `cursor/*`가 남아 있었고, 2026-11-02에 손으로 지웠다.
 
 ## Session log (append newest first)
+- 2026-11-02 (KST): 녹화 프레임을 옮기고 크기를 조절하기 쉽게 고쳤다. 제목 막대·하단 도구 막대·16px 테두리를 끌면 이동한다. 점 6개 손잡이는 코드로 그린다. 방향키 1px, Shift+방향키 10px. 너비·높이 칸이나 프리셋에 포커스가 있으면 방향키는 그 값을 바꾼다. 크기 손잡이는 모서리 4개와 변 중앙 4개이고 히트는 16px, 커서가 바뀐다. 가로×세로는 실시간이고, 숫자를 입력하거나 프리셋을 고른다. 프리셋 순서는 그대로다(녹화 탭 인덱스 5 = 1280×720, 1920×1080은 캡처 창에만). 화면 가장자리와 다른 창 가장자리에 12px 안으로 붙는다. 카운트다운·녹화·일시정지에는 위치와 크기를 고정하고 제목에 `위치 고정`을 보인다. 프레임마다 크기가 달라지거나 영역이 흔들리면 움짤이 깨지기 때문이다. 정지해 대기가 되면 다시 조절된다. Windows는 `WM_NCHITTEST`(이동 HTCAPTION, 크기 HT*, 캡처 구멍 HTTRANSPARENT). 다른 플랫폼은 `startSystemMove`/`startSystemResize` 다음 수동 드래그. 오프스크린은 수동 드래그. 캡처 영역은 여전히 `capture_rect()`이고 테두리 밖이다. `smoke_test.py` 88→120. 버전 1.6.0 유지. 태그 없음. Linux 오프스크린(`QT_QPA_PLATFORM=offscreen`, stdin `/dev/null`, PySide6 6.8.3): 120/120, 62/62, 40/40, 15/15, 42/42, 10/10, 33/33. 위의 88/88 부트스트랩 기록은 이 변경 전 실행이다.
 - 2026-11-02 (KST): PR #17 CI 녹색. run https://github.com/Baegovda/BongGIF/actions/runs/41332687797 success. 런 2026-11-01T17:40:38Z–17:41:45Z (67초). 잡 smoke (ubuntu) 1분 3초 (17:40:41Z–17:41:44Z). 스모크 단계 36초. PySide6 6.8.3, 번들 ffmpeg에 libaom-av1. 앞선 run 41332512818은 실패. 스위트 출력은 88/88 62/62 40/40 15/15 42/42 10/10 33/33 이었고, export 로그의 NUL 때문에 grep이 결과 줄을 놓쳤다. `grep -a`로 고침. 제품 코드와 release.yml은 그대로.
 - 2026-11-02 (KST): PR 스모크 CI 추가. `.github/workflows/ci.yml` (ubuntu-latest, pull_request + push main, 7스위트 88/62/40/15/42/10/33). stdin은 `/dev/null`. libaom 등 인코더가 번들 ffmpeg에 없으면 distro ffmpeg + `IMAGEIO_FFMPEG_EXE`. `release.yml`은 수정하지 않음. 제품 코드는 바꾸지 않음. 열린 질문에서 "PR CI 없음"을 뺐다.
 - 2026-11-02 (KST): 문서만 고침. 코드·`version.py`·태그는 그대로. main `c4a4511` = #15 머지, 태그 v1.6.0 `422e262`보다 문서 1커밋 앞. #6 #8 #10 #12 #14는 2026-10-31에 superseded로 닫힘. origin `cursor/*` 14개 삭제(열린 PR 없음, 실패 없음), 원격은 `main`만. `deleteBranchOnMerge`는 false. 스모크 수는 88/62/40/15/42/10/33. parity는 88로 통일(84는 v1.1.4 수치, 재측정 아님). 다음 작업은 백로그 #1 `text-anim`. Linux 오프스크린: bootstrap OVERALL PASS (88/88, 62/62, 40/40, 15/15). export 42/42, masks 10/10, webpclip 33/33. 첫 시도는 SIGTTIN으로 멈춤(ffmpeg가 파이프 밖 tty를 물려받음). 제어 터미널 없이 재실행해 통과. PySide6 6.8.3.
