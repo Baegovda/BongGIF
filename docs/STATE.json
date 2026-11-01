@@ -1,24 +1,25 @@
 {
   "project": "BongGIF",
   "repo": "https://github.com/Baegovda/BongGIF",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "main": {
-    "sha": "c4a45115d74055b5afdc7648a82fe8bfe1cbcf6c",
-    "short": "c4a4511",
-    "date_kst": "2026-10-31T23:48:48+09:00",
-    "subject": "docs: record released v1.4.0-v1.6.0 tags in the handoff (#15)",
-    "note": "태그 v1.6.0(422e262)보다 문서 커밋 하나 앞. version.py는 1.6.0. 코드 차이는 없다."
+    "sha": "32d86565cf473693151fa9576940b7c475c30350",
+    "short": "32d8656",
+    "date_kst": "2026-11-02T04:26:26+09:00",
+    "subject": "docs: drop the text intro/outro backlog item (#18)",
+    "note": "1.7.0 버전 범프의 부모. 그 아래 #19 스쿼시 59c2330(녹화 프레임). version.py는 이 커밋에서 1.7.0. 태그 v1.7.0은 버전 범프 커밋에 단다."
   },
   "pull_requests": {
-    "merged_tip": {"number": 15, "merged_at": "2026-10-31T14:48:49Z", "state": "MERGED"},
+    "merged_tip": {"number": 18, "merged_at": "2026-11-01T19:26:26Z", "state": "MERGED", "sha": "32d86565cf473693151fa9576940b7c475c30350"},
+    "recording_frame": {"number": 19, "sha": "59c2330", "state": "MERGED"},
     "closed_superseded_on_2026_10_31": [6, 8, 10, 12, 14],
-    "note": "#6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #15 본문이 superseded라고 적었다."
+    "note": "#18은 text-anim 제거. #19는 녹화 프레임 이동/크기. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #15 본문이 superseded라고 적었다."
   },
   "pending_release": {
-    "tag": null,
+    "tag": "v1.7.0",
     "sha": null,
     "run": null,
-    "note": "대기 중인 태그 없음. 최신 공개 릴리스는 v1.6.0."
+    "note": "이 버전 범프 커밋에 v1.7.0을 단다. 부모는 #18 머지 32d8656. 워크플로 결과는 아직 없다. 공개된 최신 릴리스는 v1.6.0."
   },
   "last_release": {
     "tag": "v1.6.0",
@@ -443,7 +444,7 @@
     "other_platforms": "QWindow.startSystemMove and startSystemResize, then manual drag. Offscreen and minimal platforms use manual drag only.",
     "capture_api": "capture_rect() is still the transparent hole. Chrome sits outside it.",
     "preset_index": "Recorder PRESETS order is unchanged, so the record-page combo index still matches through 1280x720. 1920x1080 is index 6 on the capture window only.",
-    "version_bumped": false,
+    "version_bumped": true,
     "smoke_test_py": 120
   }
 }
