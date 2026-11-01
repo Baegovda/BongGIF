@@ -2,6 +2,18 @@
   "project": "BongGIF",
   "repo": "https://github.com/Baegovda/BongGIF",
   "version": "1.6.0",
+  "main": {
+    "sha": "c4a45115d74055b5afdc7648a82fe8bfe1cbcf6c",
+    "short": "c4a4511",
+    "date_kst": "2026-10-31T23:48:48+09:00",
+    "subject": "docs: record released v1.4.0-v1.6.0 tags in the handoff (#15)",
+    "note": "태그 v1.6.0(422e262)보다 문서 커밋 하나 앞. version.py는 1.6.0. 코드 차이는 없다."
+  },
+  "pull_requests": {
+    "merged_tip": {"number": 15, "merged_at": "2026-10-31T14:48:49Z", "state": "MERGED"},
+    "closed_superseded_on_2026_10_31": [6, 8, 10, 12, 14],
+    "note": "#6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #15 본문이 superseded라고 적었다."
+  },
   "pending_release": {
     "tag": null,
     "sha": null,
@@ -128,6 +140,15 @@
     "smoke_test_webpclip.py": 33
   },
   "parity_estimate_pct": 88,
+  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 남은 UX 백로그 9개는 같다. 88은 재측정이 아니다. 문서는 88로 통일.",
+  "recommended_next": {
+    "id": "text-anim",
+    "priority": 1,
+    "status": "todo",
+    "title": "Text intro/outro animation",
+    "why": "status=todo 인 백로그 중 priority가 가장 높다. export-rebirth(priority 0)는 done.",
+    "accept": ["fade/slide/typewriter", "frame range", "preview", "test renders differing frames"]
+  },
   "backlog": [
     {
       "id": "export-rebirth",
@@ -205,7 +226,7 @@
       "id": "effects-9",
       "priority": 6,
       "status": "todo",
-      "title": "9 more effects",
+      "title": "9 more effects (parenthetical list names 8; the 9th name is not written down)",
       "accept": [
         "in EFFECTS",
         "strength",
@@ -260,11 +281,23 @@
   ],
   "test_commands": [
     "set QT_QPA_PLATFORM=offscreen",
+    "set BONGGIF_REPORT_URL=",
     "python smoke_test.py",
     "python smoke_test_converter.py",
     "python smoke_test_updater.py",
-    "python smoke_test_export.py"
+    "python smoke_test_crash.py",
+    "python smoke_test_export.py",
+    "python smoke_test_masks.py",
+    "python smoke_test_webpclip.py"
   ],
+  "test_runners": {
+    "run_tests.bat": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py", "smoke_test_export.py", "smoke_test_masks.py", "smoke_test_webpclip.py"],
+    "bootstrap_agent.sh": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py"],
+    "bootstrap_agent.ps1": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py"],
+    "release.yml": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_export.py", "smoke_test_masks.py", "smoke_test_webpclip.py"],
+    "release_blocks_on_failure": true,
+    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. PR 워크플로는 없다."
+  },
   "expected_test_counts": {
     "smoke_test.py": 88,
     "smoke_test_converter.py": 62,
@@ -292,12 +325,64 @@
     "install": "%LOCALAPPDATA%\\Programs\\BongGIF",
     "staging": "%LOCALAPPDATA%\\BongGIF\\update\\staging"
   },
-  "excluded_from_repo": [
-    "PARITY.md",
-    "qa_shots/",
-    "DONE*",
-    "PROGRESS.json"
+  "excluded_from_repo": ["qa_shots/"],
+  "not_in_tree_and_not_gitignored": ["PARITY.md", "DONE*", "PROGRESS.json"],
+  "owner_questions": [
+    "PR CI 없음. 워크플로는 release.yml 하나, v* 태그 push만.",
+    "PySide6>=6.5,<6.9. 2026-11-02 Linux venv는 6.8.3. 주인 PC 6.12 주장은 이 저장소에서 재확인하지 못함.",
+    "webpclip 서면 허락 원문이 저장소에 없음. NOTICE.md.",
+    "4K HEVC/AV1 구간 미리보기 실측 없음. bonggif.log의 미리보기 캐시 줄을 주인이 알려 줘야 함."
   ],
+  "recommend_delete_branch_on_merge": true,
+  "delete_branch_on_merge": false,
+  "stale_branches_deleted": {
+    "date_kst": "2026-11-02",
+    "remote": "origin",
+    "deleted": [
+      "cursor/sync-handoff-v160-bead",
+      "cursor/faster-video-load-9cb0",
+      "cursor/multi-clip-export-9cb0",
+      "cursor/webpclip-gaps-slim-9cb0",
+      "cursor/ci-save-timer-gap-9cb0",
+      "cursor/fix-release-selftest-wait-9cb0",
+      "cursor/fix-frozen-cv2-9cb0",
+      "cursor/settings-tabs-home-first-9cb0",
+      "cursor/export-fidelity-rebirth-9cb0",
+      "cursor/note-v160-tag-9cb0",
+      "cursor/note-v150-tag-9cb0",
+      "cursor/note-v140-tag-9cb0",
+      "cursor/note-v130-083b-9cb0",
+      "cursor/note-v130-retag-9cb0"
+    ],
+    "failed": [],
+    "remaining_remote_heads": ["main"],
+    "open_prs_before_delete": 0
+  },
+  "linux_offscreen_2026_11_02": {
+    "python": "3.12.3",
+    "bootstrap": "OVERALL PASS",
+    "results": {
+      "smoke_test.py": "88/88",
+      "smoke_test_converter.py": "62/62",
+      "smoke_test_updater.py": "40/40",
+      "smoke_test_crash.py": "15/15",
+      "smoke_test_export.py": "42/42",
+      "smoke_test_masks.py": "10/10",
+      "smoke_test_webpclip.py": "33/33"
+    },
+    "first_attempt": "SIGTTIN stop: ffmpeg WebM subprocess inherited the tty inside the bootstrap pipeline. Rerun with no controlling terminal passed.",
+    "box_packages_installed_for_the_run": ["libegl1", "python3.12-venv"]
+  },
+  "requirements_observed_linux_2026_11_02": {
+    "python": "3.12.3",
+    "PySide6": "6.8.3",
+    "numpy": "2.2.6",
+    "Pillow": "13.0.0",
+    "opencv": "4.12.0",
+    "ffmpeg": "imageio-ffmpeg linux x86_64 v7.0.2",
+    "encoders_present": ["libaom-av1", "libx264", "libvpx", "libvpx-vp9"],
+    "pin": "PySide6>=6.5,<6.9 so 6.9+ is not installed"
+  },
   "agent_setup": {
     "doc": "docs/SETUP_AGENT.md",
     "env": "docs/agent-env.json",

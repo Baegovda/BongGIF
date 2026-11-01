@@ -1,52 +1,96 @@
 # HANDOFF — BongGIF
 
-_Last updated: 2026-10-31 (KST) · current version **v1.6.0** (태그 v1.6.0 = 422e262, 릴리스됨) · 대기 중인 릴리스 없음_
+_Last updated: 2026-11-02 (KST) · `bonggif/version.py` **1.6.0** · 대기 중인 릴리스 없음 · 새 태그 없음_
 
 ## Current state
-Stable. All smoke tests green (70 / 64 / 40 / 15). Self-update v1.1.2 → v1.1.3 verified on the owner's PC (update.log: backup → copy → restart, no rollback). Owner installs to `%LOCALAPPDATA%\Programs\BongGIF`.
+main은 `c4a45115d74055b5afdc7648a82fe8bfe1cbcf6c` (`c4a4511`, 2026-10-31 23:48 KST). 이 커밋은 PR **#15** 머지(2026-10-31T14:48:49Z)이고, 태그 **v1.6.0** = `422e262a109aa98ea662efd4c2382a2fe29dba3e`보다 문서 커밋 하나 앞이다. 코드 버전은 그대로 1.6.0이다. 최신 공개 릴리스는 v1.6.0이다. [run 41179233995](https://github.com/Baegovda/BongGIF/actions/runs/41179233995) 성공, `BongGIF-v1.6.0-win64.zip` 136,814,339 B + `.sha256`. v1.0.0 zip에는 `.sha256`이 없다. v1.1.0부터는 zip과 `.sha256`이 있다.
 
-최신 공개 릴리스는 **v1.6.0**이다. 태그는 main `422e262a109aa98ea662efd4c2382a2fe29dba3e`이고, release 워크플로 [run 41179233995](https://github.com/Baegovda/BongGIF/actions/runs/41179233995)가 성공해 `BongGIF-v1.6.0-win64.zip` (136,814,339 B)과 `.sha256`이 올라가 있다. v1.4.0·v1.5.0·v1.6.0 모두 태그와 GitHub Release가 있다. v1.3.0 태그는 실패 지점 `bd38d61`, `ab6a0b6`을 거쳐 `083b82f`에 고정됐다. SHA는 `git rev-parse <tag>^{commit}`로 확인했다.
+같은 시각에 **#6 #8 #10 #12 #14**는 머지되지 않고 닫혔다. #15 본문이 그 PR들을 superseded로 적었다(태그 SHA·run은 #15에 모였고, 그 PR들이 적던 "자산 대기"는 워크플로가 이미 성공한 뒤라 넣지 않음).
+
+2026-11-02 (KST)에 origin의 stale `cursor/*` 브랜치 14개를 삭제했다. 삭제 전에 각각 열린 PR이 0개인지 확인했다. 실패 없음. 남은 원격 브랜치는 `main`뿐이다. 저장소 설정 `deleteBranchOnMerge`는 **false**다. 머지할 때 브랜치가 자동으로 지워지게 켜 두는 것을 권한다.
+
+주인 PC의 자체 업데이트 v1.1.2 → v1.1.3은 이전에 확인됐다(update.log: backup → copy → restart, no rollback). 설치 위치는 `%LOCALAPPDATA%\Programs\BongGIF`. 에이전트는 그 폴더를 건드리지 않는다.
+
+스모크 검사 수는 성공 경로에서 `ok()`가 쌓는 개수다(루프는 펼치고, updater의 try/except 쌍은 한 번만 센다). `결과: N/M`의 M과 같다.
+
+| file | checks |
+|---|---|
+| `smoke_test.py` | 88 |
+| `smoke_test_converter.py` | 62 |
+| `smoke_test_updater.py` | 40 |
+| `smoke_test_crash.py` | 15 |
+| `smoke_test_export.py` | 42 (ffmpeg에 libaom-av1이 없으면 40) |
+| `smoke_test_masks.py` | 10 |
+| `smoke_test_webpclip.py` | 33 |
+
+합계 290. 예전에 적힌 70/64/40/15는 v1.1.x 기준이라 현재 파일과 맞지 않는다. 돌리는 집합도 셋이다.
+
+- `run_tests.bat`: 7개 전부.
+- `scripts/bootstrap_agent.sh`, `scripts/bootstrap_agent.ps1`: 앞 4개만. `OVERALL PASS`는 export/masks/webpclip을 포함하지 않는다. import 검사도 `cv2`와 `keyboard`를 보지 않는다.
+- `.github/workflows/release.yml`: `smoke_test_crash.py`를 뺀 6개. 실패하면 `exit $fail`로 빌드를 막는다. `::warning::`를 찍지만 비차단이 아니다. PR을 여는 워크플로는 없다(태그 push `v*`만).
+
+Linux 오프스크린 결과(2026-11-02, Python 3.12.3, `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`):
+
+- `bash scripts/bootstrap_agent.sh` → `OVERALL PASS`. 88/88, 62/62, 40/40, 15/15. PySide6 6.8.3, imageio-ffmpeg 7.0.2, Qt 오프스크린 통과.
+- 부트스트랩이 빼는 세 개도 같은 venv에서 통과: `smoke_test_export.py` 42/42 (libaom-av1 있음), `smoke_test_masks.py` 10/10, `smoke_test_webpclip.py` 33/33.
+- 첫 실행은 파이프 안에서 ffmpeg가 터미널을 물려받아 `SIGTTIN`으로 멈췄다(WebM `subprocess.run`이 stdin을 닫지 않음). 제어 터미널 없이 다시 돌리니 위 결과가 나왔다. 제품 실패는 아니다.
+
+## 다음 작업
+백로그에서 `status`가 `todo`인 항목 중 priority가 가장 높은 것은 **#1 텍스트 인트로/아웃트로** (`text-anim`)다. `export-rebirth`(priority 0)는 done이다. 새 릴리스나 태그는 만들지 않는다.
+
+수용 기준: 삽입 패널에서 fade / slide / typewriter를 고른다. 프레임 범위에 적용된다. 미리보기가 있다. 서로 다른 프레임이 나오는 테스트가 있다.
 
 ## Version history
 | ver | summary |
 |---|---|
-| 1.6.0 | 영상 로드: RGBA 직결, 썸네일 분리, 긴 영상 메모리 상한. 태그 v1.6.0 = 422e262. run 41179233995 성공, zip 136,814,339 B |
+| 1.6.0 | 영상 로드: RGBA 직결, 썸네일 분리, 긴 영상 메모리 상한(`EDIT_RAM_MB` 1152). 태그 v1.6.0 = 422e262. run 41179233995 성공, zip 136,814,339 B. main `c4a4511`은 그 이후 문서 커밋 |
 | 1.5.0 | 타임라인 클립 범위 여러 개, 체크한 클립을 원본이름_클립01 로 한 번에 저장. 태그 v1.5.0 = 75b5228. run 41177788469 성공, zip 136,811,149 B |
 | 1.4.0 | 소리 시작점, 목표 용량 5/8/10/25 MB, fps는 품질·너비로 부족할 때만. 패키지에서 cv2/data·다른 언어 qm·안 쓰는 Qt 라이브러리 제외. 태그 v1.4.0 = 6135ad7. run 41175624067 성공, zip 136,801,956 B |
-| 1.3.0 | 홈 첫 탭, 설정 왼쪽 목록, 다크 그라데이션, 클립·마스크·추적, 일괄 변환 제거, webpclip 로직 이식. 태그 v1.3.0 = 083b82f (재지정: bd38d61 실패 → ab6a0b6 실패 → 083b82f). run 41116887877 성공, zip 152,584,497 B |
-| 1.2.0 | 저장 파이프라인 재구성. 태그 v1.2.0 = 1b767a5. run 41109104209 성공, zip 106,073,723 B |
-| 1.0.0 | First public release: single window, recorder, editor, streaming video load, save GIF/WebP/MP4/WebM/APNG, batch, dark theme + drawn icons, effects, manage tab, settings, GitHub Actions release |
-| 1.1.0 | GitHub self-updater, 업데이트 확인 menu, daily auto-check, SHA256 assets |
-| 1.1.1 | Video range-selection dialog before loading (preview playback, handles, I/O keys) |
-| 1.1.2 | Updater hang fix (no pipes), version label + live update button, instant seek cache |
-| 1.1.3 | Faster preview cache: keyframe pass, parallel segments, hwaccel fallback, click priority |
-| 1.1.4 | Fix settings crash (`int('true')`): `prefs.py` typed getters everywhere; `rec_countdown` is seconds |
-| 1.1.6 | Crash reports live: ENDPOINT = https://bonggif-report.revaptor.workers.dev/report (relay deployed, KV 6824be73…, GITHUB_TOKEN secret set; test issue #1 created+closed). Tests set BONGGIF_REPORT_URL="" |
-| 1.1.5 | Auto update detection (startup+30 min+activation, ETag, toast), one-click non-stop update; crash auto-report client + Cloudflare relay (endpoint empty until owner deploys) |
+| 1.3.0 | 홈 첫 탭, 설정 왼쪽 목록 12항목, 다크 그라데이션, 클립·마스크·추적, 일괄 변환 제거, webpclip 로직 이식. 태그 v1.3.0 = 083b82f (재지정: bd38d61 실패 → ab6a0b6 실패 → 083b82f). run 41116887877 성공, zip 152,584,497 B |
+| 1.2.0 | 저장 파이프라인 재구성 (`bonggif/encoders/`). 태그 v1.2.0 = 1b767a5. run 41109104209 성공, zip 106,073,723 B. 이때 STATE의 parity가 84에서 88로 바뀌었다 |
+| 1.1.6 | 크래시 리포트 엔드포인트 설정. 태그 v1.1.6 = a3329cd. zip 106,034,190 B |
+| 1.1.5 | 시작 5초·30분·창 활성화 자동 확인, 원클릭 업데이트, 크래시 리포트 클라이언트. 태그 v1.1.5 = 24408ab |
+| 1.1.4 | 설정 충돌 수정 (`int('true')`). `prefs.py` 경유. 태그 v1.1.4 = 66dd44c. 핸드오프 문서가 이때 추가됐고 parity 84가 적혔다 |
+| 1.1.3 | 구간 미리보기 캐시: 키프레임 패스, 병렬 구간, hwaccel 폴백, 클릭 우선. 태그 v1.1.3 = 44b7ad3 |
+| 1.1.2 | 업데이터 멈춤 수정(파이프 금지), 버전 표시, 즉시 탐색. 태그 v1.1.2 = 72e7169 |
+| 1.1.1 | 영상 구간 선택 창. 태그 v1.1.1 = 0fcc339 |
+| 1.1.0 | GitHub 자체 업데이트, SHA256 자산. 태그 v1.1.0 = 113ea63. zip 105,991,342 B. 첫 워크플로 run 40219117245는 실패하고 40219195784가 성공 |
+| 1.0.0 | 첫 공개 릴리스. 태그 v1.0.0 = 49386e1. zip 105,978,456 B, `.sha256` 없음. 당시에는 일괄 변환이 있었다 |
 
-## Done (high level)
-Record (fps, presets, countdown, cursor/highlight/click, pin, direct save) · Edit (crop w/ ratio/darken/remember, resize/rotate/flip, draw, 18 effects with live preview, text/emoji/image stickers, border, frame delete/cut/reduce/time/speed/reverse/yoyo/add-to-end, undo/redo) · Playbar + zoom · Save dialog with preview/limits/target size · Manage tab · Batch · Settings (12 tabs) · Self-update.
+SHA는 `git rev-parse <tag>^{commit}`와 릴리스 자산 크기로 확인했다. v1.2.0–v1.6.0 태그 시각은 2026-10-31 (KST). v1.3.0 GitHub Release `createdAt`은 2026-10-30T19:37:47Z (KST 2026-10-31 04:37)이다.
 
-## UX parity ≈ 84 %. Backlog (priority order)
+## Done (지금 있는 것)
+녹화(캡처 창 fps 5–30·프리셋 1920×1080, 녹화 탭 fps 1–60·프리셋은 1280×720까지, 카운트다운, 커서/강조/클릭, 핀, 바로 저장, 15fps 66/67/67ms, 같은 프레임 합치기) · 편집(자르기 비율/어둡게/기억, 크기/회전/반전, 그리기, EFFECTS 18항목=효과 없음+필터 17, 실시간 미리보기, 텍스트/이모지/이미지 스티커, 액자, 프레임 삭제/자르기/줄이기/시간/속도/역재생/요요/끝에 추가, 실행취소) · 재생 막대·확대 · 저장 6형식(GIF/WebP/MP4/WebM/APNG/AVIF) · 관리 · 홈이 첫 탭(홈/녹화/편집/관리) · 설정 왼쪽 목록 12항목(단축키 표는 읽기 전용) · 클립·마스크·CSRT · 소리 시작점 · 자체 업데이트. 일괄 변환 탭은 없다.
+
+## UX 추정 88%
+v1.1.4 핸드오프는 **84%**였다. v1.2.0 커밋 `1b767a5`가 `docs/STATE.json`만 **88**로 올렸고 HANDOFF는 84로 남았다. `PARITY.md`는 저장소에 없고 `.gitignore`에도 없다(`qa_shots/`만 무시된다. `DONE*`, `PROGRESS.json`도 무시 목록에 없다). 남은 UX 백로그 9개는 그때와 같다. 88은 체크리스트를 다시 센 값이 아니다. 두 문서를 88로 맞춘다. 새로 측정하지 않았다.
+
+## Backlog (priority order)
 | # | item | acceptance criteria |
 |---|---|---|
-| 1 | Text animation (intro/outro: fade, slide, typewriter) | Insert panel option; applied over frame range; preview; test renders differing frames |
+| 1 | **다음 작업.** Text animation (intro/outro: fade, slide, typewriter) | Insert panel option; applied over frame range; preview; test renders differing frames |
 | 2 | Speech bubble stickers | 3+ bubble shapes drawn in code, text inside, draggable, color/outline |
 | 3 | Transitions between two clips/frame ranges | fade/slide/wipe; N transition frames inserted; undo works |
 | 4 | Zoom camera (pan/zoom animation) | keyframed rect start→end over range; smooth easing; output size constant |
 | 5 | Collage (grid of 2–4 clips) | layout picker; per-cell source; synced length |
-| 6 | 9 more effects (chroma key, color curve, bloom, tilt-shift, out-of-focus, region/iris blur, ascii, inpaint-lite) | each in EFFECTS list, strength slider, live preview, smoke test |
+| 6 | 9 more effects. 괄호 안 이름은 8개다(chroma key, color curve, bloom, tilt-shift, out-of-focus, region/iris blur, ascii, inpaint-lite). 9번째 이름은 문서에 없다 | each in EFFECTS list, strength slider, live preview, smoke test |
 | 7 | Recording grid overlay + window finder | grid not captured (exclude from capture); click-to-pick window snaps rect |
-| 8 | Custom shortcuts | editable table in 설정 > 단축키, persisted via prefs, conflicts flagged |
+| 8 | Custom shortcuts | editable table in 설정 > 단축키, persisted via prefs, conflicts flagged. 지금은 읽기 전용 표만 있다 |
 | 9 | Watermark on save | text/image, position, opacity; saved in SaveDialog options |
 
-## Open questions
-- Real-GPU HW decode speed for 4K HEVC/AV1 in range dialog is unmeasured (box has no GPU). Ask owner for timing from `bonggif.log` ("미리보기 캐시 … 키프레임 Xs, 완료 Ys (hw|sw)").
-- Legacy `rec_countdown='true'` reads as 1 s; owner may need to reset to 3 s once.
-- `requirements.txt` pins PySide6 <6.9; dev box uses 6.12 — verify before bumping.
+## 주인에게 남은 질문
+- PR CI가 없다. 워크플로는 `release.yml` 하나이고 `v*` 태그 push에서만 돈다. 스모크가 실패하면 릴리스 잡이 실패한다.
+- `requirements.txt`는 `PySide6>=6.5,<6.9`이다. 이 Linux 박스의 새 venv는 **6.8.3**을 받았다(함께 설치된 것: numpy 2.2.6, Pillow 13.0.0, cv2 4.12.0). 상한을 6.9 이상으로 올릴지는 주인이 정한다. 이전에 적힌 "개발 PC는 6.12"는 이 저장소에서 다시 확인하지 못했다.
+- `bonggif/webpclip/` 서면 허락 원문이 저장소에 없다. `NOTICE.md`대로, 확인되기 전에는 그 부분을 다른 프로젝트로 다시 배포하지 않는 편이 안전하다.
+- 구간 대화상자에서 4K HEVC/AV1 실측이 없다. 이 박스에는 그 측정에 쓸 GPU 기록이 없다. 주인 PC의 `bonggif.log`에서 `미리보기 캐시 … 키프레임 Xs, 완료 Ys (hw|sw)` 한 줄을 알려 주면 된다.
+- 예전 `rec_countdown='true'`는 1초로 읽힌다. 한 번 3초로 되돌릴 수 있다.
+
+## 권장
+GitHub 저장소 설정에서 **Automatically delete head branches** (`deleteBranchOnMerge`)를 켠다. 지금은 false라 머지된 `cursor/*`가 남아 있었고, 2026-11-02에 손으로 지웠다.
 
 ## Session log (append newest first)
-- 2026-10-31: 태그 v1.6.0 = `422e262a109aa98ea662efd4c2382a2fe29dba3e` (main). run https://github.com/Baegovda/BongGIF/actions/runs/41179233995 성공. 자산 `BongGIF-v1.6.0-win64.zip` 136,814,339 B + `.sha256`.
+- 2026-11-02 (KST): 문서만 고침. 코드·`version.py`·태그는 그대로. main `c4a4511` = #15 머지, 태그 v1.6.0 `422e262`보다 문서 1커밋 앞. #6 #8 #10 #12 #14는 2026-10-31에 superseded로 닫힘. origin `cursor/*` 14개 삭제(열린 PR 없음, 실패 없음), 원격은 `main`만. `deleteBranchOnMerge`는 false. 스모크 수는 88/62/40/15/42/10/33. parity는 88로 통일(84는 v1.1.4 수치, 재측정 아님). 다음 작업은 백로그 #1 `text-anim`. Linux 오프스크린: bootstrap OVERALL PASS (88/88, 62/62, 40/40, 15/15). export 42/42, masks 10/10, webpclip 33/33. 첫 시도는 SIGTTIN으로 멈춤(ffmpeg가 파이프 밖 tty를 물려받음). 제어 터미널 없이 재실행해 통과. PySide6 6.8.3.
+- 2026-10-31: 태그 v1.6.0 = `422e262a109aa98ea662efd4c2382a2fe29dba3e`. 당시 HANDOFF는 이 SHA를 main이라고 적었으나, 같은 날 #15가 `c4a4511`로 그 위에 머지됐다. run https://github.com/Baegovda/BongGIF/actions/runs/41179233995 성공. 자산 `BongGIF-v1.6.0-win64.zip` 136,814,339 B + `.sha256`.
 - 2026-10-31: 태그 v1.5.0 = `75b5228dfa6e51124d5abb539825f0adc736029d`. run https://github.com/Baegovda/BongGIF/actions/runs/41177788469 성공. zip 136,811,149 B.
 - 2026-10-31: 태그 v1.4.0 = `6135ad789c48eb8f845c87e2aac28f70eca8ca70`. run https://github.com/Baegovda/BongGIF/actions/runs/41175624067 성공. zip 136,801,956 B.
 - 2026-10-30: 공개 릴리스 없음 확인 후 원격 태그 v1.3.0(`ab6a0b6`) 삭제. `083b82f`에 다시 푸시. run https://github.com/Baegovda/BongGIF/actions/runs/41116887877 성공. zip 152,584,497 B. 그 전 실패 태그는 `bd38d61a8865e88f43321acb01f3d0a6c980f0ea` (run 41114097847)와 `ab6a0b6dd7f0a401237946a5bbcb3a0b482dcc33` (run 41115607903, 타이머 최대 387ms로 57/58). 둘 다 GitHub Release 없음. 버전 1.3.0.

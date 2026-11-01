@@ -5,10 +5,12 @@ Machine-readable twin: [`docs/agent-env.json`](agent-env.json). MCP template: [`
 ## 0. TL;DR
 ```bash
 git clone https://github.com/Baegovda/BongGIF && cd BongGIF
-bash scripts/bootstrap_agent.sh          # Linux box: venv(3.12) + deps + ffmpeg + node/wrangler + gh check + 4 smoke tests
+bash scripts/bootstrap_agent.sh          # Linux box: venv(3.12) + deps + ffmpeg + node/wrangler + gh check + 4 of 7 smoke tests
 # Windows: powershell -ExecutionPolicy Bypass -File scripts\bootstrap_agent.ps1
 ```
 Expect `OVERALL PASS`. WARN rows are optional tools. Then read `docs/HANDOFF.md` and `docs/STATE.json`.
+
+Bootstrap (`scripts/bootstrap_agent.sh` and `.ps1`) runs only `smoke_test.py`, `smoke_test_converter.py`, `smoke_test_updater.py`, `smoke_test_crash.py`. It does not run `smoke_test_export.py` (42), `smoke_test_masks.py` (10), or `smoke_test_webpclip.py` (33). `run_tests.bat` runs all seven. The import check in bootstrap does not import `cv2` or `keyboard` even though both are in `requirements.txt` (`opencv-contrib-python-headless` is required for CSRT). `OVERALL PASS` with a broken cv2 install is possible until `smoke_test_masks.py` runs.
 
 ## 1. Two machines — know which one you are on
 | | Agent box (Linux) | User PC (Windows 11) |
