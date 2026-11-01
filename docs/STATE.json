@@ -3,37 +3,56 @@
   "repo": "https://github.com/Baegovda/BongGIF",
   "version": "1.7.0",
   "main": {
-    "sha": "32d86565cf473693151fa9576940b7c475c30350",
-    "short": "32d8656",
-    "date_kst": "2026-11-02T04:26:26+09:00",
-    "subject": "docs: drop the text intro/outro backlog item (#18)",
-    "note": "1.7.0 버전 범프의 부모. 그 아래 #19 스쿼시 59c2330(녹화 프레임). version.py는 이 커밋에서 1.7.0. 태그 v1.7.0은 버전 범프 커밋에 단다."
+    "sha": "f1a6d9097817ae92c6039a1d824fafd15186acb7",
+    "short": "f1a6d90",
+    "date_kst": "2026-11-02T04:31:40+09:00",
+    "subject": "Release 1.7.0: recording frame move/resize and docs cleanup. (#20)",
+    "note": "태그 v1.7.0이 이 SHA를 가리킨다. 이 문서 커밋은 태그 다음이다. version.py는 1.7.0. #18 머지 32d8656, #19 59c2330."
   },
   "pull_requests": {
-    "merged_tip": {"number": 18, "merged_at": "2026-11-01T19:26:26Z", "state": "MERGED", "sha": "32d86565cf473693151fa9576940b7c475c30350"},
+    "merged_tip": {"number": 20, "merged_at": "2026-11-01T19:31:40Z", "state": "MERGED", "sha": "f1a6d9097817ae92c6039a1d824fafd15186acb7"},
+    "text_anim_docs": {"number": 18, "merged_at": "2026-11-01T19:26:26Z", "sha": "32d86565cf473693151fa9576940b7c475c30350", "state": "MERGED"},
     "recording_frame": {"number": 19, "sha": "59c2330", "state": "MERGED"},
     "closed_superseded_on_2026_10_31": [6, 8, 10, 12, 14],
-    "note": "#18은 text-anim 제거. #19는 녹화 프레임 이동/크기. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #15 본문이 superseded라고 적었다."
+    "note": "#20은 1.7.0 버전 범프. #18은 text-anim 제거. #19는 녹화 프레임 이동/크기. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다."
   },
   "pending_release": {
-    "tag": "v1.7.0",
+    "tag": null,
     "sha": null,
     "run": null,
-    "note": "이 버전 범프 커밋에 v1.7.0을 단다. 부모는 #18 머지 32d8656. 워크플로 결과는 아직 없다. 공개된 최신 릴리스는 v1.6.0."
+    "note": "대기 중인 태그 없음. 최신 공개 릴리스는 v1.7.0."
   },
   "last_release": {
-    "tag": "v1.6.0",
-    "sha": "422e262a109aa98ea662efd4c2382a2fe29dba3e",
-    "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.6.0",
-    "run": "https://github.com/Baegovda/BongGIF/actions/runs/41179233995",
+    "tag": "v1.7.0",
+    "sha": "f1a6d9097817ae92c6039a1d824fafd15186acb7",
+    "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.7.0",
+    "run": "https://github.com/Baegovda/BongGIF/actions/runs/41342191814",
     "assets": [
-      "BongGIF-v1.6.0-win64.zip",
-      "BongGIF-v1.6.0-win64.zip.sha256"
+      "BongGIF-v1.7.0-win64.zip",
+      "BongGIF-v1.7.0-win64.zip.sha256"
     ],
-    "zip_bytes": 136814339,
-    "date": "2026-10-31"
+    "zip_bytes": 136832273,
+    "date": "2026-11-01",
+    "conclusion": "success",
+    "started_at": "2026-11-01T19:31:51Z",
+    "updated_at": "2026-11-01T19:34:55Z"
   },
   "release_history": [
+    {
+      "tag": "v1.7.0",
+      "sha": "f1a6d9097817ae92c6039a1d824fafd15186acb7",
+      "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.7.0",
+      "run": "https://github.com/Baegovda/BongGIF/actions/runs/41342191814",
+      "assets": [
+        "BongGIF-v1.7.0-win64.zip",
+        "BongGIF-v1.7.0-win64.zip.sha256"
+      ],
+      "zip_bytes": 136832273,
+      "date": "2026-11-01",
+      "conclusion": "success",
+      "started_at": "2026-11-01T19:31:51Z",
+      "updated_at": "2026-11-01T19:34:55Z"
+    },
     {
       "tag": "v1.6.0",
       "sha": "422e262a109aa98ea662efd4c2382a2fe29dba3e",
