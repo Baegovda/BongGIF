@@ -29,6 +29,101 @@ try:
 except Exception as e: print("  capture skipped:", e)
 rec.stop(); rec.close(); ok("녹화 시작/정지 예외 없음", True)
 
+# 녹화 프레임 이동·크기 (기하만, 캡처 백엔드에 의존하지 않음)
+import bonggif.recorder as recmod
+from PySide6.QtCore import Qt, QEvent
+from PySide6.QtGui import QShortcut, QKeyEvent
+ww, wh = recmod.window_size_for_capture(640, 480)
+handles = recmod.handle_rects(ww, wh)
+def _mid(rect):
+    x, y, w, h = rect
+    return x + w // 2, y + h // 2
+ok("핸들 8개·히트 10px 이상",
+   set(handles) == {"tl", "t", "tr", "l", "r", "bl", "b", "br"}
+   and recmod.EDGE >= 10
+   and all(w >= 10 and h >= 10 for _n, (_x, _y, w, h) in handles.items())
+   and all(recmod.hit_zone(*_mid(handles[n]), ww, wh) == n for n in handles))
+move_pts = [x for x in range(recmod.EDGE, ww - recmod.EDGE) if recmod.hit_zone(x, 2, ww, wh) == "move"]
+ok("테두리는 이동, 모서리 10px은 크기",
+   len(move_pts) >= 10 and recmod.hit_zone(9, 9, ww, wh) == "tl" and recmod.hit_zone(ww - 10, wh - 10, ww, wh) == "br")
+ok("제목·도구막대는 이동, 구멍은 통과",
+   recmod.hit_zone(ww // 2, recmod.EDGE + 8, ww, wh) == "move"
+   and recmod.hit_zone(ww // 2, wh - recmod.EDGE - 8, ww, wh) == "move"
+   and recmod.hit_zone(ww // 2, recmod.EDGE + recmod.TITLE_H + 40, ww, wh) == "client")
+ok("드래그 이동", recmod.apply_drag("move", 10, 20, 300, 200, 7, -4, 100, 80) == (17, 16, 300, 200))
+lx, ly, lw, lh = recmod.apply_drag("l", 100, 100, 200, 150, -30, 0, 80, 60)
+ok("왼쪽 조절은 오른쪽 가장자리 고정", (lx, ly, lw, lh) == (70, 100, 230, 150) and lx + lw == 300)
+ok("최소 크기 유지", recmod.apply_drag("l", 100, 100, 200, 150, 500, 0, 80, 60)[2] == 80)
+ok("화면 가장자리 스냅", recmod.snap_move(5, 40, 100, 80, [0, 1920], [0, 1080], 12)[:2] == (0, 40))
+ok("다른 창 가장자리 스냅", recmod.snap_move(308, 40, 100, 80, [0, 1920, 200, 300], [0, 1080], 12)[0] == 300)
+ok("리사이즈 스냅", recmod.snap_resize("r", 1800, 10, 110, 80, [0, 1920], [0, 1080], 12, 50, 50)[2] == 120)
+ok("창·캡처 크기 왕복", recmod.capture_size_of(*recmod.window_size_for_capture(800, 600)) == (800, 600))
+ok("프리셋 순서(녹화 탭 인덱스와 같음)",
+   [n for n, _s in recmod.PRESETS] == ["사용자 지정", "320×240", "480×360", "640×480", "800×600", "1280×720", "1920×1080"])
+ok("히트테스트 코드",
+   recmod.win_hit_code("client", False, False) == -1
+   and recmod.win_hit_code("move", False, False) == 2
+   and recmod.win_hit_code("move", True, False) == 1
+   and recmod.win_hit_code("move", False, True) == 1
+   and recmod.win_hit_code("l", False, False) == 10
+   and recmod.win_hit_code("br", False, False) == 17)
+packed = ((40 & 0xFFFF) << 16) | ((-100) & 0xFFFF)
+hidpi = recmod.logical_global_from_physical(100, 200, [(0, 0, 1920, 1080, 2)])
+mixed = recmod.logical_global_from_physical(1940, 40, [(0, 0, 1920, 1080, 1, 0, 0), (1920, 0, 1280, 720, 2, 1920, 0)])
+named = recmod.screen_descriptors([("\\\\.\\DISPLAY2", 1920, 0, 1280, 720, 2)], [(1920, 0, 2560, 1440, "\\\\.\\DISPLAY2")])
+ok("HiDPI·다중 모니터 좌표",
+   recmod.native_lparam_xy(packed) == (-100, 40)
+   and abs(hidpi[0] - 50) < 1e-6 and abs(hidpi[1] - 100) < 1e-6
+   and abs(mixed[0] - 1930) < 1e-6 and abs(mixed[1] - 20) < 1e-6
+   and named[0][5:] == (1920, 0))
+expect_cur = {"t": Qt.SizeVerCursor, "b": Qt.SizeVerCursor, "l": Qt.SizeHorCursor, "r": Qt.SizeHorCursor,
+              "tl": Qt.SizeFDiagCursor, "br": Qt.SizeFDiagCursor, "tr": Qt.SizeBDiagCursor, "bl": Qt.SizeBDiagCursor}
+ok("8방향 커서·고정 시 화살표",
+   all(recmod.cursor_for(k, False) == v for k, v in expect_cur.items())
+   and recmod.cursor_for("move", False) == Qt.SizeAllCursor
+   and recmod.cursor_for("l", True) == Qt.ArrowCursor)
+
+rg = recmod.RecorderWindow(); rg.show(); app.processEvents()
+ok("기본 캡처 640×480", rg.capture_size() == (640, 480) and rg.lbl_size.text() == "640×480")
+ok("캡처 원점은 테두리·제목 안쪽", rg.capture_rect().topLeft() == QPoint(recmod.EDGE, recmod.EDGE + recmod.TITLE_H))
+gpos = rg.grip.mapTo(rg, rg.grip.rect().center())
+ok("이동 손잡이", rg.grip.pixmap() is not None and not rg.grip.pixmap().isNull() and rg.zone_at(gpos.x(), gpos.y()) == "move")
+bpos = rg.btn_rec.mapTo(rg, rg.btn_rec.rect().center())
+ok("녹화 버튼은 드래그가 아님", rg.zone_at(bpos.x(), bpos.y()) == "client")
+x0, y0 = rg.x(), rg.y()
+ok("방향키 1px", rg.nudge(Qt.Key_Right, False, focus=rg.btn_rec) and rg.x() == x0 + 1)
+ok("Shift+방향키 10px", rg.nudge(Qt.Key_Down, True, focus=rg.btn_rec) and rg.y() == y0 + 10)
+ok("크기 입력 중에는 창을 안 옮김", rg._typing_focus(rg.sp_w) and not rg.nudge(Qt.Key_Left, True, focus=rg.sp_w) and rg.x() == x0 + 1)
+rg.btn_rec.setFocus(); app.processEvents()
+before = rg.x(); typing = rg._typing_focus()
+rg.keyPressEvent(QKeyEvent(QEvent.Type.KeyPress, Qt.Key_Left, Qt.NoModifier))
+ok("keyPressEvent 방향키", (rg.x() == before - 1 and not typing) or (rg.x() == before and typing),
+   str(type(app.focusWidget()).__name__ if app.focusWidget() else None))
+rg.sp_w.setValue(800); rg.sp_h.setValue(600); app.processEvents()
+ok("직접 입력 800×600", rg.capture_size() == (800, 600) and rg.lbl_size.text() == "800×600")
+rg.cb_size.setCurrentIndex(6); app.processEvents()
+ok("프리셋 1920×1080", rg.capture_size() == (1920, 1080))
+rg.configure(size_index=5); app.processEvents()
+ok("녹화 탭 인덱스 5는 1280×720", rg.capture_size() == (1280, 720) and rg.cb_size.currentIndex() == 5)
+cw, ch = rg.capture_size(); right = rg.x() + rg.width()
+ok("오른쪽·왼쪽 손잡이", rg.drag_by("r", 30, 0, snap=False) and rg.capture_size() == (cw + 30, ch)
+   and rg.drag_by("l", -20, 0, snap=False) and rg.x() + rg.width() == right + 30)
+pos = (rg.x(), rg.y(), rg.width(), rg.height())
+rg.sp_cd.setValue(3); rg.start(); app.processEvents()
+ok("카운트다운 위치 고정", rg.state == "countdown" and rg.geometry_locked() and rg.lbl_lock.isVisible() and "고정" in rg.lbl_lock.text())
+ok("고정 중 이동·크기 무시",
+   not rg.nudge(Qt.Key_Right, True, focus=rg.btn_rec) and not rg.drag_by("move", 25, 5, snap=False)
+   and not rg.set_capture_size(320, 240) and (rg.x(), rg.y(), rg.width(), rg.height()) == pos)
+rg.stop(); app.processEvents()
+ok("정지 후 다시 조절", (not rg.geometry_locked()) and (not rg.lbl_lock.isVisible()) and rg.drag_by("move", 8, 0, snap=False) and rg.x() == pos[0] + 8)
+rg.state = "rec"; rg.pause()
+ok("일시정지 위치 고정", rg.state == "pause" and rg.geometry_locked() and rg.lbl_lock.isVisible())
+rg.stop(); app.processEvents()
+ok("정지하면 고정의 해제", rg.state == "idle" and not rg.geometry_locked() and rg.btn_rec.text().startswith("●"))
+keys = [s.key().toString() for s in rg.findChildren(QShortcut)]
+ok("F9·Esc 유지", any(t.upper() == "F9" for t in keys) and any(t.lower() in ("esc", "escape") for t in keys), str(keys))
+rg.close()
+
 w = EditorWindow(); w.show(); app.processEvents()
 ok("탭 순서 홈·녹화·편집·관리", [w.tabs.tabText(i) for i in range(w.tabs.count())] == ["홈", "녹화", "편집", "관리"])
 ok("시작 탭은 홈", w.tabs.currentIndex() == w.TAB_HOME == w.tab_index("home") and w.tabs.widget(0).objectName() == "home")
