@@ -37,9 +37,9 @@ Linux 오프스크린 결과(2026-11-02, Python 3.12.3, `QT_QPA_PLATFORM=offscre
 - 첫 실행은 파이프 안에서 ffmpeg가 터미널을 물려받아 `SIGTTIN`으로 멈췄다(WebM `subprocess.run`이 stdin을 닫지 않음). 제어 터미널 없이 다시 돌리니 위 결과가 나왔다. 제품 실패는 아니다. 이 88/88은 녹화 프레임 변경 전이다. 변경 후 수는 표의 120이다.
 
 ## 다음 작업
-백로그에서 `status`가 `todo`인 항목 중 priority가 가장 높은 것은 **#1 텍스트 인트로/아웃트로** (`text-anim`)다. `export-rebirth`(priority 0)는 done이다. 새 릴리스나 태그는 만들지 않는다.
+백로그에서 `status`가 `todo`인 항목 중 priority가 가장 높은 것은 **#1 말풍선 스티커** (`bubbles`)다. `export-rebirth`(priority 0)는 done이다. 새 릴리스나 태그는 만들지 않는다.
 
-수용 기준: 삽입 패널에서 fade / slide / typewriter를 고른다. 프레임 범위에 적용된다. 미리보기가 있다. 서로 다른 프레임이 나오는 테스트가 있다.
+수용 기준: 코드로 그린 말풍선 모양이 3개 이상이다. 안에 글자가 들어간다. 드래그로 옮긴다. 색과 외곽선을 고른다.
 
 ## Version history
 | ver | summary |
@@ -64,20 +64,19 @@ SHA는 `git rev-parse <tag>^{commit}`와 릴리스 자산 크기로 확인했다
 녹화(캡처 창 fps 5–30·프리셋 1920×1080, 녹화 탭 fps 1–60·프리셋은 1280×720까지, 제목·도구막대·테두리 이동, 손잡이 8개, 카운트다운·녹화·일시정지 때 위치 고정, 카운트다운, 커서/강조/클릭, 핀, 바로 저장, 15fps 66/67/67ms, 같은 프레임 합치기) · 편집(자르기 비율/어둡게/기억, 크기/회전/반전, 그리기, EFFECTS 18항목=효과 없음+필터 17, 실시간 미리보기, 텍스트/이모지/이미지 스티커, 액자, 프레임 삭제/자르기/줄이기/시간/속도/역재생/요요/끝에 추가, 실행취소) · 재생 막대·확대 · 저장 6형식(GIF/WebP/MP4/WebM/APNG/AVIF) · 관리 · 홈이 첫 탭(홈/녹화/편집/관리) · 설정 왼쪽 목록 12항목(단축키 표는 읽기 전용) · 클립·마스크·CSRT · 소리 시작점 · 자체 업데이트. 일괄 변환 탭은 없다.
 
 ## UX 추정 88%
-v1.1.4 핸드오프는 **84%**였다. v1.2.0 커밋 `1b767a5`가 `docs/STATE.json`만 **88**로 올렸고 HANDOFF는 84로 남았다. `PARITY.md`는 저장소에 없고 `.gitignore`에도 없다(`qa_shots/`만 무시된다. `DONE*`, `PROGRESS.json`도 무시 목록에 없다). 남은 UX 백로그 9개는 그때와 같다. 88은 체크리스트를 다시 센 값이 아니다. 두 문서를 88로 맞춘다. 새로 측정하지 않았다.
+v1.1.4 핸드오프는 **84%**였다. v1.2.0 커밋 `1b767a5`가 `docs/STATE.json`만 **88**로 올렸고 HANDOFF는 84로 남았다. `PARITY.md`는 저장소에 없고 `.gitignore`에도 없다(`qa_shots/`만 무시된다. `DONE*`, `PROGRESS.json`도 무시 목록에 없다). 그때 남은 UX 백로그는 9개로 같았다. 88은 체크리스트를 다시 센 값이 아니다. 두 문서를 88로 맞춘다. 새로 측정하지 않았다. 2026-11-02에 주인이 todo 1건을 빼서, 지금 `status=todo`는 8개다.
 
 ## Backlog (priority order)
 | # | item | acceptance criteria |
 |---|---|---|
-| 1 | **다음 작업.** Text animation (intro/outro: fade, slide, typewriter) | Insert panel option; applied over frame range; preview; test renders differing frames |
-| 2 | Speech bubble stickers | 3+ bubble shapes drawn in code, text inside, draggable, color/outline |
-| 3 | Transitions between two clips/frame ranges | fade/slide/wipe; N transition frames inserted; undo works |
-| 4 | Zoom camera (pan/zoom animation) | keyframed rect start→end over range; smooth easing; output size constant |
-| 5 | Collage (grid of 2–4 clips) | layout picker; per-cell source; synced length |
-| 6 | 9 more effects. 괄호 안 이름은 8개다(chroma key, color curve, bloom, tilt-shift, out-of-focus, region/iris blur, ascii, inpaint-lite). 9번째 이름은 문서에 없다 | each in EFFECTS list, strength slider, live preview, smoke test |
-| 7 | Recording grid overlay + window finder | grid not captured (exclude from capture); click-to-pick window snaps rect |
-| 8 | Custom shortcuts | editable table in 설정 > 단축키, persisted via prefs, conflicts flagged. 지금은 읽기 전용 표만 있다 |
-| 9 | Watermark on save | text/image, position, opacity; saved in SaveDialog options |
+| 1 | **다음 작업.** Speech bubble stickers | 3+ bubble shapes drawn in code, text inside, draggable, color/outline |
+| 2 | Transitions between two clips/frame ranges | fade/slide/wipe; N transition frames inserted; undo works |
+| 3 | Zoom camera (pan/zoom animation) | keyframed rect start→end over range; smooth easing; output size constant |
+| 4 | Collage (grid of 2–4 clips) | layout picker; per-cell source; synced length |
+| 5 | 9 more effects. 괄호 안 이름은 8개다(chroma key, color curve, bloom, tilt-shift, out-of-focus, region/iris blur, ascii, inpaint-lite). 9번째 이름은 문서에 없다 | each in EFFECTS list, strength slider, live preview, smoke test |
+| 6 | Recording grid overlay + window finder | grid not captured (exclude from capture); click-to-pick window snaps rect |
+| 7 | Custom shortcuts | editable table in 설정 > 단축키, persisted via prefs, conflicts flagged. 지금은 읽기 전용 표만 있다 |
+| 8 | Watermark on save | text/image, position, opacity; saved in SaveDialog options |
 
 ## 주인에게 남은 질문
 - `requirements.txt`는 `PySide6>=6.5,<6.9`이다. 이 Linux 박스의 새 venv는 **6.8.3**을 받았다(함께 설치된 것: numpy 2.2.6, Pillow 13.0.0, cv2 4.12.0). 상한을 6.9 이상으로 올릴지는 주인이 정한다. 이전에 적힌 "개발 PC는 6.12"는 이 저장소에서 다시 확인하지 못했다.
@@ -89,10 +88,11 @@ v1.1.4 핸드오프는 **84%**였다. v1.2.0 커밋 `1b767a5`가 `docs/STATE.jso
 GitHub 저장소 설정에서 **Automatically delete head branches** (`deleteBranchOnMerge`)를 켠다. 지금은 false라 머지된 `cursor/*`가 남아 있었고, 2026-11-02에 손으로 지웠다.
 
 ## Session log (append newest first)
+- 2026-11-02 (KST): 문서만. 주인이 텍스트 인트로/아웃트로(`text-anim`)를 빼라고 했다. 백로그·다음 작업·AGENTS 시작 절차에서 뺐다. 남은 todo는 8개, 번호는 1부터 다시 매겼다. 다음 작업은 #1 `bubbles`(말풍선 스티커). `parity_estimate_pct` 88은 그대로다(재측정 아님). 코드·`version.py`·태그는 그대로. main에 이미 있는 녹화 프레임 이동/크기 문서(#19)는 그대로 두었다.
 - 2026-11-02 (KST): 녹화 프레임을 옮기고 크기를 조절하기 쉽게 고쳤다. 제목 막대·하단 도구 막대·16px 테두리를 끌면 이동한다. 점 6개 손잡이는 코드로 그린다. 방향키 1px, Shift+방향키 10px. 너비·높이 칸이나 프리셋에 포커스가 있으면 방향키는 그 값을 바꾼다. 크기 손잡이는 모서리 4개와 변 중앙 4개이고 히트는 16px, 커서가 바뀐다. 가로×세로는 실시간이고, 숫자를 입력하거나 프리셋을 고른다. 프리셋 순서는 그대로다(녹화 탭 인덱스 5 = 1280×720, 1920×1080은 캡처 창에만). 화면 가장자리와 다른 창 가장자리에 12px 안으로 붙는다. 카운트다운·녹화·일시정지에는 위치와 크기를 고정하고 제목에 `위치 고정`을 보인다. 프레임마다 크기가 달라지거나 영역이 흔들리면 움짤이 깨지기 때문이다. 정지해 대기가 되면 다시 조절된다. Windows는 `WM_NCHITTEST`(이동 HTCAPTION, 크기 HT*, 캡처 구멍 HTTRANSPARENT). 다른 플랫폼은 `startSystemMove`/`startSystemResize` 다음 수동 드래그. 오프스크린은 수동 드래그. 캡처 영역은 여전히 `capture_rect()`이고 테두리 밖이다. `smoke_test.py` 88→120. 버전 1.6.0 유지. 태그 없음. Linux 오프스크린(`QT_QPA_PLATFORM=offscreen`, stdin `/dev/null`, PySide6 6.8.3): 120/120, 62/62, 40/40, 15/15, 42/42, 10/10, 33/33. 위의 88/88 부트스트랩 기록은 이 변경 전 실행이다.
 - 2026-11-02 (KST): PR #17 CI 녹색. run https://github.com/Baegovda/BongGIF/actions/runs/41332687797 success. 런 2026-11-01T17:40:38Z–17:41:45Z (67초). 잡 smoke (ubuntu) 1분 3초 (17:40:41Z–17:41:44Z). 스모크 단계 36초. PySide6 6.8.3, 번들 ffmpeg에 libaom-av1. 앞선 run 41332512818은 실패. 스위트 출력은 88/88 62/62 40/40 15/15 42/42 10/10 33/33 이었고, export 로그의 NUL 때문에 grep이 결과 줄을 놓쳤다. `grep -a`로 고침. 제품 코드와 release.yml은 그대로.
 - 2026-11-02 (KST): PR 스모크 CI 추가. `.github/workflows/ci.yml` (ubuntu-latest, pull_request + push main, 7스위트 88/62/40/15/42/10/33). stdin은 `/dev/null`. libaom 등 인코더가 번들 ffmpeg에 없으면 distro ffmpeg + `IMAGEIO_FFMPEG_EXE`. `release.yml`은 수정하지 않음. 제품 코드는 바꾸지 않음. 열린 질문에서 "PR CI 없음"을 뺐다.
-- 2026-11-02 (KST): 문서만 고침. 코드·`version.py`·태그는 그대로. main `c4a4511` = #15 머지, 태그 v1.6.0 `422e262`보다 문서 1커밋 앞. #6 #8 #10 #12 #14는 2026-10-31에 superseded로 닫힘. origin `cursor/*` 14개 삭제(열린 PR 없음, 실패 없음), 원격은 `main`만. `deleteBranchOnMerge`는 false. 스모크 수는 88/62/40/15/42/10/33. parity는 88로 통일(84는 v1.1.4 수치, 재측정 아님). 다음 작업은 백로그 #1 `text-anim`. Linux 오프스크린: bootstrap OVERALL PASS (88/88, 62/62, 40/40, 15/15). export 42/42, masks 10/10, webpclip 33/33. 첫 시도는 SIGTTIN으로 멈춤(ffmpeg가 파이프 밖 tty를 물려받음). 제어 터미널 없이 재실행해 통과. PySide6 6.8.3.
+- 2026-11-02 (KST): 문서만 고침. 코드·`version.py`·태그는 그대로. main `c4a4511` = #15 머지, 태그 v1.6.0 `422e262`보다 문서 1커밋 앞. #6 #8 #10 #12 #14는 2026-10-31에 superseded로 닫힘. origin `cursor/*` 14개 삭제(열린 PR 없음, 실패 없음), 원격은 `main`만. `deleteBranchOnMerge`는 false. 스모크 수는 88/62/40/15/42/10/33. parity는 88로 통일(84는 v1.1.4 수치, 재측정 아님). Linux 오프스크린: bootstrap OVERALL PASS (88/88, 62/62, 40/40, 15/15). export 42/42, masks 10/10, webpclip 33/33. 첫 시도는 SIGTTIN으로 멈춤(ffmpeg가 파이프 밖 tty를 물려받음). 제어 터미널 없이 재실행해 통과. PySide6 6.8.3.
 - 2026-10-31: 태그 v1.6.0 = `422e262a109aa98ea662efd4c2382a2fe29dba3e`. 당시 HANDOFF는 이 SHA를 main이라고 적었으나, 같은 날 #15가 `c4a4511`로 그 위에 머지됐다. run https://github.com/Baegovda/BongGIF/actions/runs/41179233995 성공. 자산 `BongGIF-v1.6.0-win64.zip` 136,814,339 B + `.sha256`.
 - 2026-10-31: 태그 v1.5.0 = `75b5228dfa6e51124d5abb539825f0adc736029d`. run https://github.com/Baegovda/BongGIF/actions/runs/41177788469 성공. zip 136,811,149 B.
 - 2026-10-31: 태그 v1.4.0 = `6135ad789c48eb8f845c87e2aac28f70eca8ca70`. run https://github.com/Baegovda/BongGIF/actions/runs/41175624067 성공. zip 136,801,956 B.

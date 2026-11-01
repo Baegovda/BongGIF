@@ -140,14 +140,14 @@
     "smoke_test_webpclip.py": 33
   },
   "parity_estimate_pct": 88,
-  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 남은 UX 백로그 9개는 같다. 88은 재측정이 아니다. 문서는 88로 통일.",
+  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 todo 1건을 빼서 지금 status=todo 는 8개다.",
   "recommended_next": {
-    "id": "text-anim",
+    "id": "bubbles",
     "priority": 1,
     "status": "todo",
-    "title": "Text intro/outro animation",
+    "title": "Speech bubble stickers",
     "why": "status=todo 인 백로그 중 priority가 가장 높다. export-rebirth(priority 0)는 done.",
-    "accept": ["fade/slide/typewriter", "frame range", "preview", "test renders differing frames"]
+    "accept": ["3+ shapes drawn in code", "text inside", "draggable", "colors"]
   },
   "backlog": [
     {
@@ -166,20 +166,8 @@
       ]
     },
     {
-      "id": "text-anim",
-      "priority": 1,
-      "status": "todo",
-      "title": "Text intro/outro animation",
-      "accept": [
-        "fade/slide/typewriter",
-        "frame range",
-        "preview",
-        "test"
-      ]
-    },
-    {
       "id": "bubbles",
-      "priority": 2,
+      "priority": 1,
       "status": "todo",
       "title": "Speech bubble stickers",
       "accept": [
@@ -191,7 +179,7 @@
     },
     {
       "id": "transitions",
-      "priority": 3,
+      "priority": 2,
       "status": "todo",
       "title": "Transitions",
       "accept": [
@@ -202,7 +190,7 @@
     },
     {
       "id": "zoom-camera",
-      "priority": 4,
+      "priority": 3,
       "status": "todo",
       "title": "Zoom/pan camera",
       "accept": [
@@ -213,7 +201,7 @@
     },
     {
       "id": "collage",
-      "priority": 5,
+      "priority": 4,
       "status": "todo",
       "title": "Collage 2-4 clips",
       "accept": [
@@ -224,7 +212,7 @@
     },
     {
       "id": "effects-9",
-      "priority": 6,
+      "priority": 5,
       "status": "todo",
       "title": "9 more effects (parenthetical list names 8; the 9th name is not written down)",
       "accept": [
@@ -236,7 +224,7 @@
     },
     {
       "id": "rec-grid-finder",
-      "priority": 7,
+      "priority": 6,
       "status": "todo",
       "title": "Recording grid + window finder",
       "accept": [
@@ -246,7 +234,7 @@
     },
     {
       "id": "shortcuts",
-      "priority": 8,
+      "priority": 7,
       "status": "todo",
       "title": "Custom shortcuts",
       "accept": [
@@ -257,7 +245,7 @@
     },
     {
       "id": "watermark",
-      "priority": 9,
+      "priority": 8,
       "status": "todo",
       "title": "Watermark on save",
       "accept": [
