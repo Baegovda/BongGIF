@@ -144,7 +144,9 @@ jobs:
             st=${PIPESTATUS[0]}
             set -e
             elapsed=$(( $(date +%s) - start ))
-            line=$(grep -E '^결과: ' "$log" | tail -1 || true)
+            # export prints a NUL inside a PASS extra (APNG tEXt). Without -a, grep
+            # treats the log as binary and hides the 결과 line.
+            line=$(grep -aE '^결과: ' "$log" | tail -1 | tr -d '\r' || true)
             if [[ $st -eq 0 && "$line" == "결과: ${expect}/${expect} 통과" ]]; then
               echo "| \`${file}\` | PASS | ${line} | ${elapsed} |" >> "$GITHUB_STEP_SUMMARY"
             else
