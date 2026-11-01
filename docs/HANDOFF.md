@@ -27,7 +27,8 @@ main은 `c4a45115d74055b5afdc7648a82fe8bfe1cbcf6c` (`c4a4511`, 2026-10-31 23:48 
 
 - `run_tests.bat`: 7개 전부.
 - `scripts/bootstrap_agent.sh`, `scripts/bootstrap_agent.ps1`: 앞 4개만. `OVERALL PASS`는 export/masks/webpclip을 포함하지 않는다. import 검사도 `cv2`와 `keyboard`를 보지 않는다.
-- `.github/workflows/release.yml`: `smoke_test_crash.py`를 뺀 6개. 실패하면 `exit $fail`로 빌드를 막는다. `::warning::`를 찍지만 비차단이 아니다. PR을 여는 워크플로는 없다(태그 push `v*`만).
+- `.github/workflows/release.yml`: `smoke_test_crash.py`를 뺀 6개. 실패하면 `exit $fail`로 빌드를 막는다. `::warning::`를 찍지만 비차단이 아니다. 태그 push `v*`만. 이 파일의 동작은 바꾸지 않는다.
+- `.github/workflows/ci.yml`: `pull_request`(대상 `main`)와 `push`(main). 러너 **ubuntu-latest**, Python 3.12, `requirements.txt` 그대로(`PySide6>=6.5,<6.9`), pip 캐시. `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. 7개 전부, 기대 줄은 `88/88` `62/62` `40/40` `15/15` `42/42` `10/10` `33/33`. 개수가 다르거나 종료 코드가 0이 아니면 잡이 실패한다. 각 스위트 stdin은 `/dev/null`이다. WebM `subprocess.run`이 stdin을 닫지 않아, 터미널을 물려받으면 `SIGTTIN`으로 멈추고 열린 stdin이면 읽다 멈춘다. imageio-ffmpeg에 `libaom-av1`·`libx264`·`libvpx`·`libvpx-vp9`가 없으면 distro `ffmpeg`를 설치하고 `IMAGEIO_FFMPEG_EXE`를 둔다. export의 "인코더 없음" 분기는 실패 체크라 40으로 통과시키지 않는다. 빌드·릴리스 업로드는 하지 않는다. windows-latest는 release.yml에만 둔다. PR마다 PySide6+OpenCV를 윈도우에서 한 번 더 받지 않기 위해서다. 7개 오프스크린은 리눅스에서 이미 통과한 기록이 있다.
 
 Linux 오프스크린 결과(2026-11-02, Python 3.12.3, `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`):
 
@@ -79,7 +80,6 @@ v1.1.4 핸드오프는 **84%**였다. v1.2.0 커밋 `1b767a5`가 `docs/STATE.jso
 | 9 | Watermark on save | text/image, position, opacity; saved in SaveDialog options |
 
 ## 주인에게 남은 질문
-- PR CI가 없다. 워크플로는 `release.yml` 하나이고 `v*` 태그 push에서만 돈다. 스모크가 실패하면 릴리스 잡이 실패한다.
 - `requirements.txt`는 `PySide6>=6.5,<6.9`이다. 이 Linux 박스의 새 venv는 **6.8.3**을 받았다(함께 설치된 것: numpy 2.2.6, Pillow 13.0.0, cv2 4.12.0). 상한을 6.9 이상으로 올릴지는 주인이 정한다. 이전에 적힌 "개발 PC는 6.12"는 이 저장소에서 다시 확인하지 못했다.
 - `bonggif/webpclip/` 서면 허락 원문이 저장소에 없다. `NOTICE.md`대로, 확인되기 전에는 그 부분을 다른 프로젝트로 다시 배포하지 않는 편이 안전하다.
 - 구간 대화상자에서 4K HEVC/AV1 실측이 없다. 이 박스에는 그 측정에 쓸 GPU 기록이 없다. 주인 PC의 `bonggif.log`에서 `미리보기 캐시 … 키프레임 Xs, 완료 Ys (hw|sw)` 한 줄을 알려 주면 된다.
@@ -89,6 +89,7 @@ v1.1.4 핸드오프는 **84%**였다. v1.2.0 커밋 `1b767a5`가 `docs/STATE.jso
 GitHub 저장소 설정에서 **Automatically delete head branches** (`deleteBranchOnMerge`)를 켠다. 지금은 false라 머지된 `cursor/*`가 남아 있었고, 2026-11-02에 손으로 지웠다.
 
 ## Session log (append newest first)
+- 2026-11-02 (KST): PR 스모크 CI 추가. `.github/workflows/ci.yml` (ubuntu-latest, pull_request + push main, 7스위트 88/62/40/15/42/10/33). stdin은 `/dev/null`. libaom 등 인코더가 번들 ffmpeg에 없으면 distro ffmpeg + `IMAGEIO_FFMPEG_EXE`. `release.yml`은 수정하지 않음. 제품 코드는 바꾸지 않음. 열린 질문에서 "PR CI 없음"을 뺐다.
 - 2026-11-02 (KST): 문서만 고침. 코드·`version.py`·태그는 그대로. main `c4a4511` = #15 머지, 태그 v1.6.0 `422e262`보다 문서 1커밋 앞. #6 #8 #10 #12 #14는 2026-10-31에 superseded로 닫힘. origin `cursor/*` 14개 삭제(열린 PR 없음, 실패 없음), 원격은 `main`만. `deleteBranchOnMerge`는 false. 스모크 수는 88/62/40/15/42/10/33. parity는 88로 통일(84는 v1.1.4 수치, 재측정 아님). 다음 작업은 백로그 #1 `text-anim`. Linux 오프스크린: bootstrap OVERALL PASS (88/88, 62/62, 40/40, 15/15). export 42/42, masks 10/10, webpclip 33/33. 첫 시도는 SIGTTIN으로 멈춤(ffmpeg가 파이프 밖 tty를 물려받음). 제어 터미널 없이 재실행해 통과. PySide6 6.8.3.
 - 2026-10-31: 태그 v1.6.0 = `422e262a109aa98ea662efd4c2382a2fe29dba3e`. 당시 HANDOFF는 이 SHA를 main이라고 적었으나, 같은 날 #15가 `c4a4511`로 그 위에 머지됐다. run https://github.com/Baegovda/BongGIF/actions/runs/41179233995 성공. 자산 `BongGIF-v1.6.0-win64.zip` 136,814,339 B + `.sha256`.
 - 2026-10-31: 태그 v1.5.0 = `75b5228dfa6e51124d5abb539825f0adc736029d`. run https://github.com/Baegovda/BongGIF/actions/runs/41177788469 성공. zip 136,811,149 B.

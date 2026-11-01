@@ -296,7 +296,8 @@
     "bootstrap_agent.ps1": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py"],
     "release.yml": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_export.py", "smoke_test_masks.py", "smoke_test_webpclip.py"],
     "release_blocks_on_failure": true,
-    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. PR 워크플로는 없다."
+    "ci.yml": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py", "smoke_test_export.py", "smoke_test_masks.py", "smoke_test_webpclip.py"],
+    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 동작은 그대로. ci.yml은 pull_request(main)와 push(main), ubuntu-latest, 7개 전부. 기대 88/88 62/62 40/40 15/15 42/42 10/10 33/33. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
   },
   "expected_test_counts": {
     "smoke_test.py": 88,
@@ -327,8 +328,30 @@
   },
   "excluded_from_repo": ["qa_shots/"],
   "not_in_tree_and_not_gitignored": ["PARITY.md", "DONE*", "PROGRESS.json"],
+  "ci": {
+    "workflow": ".github/workflows/ci.yml",
+    "on": ["pull_request into main", "push to main", "workflow_dispatch"],
+    "runner": "ubuntu-latest",
+    "python": "3.12",
+    "pip_cache": "actions/setup-python cache: pip, cache-dependency-path: requirements.txt",
+    "pin": "PySide6>=6.5,<6.9 (install from requirements.txt; job rejects anything outside that range)",
+    "env": ["QT_QPA_PLATFORM=offscreen", "BONGGIF_REPORT_URL=", "CI=true"],
+    "expected": {
+      "smoke_test.py": "88/88",
+      "smoke_test_converter.py": "62/62",
+      "smoke_test_updater.py": "40/40",
+      "smoke_test_crash.py": "15/15",
+      "smoke_test_export.py": "42/42",
+      "smoke_test_masks.py": "10/10",
+      "smoke_test_webpclip.py": "33/33"
+    },
+    "stdin": "/dev/null on every suite so ffmpeg cannot SIGTTIN on an inherited tty or block on an open stdin",
+    "ffmpeg": "imageio-ffmpeg binary; if libaom-av1, libx264, libvpx, or libvpx-vp9 is missing, apt install ffmpeg and set IMAGEIO_FFMPEG_EXE. The export skip path is a failed check, so 40 is not a pass.",
+    "qt_packages": ["libegl1", "libgl1", "libxkbcommon0", "libfontconfig1", "libdbus-1-3", "libxcb-cursor0", "libnss3"],
+    "why_not_windows": "ubuntu-latest already passes all 7 offscreen and is the fast path. windows-latest remains release.yml only so PRs do not repeat the PySide6+OpenCV install.",
+    "release_yml": "unchanged"
+  },
   "owner_questions": [
-    "PR CI 없음. 워크플로는 release.yml 하나, v* 태그 push만.",
     "PySide6>=6.5,<6.9. 2026-11-02 Linux venv는 6.8.3. 주인 PC 6.12 주장은 이 저장소에서 재확인하지 못함.",
     "webpclip 서면 허락 원문이 저장소에 없음. NOTICE.md.",
     "4K HEVC/AV1 구간 미리보기 실측 없음. bonggif.log의 미리보기 캐시 줄을 주인이 알려 줘야 함."
