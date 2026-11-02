@@ -5,6 +5,10 @@
 크기: 모서리 4개와 변 중앙 손잡이 4개. 테두리와 손잡이 히트는 10px 이상이고 커서가 바뀐다.
 가로×세로는 실시간으로 보이고, 너비·높이를 입력하거나 프리셋을 고른다.
 화면 가장자리와 다른 창의 가장자리에 붙는다.
+안내 격자는 삼등분 또는 N×N이고, 켜 둔 값은 설정에 남는다. 녹화 파일에는 넣지 않는다.
+창 찾기는 커서가 올라간 최상위 창을 표시하고, 클릭하면 녹화 영역을 그 창에 맞춘다.
+Windows는 Win32로 창을 찾고 SetWindowDisplayAffinity로 격자를 캡처에서 뺀다.
+그 외에는 이 프로세스의 최상위 창만 고르고, 프레임을 찍는 동안 격자를 숨긴다.
 
 위치 고정: 녹화 버튼을 누른 뒤(카운트다운·녹화·일시정지)에는 이동과 크기 조절을 막는다.
 프레임마다 위치가 흔들리거나 크기가 달라지면 움짤이 깨지기 때문이다.
@@ -26,6 +30,7 @@ from PySide6.QtWidgets import (
     QApplication, QAbstractSpinBox, QLineEdit,
 )
 from .core import Frame
+from .prefs import get_bool, get_int, get_str, to_int
 
 EDGE = 16           # 불투명 테두리. 이동 히트와 손잡이 두께. 10px 이상.
 HANDLE_LEN = 48     # 변 중앙 크기 손잡이 길이
@@ -34,6 +39,8 @@ BAR_H = 44          # 하단 도구 막대
 SNAP = 12           # 가장자리 스냅 거리
 MIN_CW, MIN_CH = 160, 120
 MAX_CW, MAX_CH = 7680, 4320
+GRID_N_MIN, GRID_N_MAX = 2, 12
+_SKIP_WIN_CLASS = {"Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd"}
 PRESETS = [("사용자 지정", None), ("320×240", (320, 240)), ("480×360", (480, 360)), ("640×480", (640, 480)),
            ("800×600", (800, 600)), ("1280×720", (1280, 720)), ("1920×1080", (1920, 1080))]
 
@@ -109,11 +116,15 @@ def cursor_for(zone: str, locked: bool):
     return _CURSORS.get(zone, Qt.ArrowCursor)
 
 
-def win_hit_code(zone: str, locked: bool, interactive: bool) -> int:
-    """WM_NCHITTEST result. Hole is HTTRANSPARENT so clicks pass through."""
+def win_hit_code(zone: str, locked: bool, interactive: bool, picking: bool = False) -> int:
+    """WM_NCHITTEST result. Hole is HTTRANSPARENT so clicks pass through.
+
+    창 고르기 중에는 테두리를 드래그로 쓰지 않는다. 구멍은 그대로 통과시켜
+    그 뒤의 창을 고를 수 있게 한다.
+    """
     if zone == "client":
         return -1
-    if locked or interactive or zone not in _HT:
+    if picking or locked or interactive or zone not in _HT:
         return 1
     return _HT[zone]
 
@@ -311,6 +322,213 @@ def _win_monitors():
     return monitors
 
 
+def logical_to_physical(x, y, screens) -> tuple[int, int]:
+    """Qt 논리 좌표를 Win32 물리 픽셀로. 화면이 없으면 반올림만 한다."""
+    x, y = float(x), float(y)
+    chosen = None
+    for item in screens:
+        sx, sy, sw, sh, dpr, nx, ny = _screen_box(item)
+        if sx <= x < sx + sw and sy <= y < sy + sh:
+            chosen = (sx, sy, dpr, nx, ny)
+            break
+    if chosen is None and screens:
+        sx, sy, _sw, _sh, dpr, nx, ny = _screen_box(screens[0])
+        chosen = (sx, sy, dpr, nx, ny)
+    if chosen is None:
+        return int(round(x)), int(round(y))
+    sx, sy, dpr, nx, ny = chosen
+    return int(round(nx + (x - sx) * dpr)), int(round(ny + (y - sy) * dpr))
+
+
+def physical_rect_to_logical(x, y, w, h, screens) -> tuple[int, int, int, int]:
+    """물리 픽셀 사각형의 두 꼭짓점을 논리 좌표로. 결과는 왼쪽·위·너비·높이."""
+    x1, y1 = logical_global_from_physical(int(x), int(y), screens)
+    x2, y2 = logical_global_from_physical(int(x) + int(w), int(y) + int(h), screens)
+    return int(round(x1)), int(round(y1)), max(1, int(round(x2 - x1))), max(1, int(round(y2 - y1)))
+
+
+def normalize_grid_mode(mode) -> str:
+    """thirds(삼등분) 또는 cells(N×N). 모르는 값은 삼등분."""
+    m = str(mode or "").strip().lower()
+    if m in ("cells", "grid", "n", "나눔"):
+        return "cells"
+    return "thirds"
+
+
+def clamp_grid_n(n, default=3) -> int:
+    return to_int(n, default, GRID_N_MIN, GRID_N_MAX)
+
+
+def grid_segments(width, height, mode, n) -> list[tuple[int, int, int, int]]:
+    """캡처 영역 로컬 좌표의 안내선. 삼등분은 3, 나눔은 N(2–12)."""
+    w, h = int(width), int(height)
+    if w < 2 or h < 2:
+        return []
+    div = 3 if normalize_grid_mode(mode) == "thirds" else clamp_grid_n(n)
+    segs = []
+    for i in range(1, div):
+        x = min(max(int(round(w * i / div)), 0), w - 1)
+        y = min(max(int(round(h * i / div)), 0), h - 1)
+        segs.append((x, 0, x, h - 1))
+        segs.append((0, y, w - 1, y))
+    return segs
+
+
+def paint_grid_lines(p: QPainter, rect: QRect, mode: str, n: int):
+    """어두운 테와 밝은 심으로 안내선을 그린다. 호출하는 쪽이 캡처 제외를 맡는다."""
+    segs = grid_segments(rect.width(), rect.height(), mode, n)
+    if not segs:
+        return
+    ox, oy = rect.x(), rect.y()
+    p.setRenderHint(QPainter.Antialiasing, False)
+    for color, width in ((QColor(0, 0, 0, 180), 3), (QColor(255, 255, 255, 230), 1)):
+        p.setPen(QPen(color, width))
+        for x1, y1, x2, y2 in segs:
+            p.drawLine(ox + x1, oy + y1, ox + x2, oy + y2)
+
+
+def _app_settings():
+    from PySide6.QtCore import QSettings
+    return QSettings(QSettings.defaultFormat(), QSettings.UserScope, "BongGIF", "BongGIF")
+
+
+def load_grid_prefs(st=None):
+    """(on, mode, n). 읽기는 prefs 한 종류씩."""
+    st = _app_settings() if st is None else st
+    return (
+        get_bool(st, "rec_grid", False),
+        normalize_grid_mode(get_str(st, "rec_grid_mode", "thirds")),
+        get_int(st, "rec_grid_n", 3, GRID_N_MIN, GRID_N_MAX),
+    )
+
+
+def save_grid_prefs(on, mode, n, st=None):
+    st = _app_settings() if st is None else st
+    st.setValue("rec_grid", bool(on))
+    st.setValue("rec_grid_mode", normalize_grid_mode(mode))
+    st.setValue("rec_grid_n", clamp_grid_n(n))
+
+
+def frame_geometry_for_target(tx, ty, tw, th) -> tuple[int, int, int, int]:
+    """캡처 구멍이 대상 창을 덮도록 녹화 프레임의 위치와 크기. 최소·최대에 맞춘다."""
+    cw = max(MIN_CW, min(MAX_CW, int(tw)))
+    ch = max(MIN_CH, min(MAX_CH, int(th)))
+    ww, wh = window_size_for_capture(cw, ch)
+    return int(tx) - EDGE, int(ty) - (EDGE + TITLE_H), ww, wh
+
+
+def choose_window(x, y, rects, exclude=()) -> tuple | None:
+    """(id, x, y, w, h) 중 점을 포함하는 가장 작은 창. 8px 미만과 exclude는 뺀다."""
+    skip = set(exclude or ())
+    best = None
+    px, py = int(x), int(y)
+    for item in rects or ():
+        ident, rx, ry, rw, rh = item[:5]
+        if ident in skip:
+            continue
+        rw, rh = int(rw), int(rh)
+        if rw < 8 or rh < 8:
+            continue
+        if int(rx) <= px < int(rx) + rw and int(ry) <= py < int(ry) + rh:
+            area = rw * rh
+            if best is None or area < best[0]:
+                best = (area, (int(rx), int(ry), rw, rh))
+    return None if best is None else best[1]
+
+
+def accept_native_window(hwnd, class_name, rect, exclude=()) -> bool:
+    """바탕 화면·작업 표시줄·너무 작은 창·자기 창은 고르지 않는다."""
+    try:
+        hwnd = int(hwnd)
+    except (TypeError, ValueError):
+        return False
+    if hwnd == 0 or hwnd in set(exclude or ()):
+        return False
+    if str(class_name or "") in _SKIP_WIN_CLASS:
+        return False
+    if not rect or len(rect) < 4:
+        return False
+    return int(rect[2]) >= 8 and int(rect[3]) >= 8
+
+
+def try_exclude_from_capture(hwnd) -> bool:
+    """Windows 10 2004+ WDA_EXCLUDEFROMCAPTURE. 다른 OS와 실패는 False."""
+    if sys.platform != "win32":
+        return False
+    try:
+        hwnd = int(hwnd)
+    except (TypeError, ValueError):
+        return False
+    if not hwnd:
+        return False
+    try:
+        user32 = ctypes.windll.user32
+        user32.SetWindowDisplayAffinity.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        user32.SetWindowDisplayAffinity.restype = ctypes.c_int
+        return bool(user32.SetWindowDisplayAffinity(ctypes.c_void_p(hwnd), 0x11))
+    except Exception:
+        return False
+
+
+def win32_window_at(px, py, exclude=()):
+    """물리 픽셀 좌표의 최상위 창 (x, y, w, h). Windows가 아니거나 실패하면 None."""
+    if sys.platform != "win32":
+        return None
+    try:
+        user32 = ctypes.windll.user32
+
+        class POINT(ctypes.Structure):
+            _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
+
+        class RECT(ctypes.Structure):
+            _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
+                        ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
+
+        user32.WindowFromPoint.argtypes = [POINT]
+        user32.WindowFromPoint.restype = ctypes.c_void_p
+        user32.GetAncestor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        user32.GetAncestor.restype = ctypes.c_void_p
+        user32.IsWindowVisible.argtypes = [ctypes.c_void_p]
+        user32.IsWindowVisible.restype = ctypes.c_int
+        user32.GetWindowRect.argtypes = [ctypes.c_void_p, ctypes.POINTER(RECT)]
+        user32.GetWindowRect.restype = ctypes.c_int
+        user32.GetClassNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
+        user32.GetClassNameW.restype = ctypes.c_int
+        hwnd = user32.WindowFromPoint(POINT(int(px), int(py)))
+        if not hwnd:
+            return None
+        root = user32.GetAncestor(hwnd, 2) or hwnd
+        if not user32.IsWindowVisible(root):
+            return None
+        buf = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(root, buf, 256)
+        rect = RECT()
+        got = False
+        dwmapi = None
+        try:
+            dwmapi = ctypes.windll.dwmapi
+            dwmapi.DwmGetWindowAttribute.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_uint]
+            dwmapi.DwmGetWindowAttribute.restype = ctypes.c_long
+            got = dwmapi.DwmGetWindowAttribute(root, 9, ctypes.byref(rect), ctypes.sizeof(rect)) == 0
+        except Exception:
+            got = False
+        if not got and not user32.GetWindowRect(root, ctypes.byref(rect)):
+            return None
+        found = (int(rect.left), int(rect.top), int(rect.right - rect.left), int(rect.bottom - rect.top))
+        if not accept_native_window(int(root), buf.value, found, exclude):
+            return None
+        if dwmapi is not None:
+            try:
+                cloaked = ctypes.c_int(0)
+                if dwmapi.DwmGetWindowAttribute(root, 14, ctypes.byref(cloaked), ctypes.sizeof(cloaked)) == 0 and cloaked.value:
+                    return None
+            except Exception:
+                pass
+        return found
+    except Exception:
+        return None
+
+
 def move_grip_icon(side: int = 18) -> QPixmap:
     """2×3 dot grip drawn in code."""
     pm = QPixmap(side, side)
@@ -415,6 +633,37 @@ def draw_highlight(img: Image.Image, x: int, y: int, click=False):
     else: d.ellipse((x - 20, y - 20, x + 20, y + 20), fill=(255, 230, 0, 90))
     img.alpha_composite(ov) if img.mode == "RGBA" else img.paste(Image.alpha_composite(img.convert("RGBA"), ov))
 
+class WindowHighlight(QWidget):
+    """창 찾기 중 대상 위에 그리는 테두리. 마우스는 통과한다."""
+    def __init__(self):
+        flags = Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint | Qt.WindowTransparentForInput | Qt.WindowDoesNotAcceptFocus
+        super().__init__(None, flags)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        self.setWindowTitle("BongGIF 창 표시")
+
+    def place(self, x, y, w, h):
+        self.setGeometry(int(x), int(y), max(1, int(w)), max(1, int(h)))
+        if not self.isVisible():
+            self.show()
+            if sys.platform == "win32":
+                try:
+                    try_exclude_from_capture(int(self.winId()))
+                except Exception:
+                    pass
+        app = QApplication.instance()
+        if app is not None and app.platformName() not in ("offscreen", "minimal", "minimalegl"):
+            self.raise_()
+        self.update()
+
+    def paintEvent(self, e):
+        p = QPainter(self)
+        p.setPen(QPen(QColor(0, 180, 255), 3))
+        p.setBrush(QColor(0, 150, 255, 48))
+        p.drawRect(self.rect().adjusted(1, 1, -2, -2))
+
+
 class RecorderWindow(QWidget):
     finished = Signal(list)   # list[Frame]
 
@@ -432,16 +681,52 @@ class RecorderWindow(QWidget):
         self._syncing = False
         self.grabber = None
         self._t_last = 0.0
+        self._grid_on = False
+        self._grid_mode = "thirds"
+        self._grid_n = 3
+        self._guides_suppressed = False
+        self._in_grab = False
+        self._affinity_excludes = False
+        self._picking = False
+        self._pick_phase = "idle"
+        self._pick_rect = None
+        self.highlight = WindowHighlight()
         self._build_bar()
+        self._load_grid()
         self._layout_chrome()
         self._sync_size_widgets(*self.capture_size())
         self._apply_lock_ui()
+        self._pick_timer = QTimer(self)
+        self._pick_timer.setInterval(30)
+        self._pick_timer.timeout.connect(self._poll_pick)
         self.timer = QTimer(self); self.timer.setTimerType(Qt.PreciseTimer); self.timer.setSingleShot(True); self.timer.timeout.connect(self._tick)
         self._interval_rem = 0
         self.cd_timer = QTimer(self); self.cd_timer.timeout.connect(self._cd_tick)
         QShortcut(QKeySequence("F9"), self, activated=self.toggle)
-        QShortcut(QKeySequence("Esc"), self, activated=self.close)
+        QShortcut(QKeySequence("Esc"), self, activated=self._on_esc)
         self._global_hotkey()
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        if sys.platform == "win32" and not self._affinity_excludes:
+            self._affinity_excludes = try_exclude_from_capture(self._native_hwnd())
+
+    def _native_hwnd(self) -> int:
+        return self._hwnd_of(self)
+
+    def _hwnd_of(self, widget) -> int:
+        if widget is None:
+            return 0
+        try:
+            return int(widget.winId())
+        except Exception:
+            return 0
+
+    def _on_esc(self):
+        if self._picking:
+            self.cancel_pick()
+            return
+        self.close()
 
     def configure(self, fps=15, countdown=3, cursor=True, highlight=False, click=False, pin=True, size_index=0, skip_same=True):
         self.sp_fps.setValue(fps); self.sp_cd.setValue(countdown); self.chk_cursor.setChecked(cursor)
@@ -551,12 +836,28 @@ class RecorderWindow(QWidget):
         self.lbl_lock.setObjectName("lock")
         self.lbl_lock.setToolTip("녹화 중에는 위치와 크기가 고정됩니다. 정지하면 다시 조절할 수 있습니다.")
         _pass_mouse(self.lbl_lock)
+        self.chk_grid = QCheckBox("격자")
+        self.chk_grid.setToolTip("안내 격자. 삼등분 또는 N×N. 녹화 파일에는 들어가지 않습니다.")
+        self.cb_grid = QComboBox()
+        self.cb_grid.addItem("삼등분", "thirds")
+        self.cb_grid.addItem("나눔", "cells")
+        self.cb_grid.setToolTip("삼등분 또는 칸으로 나누기")
+        self.cb_grid.setFixedWidth(72)
+        self.sp_grid = QSpinBox()
+        self.sp_grid.setRange(GRID_N_MIN, GRID_N_MAX)
+        self.sp_grid.setValue(3)
+        self.sp_grid.setSuffix("칸")
+        self.sp_grid.setToolTip("가로·세로 칸 수")
+        self.sp_grid.setFixedWidth(68)
+        self.chk_grid.toggled.connect(self._on_grid_toggled)
+        self.cb_grid.currentIndexChanged.connect(self._on_grid_mode)
+        self.sp_grid.valueChanged.connect(self._on_grid_n)
         self.btn_close = QPushButton("✕")
         self.btn_close.setFixedWidth(28)
         self.btn_close.setToolTip("닫기")
         self.btn_close.clicked.connect(self.close)
         for widget in (self.grip, self.lbl_move, self.lbl_size, self.cb_size, self.lbl_w, self.sp_w,
-                       self.lbl_h, self.sp_h, self.lbl_lock):
+                       self.lbl_h, self.sp_h, self.chk_grid, self.cb_grid, self.sp_grid, self.lbl_lock):
             tlay.addWidget(widget)
         tlay.addStretch(1)
         tlay.addWidget(self.btn_close)
@@ -575,6 +876,10 @@ class RecorderWindow(QWidget):
         self.btn_rec = QPushButton("● 녹화 (F9)"); self.btn_rec.clicked.connect(self.toggle)
         self.btn_pause = QPushButton("일시정지"); self.btn_pause.clicked.connect(self.pause); self.btn_pause.setEnabled(False)
         self.btn_stop = QPushButton("■ 정지"); self.btn_stop.clicked.connect(self.stop); self.btn_stop.setEnabled(False)
+        self.btn_pick = QPushButton("창 찾기")
+        self.btn_pick.setCheckable(True)
+        self.btn_pick.setToolTip("다른 창 위에 올리면 테두리가 보입니다. 클릭하면 녹화 영역이 그 창에 맞습니다. 녹화 중에는 쓸 수 없습니다.")
+        self.btn_pick.toggled.connect(self._on_pick_toggled)
         self.sp_fps = QSpinBox(); self.sp_fps.setRange(5, 30); self.sp_fps.setValue(15); self.sp_fps.setSuffix(" fps")
         self.sp_cd = QSpinBox(); self.sp_cd.setRange(0, 10); self.sp_cd.setValue(3); self.sp_cd.setSuffix("초")
         self.chk_cursor = QCheckBox("커서"); self.chk_cursor.setChecked(True)
@@ -583,7 +888,7 @@ class RecorderWindow(QWidget):
         self.chk_pin = QCheckBox("항상 위"); self.chk_pin.setChecked(True); self.chk_pin.toggled.connect(self._pin)
         self.lbl = _pass_mouse(QLabel("대기"))
         self.lbl_mem = _pass_mouse(QLabel("0 MB"))
-        for widget in (self.grip_bar, self.btn_rec, self.btn_pause, self.btn_stop, self.sp_fps, QLabel("카운트다운"),
+        for widget in (self.grip_bar, self.btn_rec, self.btn_pause, self.btn_stop, self.btn_pick, self.sp_fps, QLabel("카운트다운"),
                        self.sp_cd, self.chk_cursor, self.chk_hl, self.chk_click, self.chk_skip, self.chk_pin,
                        self.lbl, self.lbl_mem):
             if isinstance(widget, QLabel) and widget is not self.grip_bar:
@@ -631,17 +936,22 @@ class RecorderWindow(QWidget):
         locked = self.geometry_locked()
         for widget in (self.cb_size, self.sp_w, self.sp_h):
             widget.setEnabled(not locked)
+        if getattr(self, "btn_pick", None) is not None:
+            self.btn_pick.setEnabled(not locked)
+            if locked and self._picking:
+                self.cancel_pick()
         self.lbl_lock.setVisible(locked)
         self._title_style(locked)
         cur = Qt.ArrowCursor if locked else Qt.SizeAllCursor
         self.title.setCursor(cur)
         self.bar.setCursor(cur)
-        for widget in (self.btn_rec, self.btn_pause, self.btn_stop, self.btn_close, self.cb_size,
-                       self.sp_w, self.sp_h, self.sp_fps, self.sp_cd, self.chk_cursor, self.chk_hl,
-                       self.chk_click, self.chk_skip, self.chk_pin):
+        for widget in (self.btn_rec, self.btn_pause, self.btn_stop, self.btn_pick, self.btn_close, self.cb_size,
+                       self.sp_w, self.sp_h, self.chk_grid, self.cb_grid, self.sp_grid, self.sp_fps, self.sp_cd,
+                       self.chk_cursor, self.chk_hl, self.chk_click, self.chk_skip, self.chk_pin):
             widget.setCursor(Qt.ArrowCursor)
         if locked:
             self.setCursor(Qt.ArrowCursor)
+        self._sync_guide_suppression()
         self.update()
 
     def resizeEvent(self, e):
@@ -690,8 +1000,9 @@ class RecorderWindow(QWidget):
             geo = screen.availableGeometry()
             vx += [geo.x(), geo.x() + geo.width()]
             hy += [geo.y(), geo.y() + geo.height()]
+        skip = {self, getattr(self, "highlight", None)}
         for widget in app.topLevelWidgets():
-            if widget is self or not widget.isVisible():
+            if widget in skip or not widget.isVisible():
                 continue
             geo = widget.frameGeometry()
             vx += [geo.x(), geo.x() + geo.width()]
@@ -729,6 +1040,229 @@ class RecorderWindow(QWidget):
             font.setBold(True)
             p.setFont(font)
             p.drawText(r, Qt.AlignCenter, str(self._countdown))
+        if self.grid_painted():
+            paint_grid_lines(p, r, self._grid_mode, self._grid_n)
+
+    # ---------- 안내 격자 ----------
+    def grid_painted(self) -> bool:
+        """화면에 안내선을 그리는지. 캡처 중 숨김이면 False."""
+        return bool(self._grid_on) and not bool(self._guides_suppressed)
+
+    def guides_visible_to_capture(self) -> bool:
+        """이 순간 화면을 찍으면 안내선이 들어갈 수 있는지.
+
+        Windows에서 창 전체가 캡처 제외면 화면에 보여도 False다.
+        """
+        if self._affinity_excludes:
+            return False
+        return self.grid_painted()
+
+    def _sync_guide_suppression(self):
+        hide = (not self._affinity_excludes) and (self._in_grab or self.state in ("rec", "pause"))
+        self._guides_suppressed = bool(hide)
+
+    def begin_capture_exclusion(self):
+        """한 프레임을 찍기 직전. 격자가 파일에 들어가지 않게 한다."""
+        self._in_grab = True
+        self._sync_guide_suppression()
+        if self._guides_suppressed and self._grid_on:
+            self.repaint()
+
+    def end_capture_exclusion(self):
+        self._in_grab = False
+        self._sync_guide_suppression()
+        self.update()
+
+    def _apply_grid_widgets(self):
+        widgets = (self.chk_grid, self.cb_grid, self.sp_grid)
+        for widget in widgets:
+            widget.blockSignals(True)
+        self.chk_grid.setChecked(self._grid_on)
+        self.cb_grid.setCurrentIndex(0 if self._grid_mode == "thirds" else 1)
+        self.sp_grid.setValue(self._grid_n)
+        self.cb_grid.setEnabled(self._grid_on)
+        self.sp_grid.setEnabled(self._grid_on and self._grid_mode == "cells")
+        for widget in widgets:
+            widget.blockSignals(False)
+
+    def set_grid(self, on, mode="thirds", n=3, save=True):
+        self._grid_on = bool(on)
+        self._grid_mode = normalize_grid_mode(mode)
+        self._grid_n = clamp_grid_n(n)
+        if getattr(self, "chk_grid", None) is not None:
+            self._apply_grid_widgets()
+        if save:
+            save_grid_prefs(self._grid_on, self._grid_mode, self._grid_n)
+        self._sync_guide_suppression()
+        self.update()
+
+    def _load_grid(self):
+        on, mode, n = load_grid_prefs()
+        self.set_grid(on, mode, n, save=False)
+
+    def _save_grid(self):
+        save_grid_prefs(self._grid_on, self._grid_mode, self._grid_n)
+
+    def _on_grid_toggled(self, on):
+        if self._syncing:
+            return
+        self.set_grid(bool(on), self._grid_mode, self._grid_n)
+
+    def _on_grid_mode(self, _index=None):
+        if self._syncing:
+            return
+        self.set_grid(self._grid_on, self.cb_grid.currentData(), self._grid_n)
+
+    def _on_grid_n(self, n):
+        if self._syncing:
+            return
+        self.set_grid(self._grid_on, self._grid_mode, n)
+
+    # ---------- 창 찾기 ----------
+    def capture_global_rect(self) -> tuple[int, int, int, int]:
+        r = self.capture_rect()
+        tl = self.mapToGlobal(r.topLeft())
+        return int(tl.x()), int(tl.y()), int(r.width()), int(r.height())
+
+    def snap_to_window_rect(self, x, y, w, h) -> bool:
+        """캡처 구멍을 대상 사각형에 맞춘다. 고정 중이면 움직이지 않는다."""
+        if self.geometry_locked():
+            return False
+        gx, gy, gw, gh = frame_geometry_for_target(x, y, w, h)
+        self.setGeometry(int(gx), int(gy), int(gw), int(gh))
+        self._sync_size_widgets(*self.capture_size())
+        return True
+
+    def _exclude_hwnds(self):
+        out = set()
+        for widget in (self, getattr(self, "highlight", None)):
+            hwnd = self._hwnd_of(widget)
+            if hwnd:
+                out.add(hwnd)
+        return out
+
+    def _qt_window_rects(self):
+        app = QApplication.instance()
+        if app is None:
+            return []
+        rows = []
+        highlight = getattr(self, "highlight", None)
+        for widget in app.topLevelWidgets():
+            if widget is self or widget is highlight or not widget.isVisible():
+                continue
+            geo = widget.frameGeometry()
+            rows.append((id(widget), geo.x(), geo.y(), geo.width(), geo.height()))
+        return rows
+
+    def lookup_window_rect(self, x, y):
+        """커서 아래 최상위 창. Windows는 Win32, 그 외는 이 프로세스의 창."""
+        if sys.platform == "win32":
+            screens = screen_descriptors(self._qt_screen_rows(), _win_monitors())
+            px, py = logical_to_physical(x, y, screens)
+            found = win32_window_at(px, py, self._exclude_hwnds())
+            if found is None:
+                return None
+            return physical_rect_to_logical(*found, screens)
+        return choose_window(x, y, self._qt_window_rects(), ())
+
+    def _pick_click_ignored(self, x, y) -> bool:
+        """제목·도구·손잡이 클릭은 창 맞추기로 쓰지 않는다. 캡처 구멍은 통과."""
+        local = self.mapFromGlobal(QPoint(int(x), int(y)))
+        if not self.rect().contains(local):
+            return False
+        if self._interactive_at(local):
+            return True
+        return hit_zone(local.x(), local.y(), self.width(), self.height()) != "client"
+
+    def start_pick(self) -> bool:
+        if self.geometry_locked():
+            return False
+        self._picking = True
+        self._pick_phase = "wait_release"
+        self._pick_rect = None
+        if getattr(self, "btn_pick", None) is not None:
+            self.btn_pick.blockSignals(True)
+            self.btn_pick.setChecked(True)
+            self.btn_pick.setText("고르는 중")
+            self.btn_pick.blockSignals(False)
+        if getattr(self, "lbl", None) is not None:
+            self.lbl.setText("창 위로 이동 후 클릭")
+        self._pick_timer.start()
+        return True
+
+    def cancel_pick(self):
+        self._picking = False
+        self._pick_phase = "idle"
+        self._pick_rect = None
+        timer = getattr(self, "_pick_timer", None)
+        if timer is not None:
+            timer.stop()
+        highlight = getattr(self, "highlight", None)
+        if highlight is not None:
+            highlight.hide()
+        btn = getattr(self, "btn_pick", None)
+        if btn is not None:
+            btn.blockSignals(True)
+            btn.setChecked(False)
+            btn.setText("창 찾기")
+            btn.blockSignals(False)
+        if getattr(self, "lbl", None) is not None and self.state == "idle":
+            self.lbl.setText("대기")
+
+    def _on_pick_toggled(self, checked):
+        if checked:
+            if not self.start_pick():
+                btn = self.btn_pick
+                btn.blockSignals(True)
+                btn.setChecked(False)
+                btn.setText("창 찾기")
+                btn.blockSignals(False)
+            return
+        if self._picking:
+            self.cancel_pick()
+
+    def _poll_pick(self):
+        if not self._picking:
+            return
+        pos = QCursor.pos()
+        self.pick_step(pos.x(), pos.y(), mouse_down(), self.lookup_window_rect)
+
+    def pick_step(self, x, y, down, lookup) -> str:
+        """테스트와 타이머가 같이 쓰는 창 고르기 한 단계."""
+        if not self._picking or self.geometry_locked():
+            self.cancel_pick()
+            return "cancelled"
+        rect = lookup(int(x), int(y))
+        if rect:
+            self.highlight.place(*rect)
+        elif self.highlight is not None:
+            self.highlight.hide()
+        phase = self._pick_phase
+        if phase == "wait_release":
+            if not down:
+                self._pick_phase = "armed"
+            return "wait"
+        if phase == "armed":
+            if down:
+                self._pick_phase = "down"
+                self._pick_rect = rect
+            return "armed"
+        if phase == "down":
+            if down:
+                self._pick_rect = rect
+                return "down"
+            chosen = self._pick_rect
+            self._pick_phase = "armed"
+            self._pick_rect = None
+            if self._pick_click_ignored(x, y):
+                return "chrome"
+            if not chosen:
+                return "none"
+            if self.snap_to_window_rect(*chosen):
+                self.cancel_pick()
+                return "snapped"
+            return "blocked"
+        return phase
 
     # ---------- 이동/크기조절 ----------
     def _hover(self, local: QPoint):
@@ -739,7 +1273,7 @@ class RecorderWindow(QWidget):
             self.setCursor(cursor_for(zone, self.geometry_locked()))
 
     def _press_at(self, local: QPoint, global_pos: QPoint):
-        if self.geometry_locked() or self._interactive_at(local):
+        if self._picking or self.geometry_locked() or self._interactive_at(local):
             return
         zone = hit_zone(local.x(), local.y(), self.width(), self.height())
         if zone == "client":
@@ -878,7 +1412,7 @@ class RecorderWindow(QWidget):
             else:
                 return None
         zone = hit_zone(local.x(), local.y(), self.width(), self.height())
-        return win_hit_code(zone, self.geometry_locked(), self._interactive_at(local))
+        return win_hit_code(zone, self.geometry_locked(), self._interactive_at(local), self._picking)
 
     def _qt_screen_rows(self):
         app = QApplication.instance()
@@ -909,6 +1443,7 @@ class RecorderWindow(QWidget):
         elif self.state in ("rec", "pause"): self.stop()
 
     def start(self):
+        self.cancel_pick()
         self.frames = []; self._countdown = self.sp_cd.value()
         if self._countdown > 0:
             self.state = "countdown"
@@ -947,10 +1482,14 @@ class RecorderWindow(QWidget):
         now = time.perf_counter(); delay = max(1, int(round((now - self._t_last) * 1000))); self._t_last = now
         r = self.capture_rect(); tl = self.mapToGlobal(r.topLeft()); dpr = self.devicePixelRatioF()
         x, y, w, h = int(tl.x() * dpr), int(tl.y() * dpr), int(r.width() * dpr), int(r.height() * dpr)
+        self.begin_capture_exclusion()
         try:
-            img = self.grabber.grab(x, y, w, h)
-        except Exception as e:
-            self.lbl.setText(f"캡처 실패: {e}"); self.stop(); return
+            try:
+                img = self.grabber.grab(x, y, w, h)
+            except Exception as e:
+                self.lbl.setText(f"캡처 실패: {e}"); self.stop(); return
+        finally:
+            self.end_capture_exclusion()
         if self.chk_cursor.isChecked():
             c = QCursor.pos(); cx, cy = int(c.x() * dpr) - x, int(c.y() * dpr) - y
             if 0 <= cx < w and 0 <= cy < h:
@@ -975,6 +1514,9 @@ class RecorderWindow(QWidget):
         self._apply_lock_ui()
     def closeEvent(self, e):
         self.timer.stop(); self.cd_timer.stop()
+        self.cancel_pick()
+        if getattr(self, "highlight", None) is not None:
+            self.highlight.close()
         self._clear_drag()
         if self._kb:
             try: self._kb.unhook_all_hotkeys()
