@@ -89,12 +89,57 @@ def preprocess(frames, ctx=None, limit_fps=0, max_width=0, skip_similar=0.0, emb
         fr = out
     return fr
 
+def apply_preserve(fmt, opt: dict) -> dict:
+    """색 유지. GIF는 고른 팔레트·디더·색 수를 품질 축소 없이 쓰고, 나머지는 무손실에 가깝게."""
+    if not opt.get("preserve_colors"):
+        return opt
+    o = dict(opt)
+    o["preserve_colors"] = True
+    if fmt == "gif":
+        o["gif_quality"] = 100
+        o["quality"] = 100
+    elif fmt == "webp":
+        o["lossless"] = True
+    elif fmt in ("png", "apng"):
+        o["apng_color"] = "rgba"
+        o["apng_palette"] = False
+    elif fmt == "webm":
+        o["quality"] = 100
+        o["webm_lossless"] = True
+    elif fmt == "mp4":
+        o["quality"] = 100
+        o["mp4_lossless"] = True
+    elif fmt == "avif":
+        o["avif_quality"] = 100
+        o["quality"] = 100
+        o["avif_lossless"] = True
+    return o
+
 def export_once(frames, path, ctx=None, colors=256, dither=True, palette="perframe", encoder="pil", stats_mode="full",
                 quality=None, webp_quality=80, lossless=False, mp4_quality=7, fps=None, loop=0,
                 gif_quality=None, remove_similar=True, webp_iphone=True, webp_method=4, comment=True,
-                apng_palette=True, apng_colors=None, avif_quality=None, webm_codec="vp8", **_):
+                apng_palette=True, apng_colors=None, apng_color=None, avif_quality=None, webm_codec="vp8",
+                webm_alpha=False, preserve_colors=False, webm_lossless=False, mp4_lossless=False,
+                avif_lossless=False, **_):
     ctx = ctx or NULL; fmt = _ext_fmt(path)
     if not frames: raise ValueError("프레임이 없습니다")
+    tuned = apply_preserve(fmt, {
+        "colors": colors, "dither": dither, "palette": palette, "encoder": encoder, "stats_mode": stats_mode,
+        "quality": quality, "webp_quality": webp_quality, "lossless": lossless, "mp4_quality": mp4_quality,
+        "gif_quality": gif_quality, "remove_similar": remove_similar, "webp_iphone": webp_iphone,
+        "webp_method": webp_method, "comment": comment, "apng_palette": apng_palette, "apng_colors": apng_colors,
+        "apng_color": apng_color, "avif_quality": avif_quality, "webm_codec": webm_codec, "webm_alpha": webm_alpha,
+        "preserve_colors": preserve_colors, "webm_lossless": webm_lossless, "mp4_lossless": mp4_lossless,
+        "avif_lossless": avif_lossless,
+    })
+    colors = tuned["colors"]; dither = tuned["dither"]; palette = tuned["palette"]
+    encoder = tuned["encoder"]; stats_mode = tuned["stats_mode"]; quality = tuned["quality"]
+    webp_quality = tuned["webp_quality"]; lossless = tuned["lossless"]; mp4_quality = tuned["mp4_quality"]
+    gif_quality = tuned["gif_quality"]; remove_similar = tuned["remove_similar"]
+    webp_iphone = tuned["webp_iphone"]; webp_method = tuned["webp_method"]; comment = tuned["comment"]
+    apng_palette = tuned["apng_palette"]; apng_colors = tuned["apng_colors"]; apng_color = tuned["apng_color"]
+    avif_quality = tuned["avif_quality"]; webm_codec = tuned["webm_codec"]; webm_alpha = tuned["webm_alpha"]
+    webm_lossless = tuned["webm_lossless"]; mp4_lossless = tuned["mp4_lossless"]; avif_lossless = tuned["avif_lossless"]
     if fmt == "gif":
         gq = gif_quality if gif_quality is not None else quality
         if encoder == "ffmpeg":
@@ -105,15 +150,17 @@ def export_once(frames, path, ctx=None, colors=256, dither=True, palette="perfra
         export_webp(frames, path, quality if quality is not None else webp_quality, lossless, loop, ctx,
                     iphone=webp_iphone, method=webp_method, comment=comment)
     elif fmt == "mp4":
-        export_mp4(frames, path, quality if quality is not None else mp4_quality, fps, ctx)
+        export_mp4(frames, path, quality if quality is not None else mp4_quality, fps, ctx, lossless=mp4_lossless)
     elif fmt in ("png", "apng"):
         export_apng(frames, path, loop, ctx, palette=apng_palette, colors=colors if apng_colors is None else apng_colors,
                     dither=dither if isinstance(dither, str) else ("fs" if dither else "none"),
-                    remove_similar=remove_similar, comment=comment, quality=quality)
+                    remove_similar=remove_similar, comment=comment, quality=quality, color_mode=apng_color)
     elif fmt == "webm":
-        export_webm(frames, path, quality if quality is not None else 80, ctx, codec=webm_codec)
+        export_webm(frames, path, quality if quality is not None else 80, ctx, codec=webm_codec,
+                    alpha=bool(webm_alpha), lossless=bool(webm_lossless))
     elif fmt == "avif":
-        export_avif(frames, path, avif_quality if avif_quality is not None else (quality if quality is not None else 80), fps, ctx)
+        export_avif(frames, path, avif_quality if avif_quality is not None else (quality if quality is not None else 80), fps, ctx,
+                    lossless=bool(avif_lossless))
     else:
         raise ValueError("지원하지 않는 형식: ." + fmt)
     return os.path.getsize(path)

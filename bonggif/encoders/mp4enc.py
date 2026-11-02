@@ -10,7 +10,7 @@ import tempfile
 
 from .common import as_q100, cfr_fps, crop_even, even_size, h264_crf
 
-def write_mp4(frames, path, quality=7, fps=None, ctx=None, audio=False):
+def write_mp4(frames, path, quality=7, fps=None, ctx=None, audio=False, lossless=False):
     from ..converter import ffmpeg_exe, _NOWIN
     from ..core import NULL, Cancelled
     ctx = ctx or NULL
@@ -25,22 +25,28 @@ def write_mp4(frames, path, quality=7, fps=None, ctx=None, audio=False):
     W, H = even_size(*im0.size)
     gop = max(1, int(round(rate)))
     crf = h264_crf(q)
+    if lossless:
+        profile, pix, rate_args = "high444", "yuvj444p", ["-qp", "0"]
+    else:
+        profile, pix, rate_args = "high", "yuv420p", ["-crf", str(crf)]
     args = [
-        ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y",
+        ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", f"{rate:g}", "-i", "-",
         "-an",
-        "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", "-profile:v", profile, "-pix_fmt", pix,
         "-bf", "0", "-refs", "1", "-g", str(gop),
         "-x264-params", f"keyint={gop}:min-keyint={gop}:scenecut=0:bframes=0:ref=1",
-        "-crf", str(crf), "-preset", "veryfast",
-        "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
-        path,
+        *rate_args, "-preset", "veryfast",
     ]
+    if not lossless:
+        args += ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"]
+    args.append(path)
     if audio:
         # 녹화 파이프라인에 오디오 샘플이 없다. 트랙을 만들지 않는다.
         pass
     errf = tempfile.TemporaryFile()
-    proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=errf, creationflags=_NOWIN)
+    proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=errf,
+                            creationflags=_NOWIN)
     try:
         slot = 0.0
         written = 0

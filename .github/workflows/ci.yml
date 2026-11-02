@@ -1,6 +1,6 @@
 # Pull-request and main smoke tests.
 #
-# Runner is ubuntu-latest, not windows-latest. The twelve offscreen suites
+# Runner is ubuntu-latest, not windows-latest. The thirteen offscreen suites
 # already pass on Linux with this requirements.txt (PySide6>=6.5,<6.9 and the
 # imageio-ffmpeg build, which includes libaom-av1). windows-latest stays in
 # release.yml for the product build; this file does not change that workflow.
@@ -168,8 +168,9 @@ jobs:
           run_suite smoke_test_watermark.py 43
           run_suite smoke_test_recguide.py 55
           run_suite smoke_test_shortcuts.py 40
+          run_suite smoke_test_export_adv.py 35
           if [[ $fail -ne 0 ]]; then
             echo "::error::one or more smoke suites failed"
             exit 1
           fi
-          echo "All 12 smoke suites passed (120/62/40/15/42/10/72/62/62/43/55/40)"
+          echo "All 13 smoke suites passed (120/62/40/15/42/10/72/62/62/43/55/40/35)"

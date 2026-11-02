@@ -1,6 +1,7 @@
 """APNG 작성기.
 
-팔레트 모드(기본): 색 종류 3, PLTE, 투명 인덱스 0, 더티 사각형.
+색 모드는 셋이다. 팔레트(기본, 색 종류 3, PLTE, 투명 인덱스 0),
+RGBA(색 종류 6, 원본 알파), RGB(색 종류 2, 검정 위에 합성, 알파 없음).
 첫 프레임은 전체(dispose 0, blend SOURCE). 이후 프레임은 dispose 0, blend OVER.
 tEXt Software 는 ``BongGIF <ver> (<시각>); `` — 품질 토큰 없음.
 acTL plays 0 = 무한. 지연은 밀리초/1000. pHYs 2835 (72 dpi).
@@ -35,6 +36,29 @@ def _rows_rgba(im: Image.Image) -> bytes:
         raw.append(0)
         raw.extend(arr[y].tobytes())
     return zlib.compress(bytes(raw), 9)
+
+def _rows_rgb(im: Image.Image) -> bytes:
+    arr = np.asarray(im.convert("RGB"))
+    h, w, _ = arr.shape
+    raw = bytearray()
+    for y in range(h):
+        raw.append(0)
+        raw.extend(arr[y].tobytes())
+    return zlib.compress(bytes(raw), 9)
+
+_APNG_MODES = {
+    "palette": "palette", "indexed": "palette", "plte": "palette", "pal": "palette",
+    "rgba": "rgba", "full": "rgba", "truecolor-alpha": "rgba",
+    "rgb": "rgb", "truecolor": "rgb",
+}
+
+def normalize_apng_mode(color_mode=None, palette=True) -> str:
+    """palette=색 종류 3, rgba=6(알파 유지), rgb=2(알파 없음)."""
+    if color_mode:
+        found = _APNG_MODES.get(str(color_mode).strip().lower())
+        if found:
+            return found
+    return "palette" if palette else "rgba"
 
 def _fctl(seq, w, h, x, y, delay_ms, dispose, blend) -> bytes:
     data = struct.pack(">IIIIIHHBB", int(seq), int(w), int(h), int(x), int(y),
@@ -77,25 +101,29 @@ def _palette(rgbs, colors, dither):
     return bytes(plte), out_frames
 
 def write_apng(frames, path, loop=0, ctx=None, palette=True, colors=256, dither=True,
-               remove_similar=True, comment=True, quality=None, when=None):
+               remove_similar=True, comment=True, quality=None, when=None, color_mode=None):
     from ..core import NULL, Cancelled
     ctx = ctx or NULL
     if not frames:
         raise ValueError("프레임이 없습니다")
+    mode = normalize_apng_mode(color_mode, palette)
     rgbs = []
     delays = []
     for i, f in enumerate(frames):
         if ctx.cancelled():
             raise Cancelled()
         im = f.image if hasattr(f, "image") else f
-        if im.mode != "RGB":
-            base = Image.new("RGBA", im.size, (0, 0, 0, 255))
-            base.alpha_composite(im.convert("RGBA"))
-            im = base.convert("RGB")
-        rgbs.append(im)
+        rgba = im if im.mode == "RGBA" else im.convert("RGBA")
+        if mode == "rgba":
+            prepared = rgba
+        else:
+            base = Image.new("RGBA", rgba.size, (0, 0, 0, 255))
+            base.alpha_composite(rgba)
+            prepared = base.convert("RGB")
+        rgbs.append(prepared)
         delays.append(max(1, min(65535, int(getattr(f, "delay", 100) or 100))))
     W, H = rgbs[0].size
-    use_pal = bool(palette)
+    use_pal = mode == "palette"
     chunks = []
     if use_pal:
         ctx.step(0, 0, "APNG 팔레트 생성 중")
@@ -105,6 +133,10 @@ def write_apng(frames, path, loop=0, ctx=None, palette=True, colors=256, dither=
         chunks.append(_chunk(b"IHDR", ihdr))
         chunks.append(_chunk(b"PLTE", plte))
         chunks.append(_chunk(b"tRNS", b"\x00"))
+    elif mode == "rgb":
+        indexed = None
+        ihdr = struct.pack(">IIBBBBB", W, H, 8, 2, 0, 0, 0)
+        chunks.append(_chunk(b"IHDR", ihdr))
     else:
         indexed = None
         ihdr = struct.pack(">IIBBBBB", W, H, 8, 6, 0, 0, 0)
@@ -138,9 +170,25 @@ def write_apng(frames, path, loop=0, ctx=None, palette=True, colors=256, dither=
                 arr_box = arr
             comp = _rows_indexed(arr_box)
             bh, bw = arr_box.shape
+        elif mode == "rgb":
+            if remove_similar and prev is not None:
+                a = np.asarray(im.convert("RGB"))
+                same = np.all(a == prev, axis=2)
+                if not bool(same.all()):
+                    ys, xs = np.nonzero(~same)
+                    x0, y0, x1, y1 = int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
+                    tile = im.convert("RGB").crop((x0, y0, x1, y1))
+                    x, y = x0, y0
+                else:
+                    px = tuple(int(v) for v in np.asarray(im.convert("RGB"))[0, 0])
+                    tile = Image.new("RGB", (1, 1), px)
+            else:
+                tile = im.convert("RGB")
+            comp = _rows_rgb(tile)
+            bw, bh = tile.size
         else:
             if remove_similar and prev is not None:
-                a = np.asarray(im)
+                a = np.asarray(im.convert("RGBA"))
                 b = prev
                 same = np.all(a == b, axis=2)
                 if not bool(same.all()):
@@ -162,6 +210,8 @@ def write_apng(frames, path, loop=0, ctx=None, palette=True, colors=256, dither=
             bw, bh, x, y = W, H, 0, 0
             if use_pal:
                 comp = _rows_indexed(indexed[0])
+            elif mode == "rgb":
+                comp = _rows_rgb(im.convert("RGB"))
             else:
                 comp = _rows_rgba(im.convert("RGBA"))
         chunks.append(_fctl(seq_n, bw, bh, x, y, delays[i], dispose, blend))
@@ -173,7 +223,12 @@ def write_apng(frames, path, loop=0, ctx=None, palette=True, colors=256, dither=
             for part in [comp[j:j + _MAX] for j in range(0, len(comp), _MAX)] or [comp]:
                 chunks.append(_chunk(b"fdAT", struct.pack(">I", seq_n) + part))
                 seq_n += 1
-        prev = indexed[i] if use_pal else np.asarray(im)
+        if use_pal:
+            prev = indexed[i]
+        elif mode == "rgb":
+            prev = np.array(im.convert("RGB"))
+        else:
+            prev = np.array(im.convert("RGBA"))
     chunks.append(_chunk(b"IEND", b""))
     ctx.step(0, 0, "APNG 파일 쓰는 중")
     with open(path, "wb") as f:
