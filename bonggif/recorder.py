@@ -583,9 +583,17 @@ class _DragBar(QWidget):
 
 
 class ScreenGrabber:
-    """mss 우선, 실패 시 dxcam(선택) → 둘 다 없으면 Qt 스크린 캡처."""
+    """mss 우선, 실패 시 dxcam(선택) → 둘 다 없으면 Qt 스크린 캡처.
+    services.install(capture=...)가 있으면 그 구현만 호출한다."""
     def __init__(self):
-        self.backend = None; self._mss = None
+        from .services import capture_port
+        self._port = capture_port()
+        self.backend = None
+        self._mss = None
+        self._dx = None
+        if self._port is not None:
+            self.backend = getattr(self._port, "backend", "port")
+            return
         try:
             import mss; self._mss = mss.mss(); self.backend = "mss"
         except Exception:
@@ -594,6 +602,10 @@ class ScreenGrabber:
             except Exception:
                 self.backend = "qt"
     def grab(self, x, y, w, h) -> Image.Image:
+        if self._port is not None:
+            return self._port.grab(x, y, w, h)
+        from .services import note_real
+        note_real("capture")
         if self.backend == "mss":
             s = self._mss.grab({"left": x, "top": y, "width": w, "height": h})
             return Image.frombytes("RGB", s.size, s.bgra, "raw", "BGRX").convert("RGBA")
@@ -1459,15 +1471,15 @@ class RecorderWindow(QWidget):
     def _global_hotkey(self):
         self._kb = None
         from .shortcuts import keyboard_name
+        from .services import bind_hotkey
         spec = keyboard_name(getattr(self, "_toggle_seq", "") or "F9")
         if not spec:
             return
         try:
-            import keyboard  # 선택 사항 (Windows 전역 단축키)
-            keyboard.add_hotkey(spec, lambda: QTimer.singleShot(0, self.toggle))
-            self._kb = keyboard
-            self._global_spec = spec
+            self._kb = bind_hotkey(spec, lambda: QTimer.singleShot(0, self.toggle))
+            self._global_spec = spec if self._kb is not None else ""
         except Exception:
+            self._kb = None
             self._global_spec = ""
 
     def toggle(self):

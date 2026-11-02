@@ -130,6 +130,6 @@ def write_webp(frames, path, quality=80, lossless=False, loop=0, ctx=None,
         body += _chunk(b"EXIF", _exif(signature(q, True, when)))
     riff = b"RIFF" + len(b"WEBP" + body).to_bytes(4, "little") + b"WEBP" + body
     ctx.step(0, 0, "WebP 파일 쓰는 중")
-    with open(path, "wb") as f:
-        f.write(riff)
+    from ..services import write_bytes
+    write_bytes(path, riff)
     return path
