@@ -482,8 +482,15 @@ class EditorWindow(QMainWindow):
         if ic: b.setIcon(icon(ic))
         return b
     def _build_home(self):
-        w = QWidget(); g = QVBoxLayout(w); g.addStretch()
+        w = QWidget(); g = QVBoxLayout(w); g.setContentsMargins(24, 24, 24, 24); g.addStretch()
         t = QLabel(f"<h1>{APP_NAME}</h1>무엇을 할까요?"); t.setAlignment(Qt.AlignCenter); g.addWidget(t)
+        from .controls import FlowButton
+        flows = QHBoxLayout(); flows.setSpacing(12)
+        for text, name, slot in (("녹화", "flowHomeRec", self.open_recorder), ("편집", "flowHomeEdit", lambda: self.show_tab("edit")),
+                                 ("내보내기", "flowHomeExport", self.save_file)):
+            b = FlowButton(text); b.setObjectName(name); b.setMinimumSize(160, 72)
+            b.clicked.connect(lambda _=False, s=slot: s()); flows.addWidget(b); self._home_buttons.append(b)
+        g.addLayout(flows)
         grid = QGridLayout()
         items = [("화면 녹화", "rec", self.open_recorder), ("열기", "open", self.open_file), ("편집", "draw", lambda: self.show_tab("edit")),
                  ("관리", "manage", lambda: self.show_tab("manage")),
@@ -799,7 +806,42 @@ class EditorWindow(QMainWindow):
         self.btn_update = QPushButton(); self.btn_update.setCursor(Qt.PointingHandCursor); self.btn_update.clicked.connect(self._update_clicked)
         chl.addWidget(self.lbl_version); chl.addWidget(self.btn_update); self.tabs.setCornerWidget(corner, Qt.TopRightCorner)
         self.set_update_state("idle")
-        self.setCentralWidget(self.tabs)
+        shell = QWidget(); shell.setObjectName("mainShell"); sv = QVBoxLayout(shell)
+        sv.setContentsMargins(0, 0, 0, 0); sv.setSpacing(0)
+        sv.addWidget(self._build_flow_bar()); sv.addWidget(self.tabs, 1)
+        self.setCentralWidget(shell)
+    def _build_flow_bar(self):
+        from .controls import FlowButton
+        from .theme import read_ui_theme
+        bar = QWidget(); bar.setObjectName("flowBar"); lay = QHBoxLayout(bar)
+        lay.setContentsMargins(16, 10, 16, 10); lay.setSpacing(8)
+        self.flow_rec = FlowButton("녹화"); self.flow_rec.setObjectName("flowRec")
+        self.flow_edit = FlowButton("편집"); self.flow_edit.setObjectName("flowEdit")
+        self.flow_export = FlowButton("내보내기"); self.flow_export.setObjectName("flowExport")
+        self.flow_rec.clicked.connect(lambda _=False: self.open_recorder())
+        self.flow_edit.clicked.connect(lambda _=False: self.show_tab("edit"))
+        self.flow_export.clicked.connect(lambda _=False: self.save_file())
+        for b in (self.flow_rec, self.flow_edit, self.flow_export):
+            lay.addWidget(b); self._home_buttons.append(b)
+        lay.addStretch(1)
+        names = {"system": "시스템", "dark": "어둡게", "light": "밝게"}
+        self.btn_theme = QPushButton(names.get(read_ui_theme(self.settings), "시스템"))
+        self.btn_theme.setObjectName("flowTheme")
+        self.btn_theme.clicked.connect(self._cycle_theme)
+        lay.addWidget(self.btn_theme)
+        return bar
+    def _cycle_theme(self):
+        from PySide6.QtWidgets import QApplication
+        from .theme import apply_saved_theme, read_ui_theme, set_ui_theme
+        order = ("system", "dark", "light")
+        labels = {"system": "시스템", "dark": "어둡게", "light": "밝게"}
+        cur = read_ui_theme(self.settings)
+        nxt = order[(order.index(cur) + 1) % len(order)] if cur in order else "dark"
+        set_ui_theme(self.settings, nxt)
+        app = QApplication.instance()
+        if app is not None:
+            apply_saved_theme(app, self.settings)
+        self.btn_theme.setText(labels[nxt])
         start = get_str(self.settings, "start_tab", "home")
         self.show_tab({"home": "home", "rec": "rec", "edit": "edit", "manage": "manage"}.get(start, "home"))
     def showEvent(self, event):
