@@ -44,7 +44,7 @@
   "secrets": "none in repo. Worker secret GITHUB_TOKEN lives only in Cloudflare.",
   "tests": {
     "counts": {
-      "smoke_test.py": 88,
+      "smoke_test.py": 120,
       "smoke_test_converter.py": 62,
       "smoke_test_updater.py": 40,
       "smoke_test_crash.py": 15,
