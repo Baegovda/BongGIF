@@ -5,7 +5,7 @@
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QRectF, Qt, Signal, Property
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QRectF, QSize, Qt, Signal, Property
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath
 from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QListWidget, QPushButton, QVBoxLayout, QWidget
 
@@ -154,6 +154,7 @@ class Segmented(QWidget):
         self._sel = 0.0
         self._anim = _anim(self, b"sel")
         self.setMinimumHeight(36)
+        self.setMinimumWidth(280)
         self.setCursor(Qt.PointingHandCursor)
 
     def get_sel(self) -> float:
@@ -202,6 +203,9 @@ class Segmented(QWidget):
             self._anim.start()
         self.currentChanged.emit(index)
         self.update()
+
+    def sizeHint(self):
+        return QSize(max(320, 120 * max(1, len(self._items))), 36)
 
     def mousePressEvent(self, event):
         if self._items and event.button() == Qt.LeftButton:

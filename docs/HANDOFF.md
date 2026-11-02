@@ -156,6 +156,7 @@ GitHub 저장소 설정에서 **Automatically delete head branches** (`deleteBra
 | MP4/MKV 헤더로 FPS | ffmpeg probe | 그대로 |
 
 ## Session log (append newest first)
+- 2026-11-02 (KST): 오프스크린 2배 배율로 어두운/밝은 화면 56장을 `/opt/cursor/artifacts/screenshots/`에 찍었다. 픽스처는 임시 폴더에서만 만들었다. 스크립트는 `tools/render_theme_shots.py`.
 - 2026-11-02 (KST): UI 재설계 5단계. 같은 `tools/bench_ui.py`로 다시 쟀다. 대기 RSS 99.30 → 99.63 MB. GIF 인코드 중앙값 0.0368 → 0.0354초(16프레임 320×240, pil, 색 64). 회귀 아님. README `## 미공개`. 버전은 1.8.0. 태그 없음. #19 주인 확인은 아직 없다. Baegovda/BongHub는 접근하지 못했다.
 - 2026-11-02 (KST): UI 재설계 4단계. 메인 창 위에 녹화·편집·내보내기가 항상 보인다. 홈에도 같은 세 카드가 있다. 화면 버튼은 system/dark/light를 저장한다. 빈 편집에서 내보내기는 저장 창을 열지 않는다. 호버는 240ms이고 작업 중에는 바로 둔다. `smoke_test_flow.py` 10. 버전 1.8.0. #19 주인 확인은 아직 없다.
 - 2026-11-02 (KST): UI 재설계 3단계. 환경 설정은 한 창이고 왼쪽 목록 13항목은 그대로다. 체크는 iOS형 스위치다. 페이지는 바로 바뀌고, 전환은 240ms다. 녹화·저장 중에는 바로 보여 준다. 페이지 여백은 16. `smoke_test_settings_shell.py` 11. 버전 1.8.0. #19 주인 확인은 아직 없다.
