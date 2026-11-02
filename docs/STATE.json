@@ -3,14 +3,21 @@
   "repo": "https://github.com/Baegovda/BongGIF",
   "version": "1.8.0",
   "ui_redesign": {
-    "status": "in_progress",
+    "status": "done",
     "bonghub": "Baegovda/BongHub was not accessible (GitHub API 404, git ls-remote repository not found). Design follows the iOS-style spec, not a copied BongHub token file.",
+    "benchmark": {
+      "script": "tools/bench_ui.py",
+      "fixture": "16 frames 320x240 rgb, gif pil colors=64 delay=80 comment=off",
+      "before": {"idle_rss_mb": 99.3, "encode_seconds": 0.0368, "file": "tools/bench_baseline.json"},
+      "after": {"idle_rss_mb": 99.63, "encode_seconds": 0.0354, "file": "tools/bench_after.json"},
+      "regression": false
+    },
     "stages": [
       {"id": "a", "title": "interfaces, fakes, baseline benchmark", "status": "done"},
       {"id": "b", "title": "theme, contrast, HiDPI, iOS controls", "status": "done"},
       {"id": "c", "title": "unified settings shell", "status": "done"},
-      {"id": "d", "title": "main screen record/edit/export", "status": "in_progress"},
-      {"id": "e", "title": "benchmark compare and docs", "status": "todo"}
+      {"id": "d", "title": "main screen record/edit/export", "status": "done"},
+      {"id": "e", "title": "benchmark compare and docs", "status": "done"}
     ],
     "note": "Owner request. Not a backlog id. never-re-add items stay out. #19 owner_confirmed stays false."
   },

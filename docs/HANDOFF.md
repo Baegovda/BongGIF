@@ -75,7 +75,7 @@ Linux 오프스크린 결과(2026-11-02, Python 3.12.3, `QT_QPA_PLATFORM=offscre
 - 첫 실행은 파이프 안에서 ffmpeg가 터미널을 물려받아 `SIGTTIN`으로 멈췄다(WebM `subprocess.run`이 stdin을 닫지 않음). 제어 터미널 없이 다시 돌리니 위 결과가 나왔다. 제품 실패는 아니다. 이 88/88은 녹화 프레임 변경 전이다. 변경 후 수는 표의 120이다.
 
 ## 다음 작업
-`export-advanced`는 done이다. 백로그에 `status=todo`인 항목은 없다. 새 항목을 만들지 않는다. never-re-add 목록도 다시 넣지 않는다. #19 녹화 프레임 UX는 아직 주인 확인이 없다. 확인됐다고 적지 않는다. `export-rebirth`, `transitions`, `zoom-camera`, `watermark`, `rec-grid-finder`, `shortcuts`, `export-advanced`는 done이다. v1.8.0은 이미 릴리스됐다. 추가 태그는 만들지 않는다.
+`export-advanced`는 done이다. 백로그에 `status=todo`인 항목은 없다. 새 백로그 항목은 만들지 않는다. 주인이 요청한 UI 재설계는 백로그가 아니라 단계 PR이다. 기준 벤치(대기 RSS 99.30 MB, 인코드 0.0368초)와 이후(99.63 MB, 0.0354초)는 회귀가 아니다. 같은 스크립트는 `tools/bench_ui.py`, 숫자는 `tools/bench_baseline.json`과 `tools/bench_after.json`. Baegovda/BongHub `next/`는 404라 토큰을 복사하지 못했다. never-re-add 목록도 다시 넣지 않는다. #19 녹화 프레임 UX는 아직 주인 확인이 없다. 확인됐다고 적지 않는다. `export-rebirth`, `transitions`, `zoom-camera`, `watermark`, `rec-grid-finder`, `shortcuts`, `export-advanced`는 done이다. v1.8.0은 이미 릴리스됐다. 추가 태그는 만들지 않는다.
 
 ## Version history
 | ver | summary |
@@ -156,6 +156,7 @@ GitHub 저장소 설정에서 **Automatically delete head branches** (`deleteBra
 | MP4/MKV 헤더로 FPS | ffmpeg probe | 그대로 |
 
 ## Session log (append newest first)
+- 2026-11-02 (KST): UI 재설계 5단계. 같은 `tools/bench_ui.py`로 다시 쟀다. 대기 RSS 99.30 → 99.63 MB. GIF 인코드 중앙값 0.0368 → 0.0354초(16프레임 320×240, pil, 색 64). 회귀 아님. README `## 미공개`. 버전은 1.8.0. 태그 없음. #19 주인 확인은 아직 없다. Baegovda/BongHub는 접근하지 못했다.
 - 2026-11-02 (KST): UI 재설계 4단계. 메인 창 위에 녹화·편집·내보내기가 항상 보인다. 홈에도 같은 세 카드가 있다. 화면 버튼은 system/dark/light를 저장한다. 빈 편집에서 내보내기는 저장 창을 열지 않는다. 호버는 240ms이고 작업 중에는 바로 둔다. `smoke_test_flow.py` 10. 버전 1.8.0. #19 주인 확인은 아직 없다.
 - 2026-11-02 (KST): UI 재설계 3단계. 환경 설정은 한 창이고 왼쪽 목록 13항목은 그대로다. 체크는 iOS형 스위치다. 페이지는 바로 바뀌고, 전환은 240ms다. 녹화·저장 중에는 바로 보여 준다. 페이지 여백은 16. `smoke_test_settings_shell.py` 11. 버전 1.8.0. #19 주인 확인은 아직 없다.
 - 2026-11-02 (KST): UI 재설계 2단계. Baegovda/BongHub `next/`는 여전히 404라 토큰은 iOS 스펙이다. 어두운/밝은 화면, 시스템 따라가기, 설정 키 `ui_theme`(system/dark/light, 없으면 system). 글꼴 후보는 Segoe UI Variable. 대비는 본문·보조·버튼·링크·비활성 모두 4.5:1 이상. 미리보기·타임라인 픽스맵은 devicePixelRatio. Windows에서는 Mica 다음 Acrylic, 그 외는 단색. 스위치·분절 선택·묶음 목록과 240ms OutCubic. 녹화·저장 작업 중에는 애니메이션을 시작하지 않는다. `smoke_test_style.py` 28. 버전 1.8.0. #19 주인 확인은 아직 없다.

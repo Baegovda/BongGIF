@@ -1,0 +1,13 @@
+{
+  "idle_rss_mb": 99.63,
+  "encode_seconds": 0.0354,
+  "encode_samples": [
+    0.0351,
+    0.0354,
+    0.0421
+  ],
+  "fixture": "16 frames 320x240 rgb, gif pil colors=64 delay=80 comment=off",
+  "qt_platform": "offscreen",
+  "python": "3.12.3",
+  "platform": "linux"
+}
