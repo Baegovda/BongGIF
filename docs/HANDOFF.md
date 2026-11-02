@@ -3,7 +3,9 @@
 _Last updated: 2026-11-02 (KST) · `bonggif/version.py` **1.7.0** · 태그 **v1.7.0** = `f1a6d90` · 릴리스 성공 · 대기 중인 태그 없음_
 
 ## Current state
-`bonggif/version.py`는 **1.7.0**이다. 태그 **v1.7.0**은 `f1a6d9097817ae92c6039a1d824fafd15186acb7`(`f1a6d90`, 2026-11-01T19:31:40Z, KST 2026-11-02 04:31)을 가리킨다. 그 커밋은 PR **#20** 스쿼시이고 버전을 1.6.0에서 1.7.0으로 올렸다. 그 다음 main 커밋 `c44f5c9fa63a28354c357412d67d0ebaee5e4fd9`(`c44f5c9`, 2026-11-01T19:35:47Z, KST 2026-11-02 04:35, `docs: record the released v1.7.0 tag and assets.`)가 릴리스 결과를 문서에 적었다. 문서 PR **#21** 스쿼시는 `77cbb9054e9d997bddd614f2123d6d22d68c7c61`(`77cbb90`, 2026-11-02T03:03:30Z, KST 12:03)이다. 그 위 PR **#22** 스쿼시가 `aeef3ec501999b14caf61d540b3cbe293ed179ea`(`aeef3ec`, 2026-11-02T03:17:38Z, KST 12:17)이고, 주인이 뺀 백로그를 문서에서 지웠다. 이 전환 작업은 `aeef3ec`에서 시작한다. 버전과 태그는 그대로다. 대기 중인 태그는 없다. 최신 공개 릴리스는 v1.7.0이다.
+main은 PR **#23** 스쿼시 `50f41373e7834ea4e458ff737d60ecc03326cc1d`(`50f4137`, 2026-11-02T03:37:23Z, KST 12:37)이다. 편집 전환이 들어 있다. 이 줌 작업은 그 커밋에서 시작한다. 버전은 **1.7.0**이고 태그 **v1.7.0**은 `f1a6d90`이다. 추가 태그는 없다.
+
+`bonggif/version.py`는 **1.7.0**이다. 태그 **v1.7.0**은 `f1a6d9097817ae92c6039a1d824fafd15186acb7`(`f1a6d90`, 2026-11-01T19:31:40Z, KST 2026-11-02 04:31)을 가리킨다. 그 커밋은 PR **#20** 스쿼시이고 버전을 1.6.0에서 1.7.0으로 올렸다. 그 다음 main 커밋 `c44f5c9fa63a28354c357412d67d0ebaee5e4fd9`(`c44f5c9`, 2026-11-01T19:35:47Z, KST 2026-11-02 04:35, `docs: record the released v1.7.0 tag and assets.`)가 릴리스 결과를 문서에 적었다. 문서 PR **#21** 스쿼시는 `77cbb9054e9d997bddd614f2123d6d22d68c7c61`(`77cbb90`, 2026-11-02T03:03:30Z, KST 12:03)이다. 그 위 PR **#22** 스쿼시가 `aeef3ec501999b14caf61d540b3cbe293ed179ea`(`aeef3ec`, 2026-11-02T03:17:38Z, KST 12:17)이고, 주인이 뺀 백로그를 문서에서 지웠다. 전환 작업은 `aeef3ec`에서 시작했고, 그 스쿼시는 #23 `50f4137`이다. 버전과 태그는 그대로다. 대기 중인 태그는 없다. 최신 공개 릴리스는 v1.7.0이다.
 
 main 순서(새 것부터, 이 수정 부모까지): `77cbb90` #21 → `c44f5c9` → `f1a6d90` #20 → `32d86565cf473693151fa9576940b7c475c30350`(`32d8656`, #18, 머지 2026-11-01T19:26:26Z) 텍스트 인트로/아웃트로 백로그 제거 → `59c23309d4cba7909b1f0e45765826ff4dd81715`(`59c2330`, #19, 머지 2026-11-01T19:20:26Z) 녹화 프레임 이동·크기. #19가 #18보다 먼저 머지됐다.
 
@@ -20,7 +22,7 @@ main 순서(새 것부터, 이 수정 부모까지): `77cbb90` #21 → `c44f5c9`
 | `cursor/docs-v170-align-dcba` | `496a645fa7db1ea0ce87a7e3a18339a2743c728c` | #21 | 삭제함 |
 | `cursor/drop-owner-backlog-f469` | `7105de2251939e936ec8c4017a76f758d60f4a83` | #22 | 삭제함 |
 
-삭제한 뒤 원격 헤드는 `main`뿐이었다. 이 브랜치를 푸시하면 헤드가 하나 늘고, `ci / smoke (ubuntu)`가 녹색이면 스쿼시 머지한 다음 그 헤드를 지운다.
+삭제한 뒤 원격 헤드는 `main`뿐이었다. 줌 작업을 시작할 때 `git ls-remote --heads origin`도 `main`(`50f4137`)뿐이었고 열린 PR은 0개였다. 이 브랜치를 푸시하면 헤드가 하나 늘고, `ci / smoke (ubuntu)`가 녹색이면 스쿼시 머지한 다음 그 헤드를 지운다.
 
 ### 릴리스 노트
 `CHANGELOG.md`는 없다. 사람이 읽는 릴리스 노트는 [README.md](../README.md)의 `## X.Y.Z` 절이다 (최신이 위). GitHub Release 본문은 태그 사이에 머지된 PR 목록(What's Changed)이고 README 절의 복사본이 아니다. v1.7.0 본문은 #15 #16 #17 #19 #18 #20을 나열한다. 아래 Version history는 에이전트용 요약(SHA, run, zip 크기)이다.
@@ -50,13 +52,14 @@ main 순서(새 것부터, 이 수정 부모까지): `77cbb90` #21 → `c44f5c9`
 | `smoke_test_masks.py` | 10 |
 | `smoke_test_webpclip.py` | 33 |
 | `smoke_test_transitions.py` | 62 |
+| `smoke_test_camera.py` | 62 |
 
-합계 384. 예전에 적힌 70/64/40/15는 v1.1.x 기준이라 현재 파일과 맞지 않는다. 돌리는 집합도 셋이다.
+합계 446. 예전에 적힌 70/64/40/15는 v1.1.x 기준이라 현재 파일과 맞지 않는다. 돌리는 집합도 셋이다.
 
-- `run_tests.bat`: 8개 전부. 마지막이 `smoke_test_transitions.py`다.
-- `scripts/bootstrap_agent.sh`, `scripts/bootstrap_agent.ps1`: 앞 4개만. `OVERALL PASS`는 export/masks/webpclip/transitions를 포함하지 않는다. import 검사도 `cv2`와 `keyboard`를 보지 않는다.
-- `.github/workflows/release.yml`: 예전 6개(`smoke_test_crash.py`와 `smoke_test_transitions.py`는 없음). 실패하면 `exit $fail`로 빌드를 막는다. `::warning::`를 찍지만 비차단이 아니다. 태그 push `v*`만. 이 파일은 고치지 않았다.
-- `.github/workflows/ci.yml`: `pull_request`(대상 `main`)와 `push`(main)와 `workflow_dispatch`. 러너 **ubuntu-latest**, Python 3.12, `requirements.txt` 그대로(`PySide6>=6.5,<6.9`), pip 캐시. `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. 8개 전부, 기대 줄은 `120/120` `62/62` `40/40` `15/15` `42/42` `10/10` `33/33` `62/62`(마지막은 `smoke_test_transitions.py`). 개수가 다르거나 종료 코드가 0이 아니면 잡이 실패한다. 각 스위트 stdin은 `/dev/null`이다. WebM `subprocess.run`이 stdin을 닫지 않아, 터미널을 물려받으면 `SIGTTIN`으로 멈추고 열린 stdin이면 읽다 멈춘다. imageio-ffmpeg에 `libaom-av1`·`libx264`·`libvpx`·`libvpx-vp9`가 없으면 distro `ffmpeg`를 설치하고 `IMAGEIO_FFMPEG_EXE`를 둔다. export의 "인코더 없음" 분기는 실패 체크라 40으로 통과시키지 않는다. 빌드·릴리스 업로드는 하지 않는다. windows-latest는 release.yml에만 둔다. PR마다 PySide6+OpenCV를 윈도우에서 한 번 더 받지 않기 위해서다. 7개 오프스크린은 리눅스에서 이미 통과한 기록이 있다. 결과 줄 검사는 `grep -a`다. export 로그에 APNG tEXt NUL이 있어, `-a` 없이는 grep이 바이너리로 보고 `42/42` 줄을 숨긴다. 첫 녹색 런은 [41332687797](https://github.com/Baegovda/BongGIF/actions/runs/41332687797) (success). 런 시각 2026-11-01T17:40:38Z–17:41:45Z (67초). 잡 `smoke (ubuntu)` 17:40:41Z–17:41:44Z (1분 3초). 스모크 단계 36초. PySide6 6.8.3. 번들 ffmpeg에 libaom-av1이 있어 distro ffmpeg는 쓰지 않았다. 바로 앞 [41332512818](https://github.com/Baegovda/BongGIF/actions/runs/41332512818)은 7개 결과가 모두 N/N이었는데 그 NUL 때문에 실패했다.
+- `run_tests.bat`: 9개 전부. 마지막이 `smoke_test_camera.py`다.
+- `scripts/bootstrap_agent.sh`, `scripts/bootstrap_agent.ps1`: 앞 4개만. `OVERALL PASS`는 export/masks/webpclip/transitions/camera를 포함하지 않는다. import 검사도 `cv2`와 `keyboard`를 보지 않는다.
+- `.github/workflows/release.yml`: 예전 6개(`smoke_test_crash.py`, `smoke_test_transitions.py`, `smoke_test_camera.py`는 없음). 실패하면 `exit $fail`로 빌드를 막는다. `::warning::`를 찍지만 비차단이 아니다. 태그 push `v*`만. 이 파일은 고치지 않았다.
+- `.github/workflows/ci.yml`: `pull_request`(대상 `main`)와 `push`(main)와 `workflow_dispatch`. 러너 **ubuntu-latest**, Python 3.12, `requirements.txt` 그대로(`PySide6>=6.5,<6.9`), pip 캐시. `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. 9개 전부, 기대 줄은 `120/120` `62/62` `40/40` `15/15` `42/42` `10/10` `33/33` `62/62` `62/62`(8번째는 `smoke_test_transitions.py`, 9번째는 `smoke_test_camera.py`). 개수가 다르거나 종료 코드가 0이 아니면 잡이 실패한다. 각 스위트 stdin은 `/dev/null`이다. WebM `subprocess.run`이 stdin을 닫지 않아, 터미널을 물려받으면 `SIGTTIN`으로 멈추고 열린 stdin이면 읽다 멈춘다. imageio-ffmpeg에 `libaom-av1`·`libx264`·`libvpx`·`libvpx-vp9`가 없으면 distro `ffmpeg`를 설치하고 `IMAGEIO_FFMPEG_EXE`를 둔다. export의 "인코더 없음" 분기는 실패 체크라 40으로 통과시키지 않는다. 빌드·릴리스 업로드는 하지 않는다. windows-latest는 release.yml에만 둔다. PR마다 PySide6+OpenCV를 윈도우에서 한 번 더 받지 않기 위해서다. 7개 오프스크린은 리눅스에서 이미 통과한 기록이 있다. 결과 줄 검사는 `grep -a`다. export 로그에 APNG tEXt NUL이 있어, `-a` 없이는 grep이 바이너리로 보고 `42/42` 줄을 숨긴다. 첫 녹색 런은 [41332687797](https://github.com/Baegovda/BongGIF/actions/runs/41332687797) (success). 런 시각 2026-11-01T17:40:38Z–17:41:45Z (67초). 잡 `smoke (ubuntu)` 17:40:41Z–17:41:44Z (1분 3초). 스모크 단계 36초. PySide6 6.8.3. 번들 ffmpeg에 libaom-av1이 있어 distro ffmpeg는 쓰지 않았다. 바로 앞 [41332512818](https://github.com/Baegovda/BongGIF/actions/runs/41332512818)은 7개 결과가 모두 N/N이었는데 그 NUL 때문에 실패했다.
 
 Linux 오프스크린 결과(2026-11-02, Python 3.12.3, `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`):
 
@@ -65,9 +68,9 @@ Linux 오프스크린 결과(2026-11-02, Python 3.12.3, `QT_QPA_PLATFORM=offscre
 - 첫 실행은 파이프 안에서 ffmpeg가 터미널을 물려받아 `SIGTTIN`으로 멈췄다(WebM `subprocess.run`이 stdin을 닫지 않음). 제어 터미널 없이 다시 돌리니 위 결과가 나왔다. 제품 실패는 아니다. 이 88/88은 녹화 프레임 변경 전이다. 변경 후 수는 표의 120이다.
 
 ## 다음 작업
-`transitions`는 done이다. 백로그에서 `status`가 `todo`인 항목 중 priority가 가장 높은 것은 **줌 카메라** (`zoom-camera`)이다. #19 녹화 프레임 UX는 아직 주인 확인이 없다. 확인됐다고 적지 않는다. `export-rebirth`(priority 0)와 `transitions`는 done이다. v1.7.0은 이미 릴리스됐다. 추가 태그는 만들지 않는다. `status=todo`는 5개다.
+`transitions`와 `zoom-camera`는 done이다. 백로그에서 `status`가 `todo`인 항목 중 priority가 가장 높은 것은 **저장 워터마크** (`watermark`)이다. #19 녹화 프레임 UX는 아직 주인 확인이 없다. 확인됐다고 적지 않는다. `export-rebirth`(priority 0), `transitions`, `zoom-camera`는 done이다. v1.7.0은 이미 릴리스됐다. 추가 태그는 만들지 않는다. `status=todo`는 4개다.
 
-수용 기준: 구간의 시작 사각형에서 끝 사각형으로 키프레임. 이징이 부드럽다. 출력 크기는 일정하다.
+수용 기준: 글자 또는 이미지. 위치. 투명도. 저장 대화상자 옵션에 들어간다.
 
 ## Version history
 | ver | summary |
@@ -90,22 +93,22 @@ Linux 오프스크린 결과(2026-11-02, Python 3.12.3, `QT_QPA_PLATFORM=offscre
 SHA는 `git rev-parse <tag>^{commit}`와 릴리스 자산 크기로 확인했다. v1.2.0–v1.6.0 태그 시각은 2026-10-31 (KST). v1.3.0 GitHub Release `createdAt`은 2026-10-30T19:37:47Z (KST 2026-10-31 04:37)이다.
 
 ## Done (지금 있는 것)
-녹화(캡처 창 fps 5–30·프리셋 1920×1080, 녹화 탭 fps 1–60·프리셋은 1280×720까지, 제목·도구막대·테두리 이동, 손잡이 8개, 카운트다운·녹화·일시정지 때 위치 고정, 카운트다운, 커서/강조/클릭, 핀, 바로 저장, 15fps 66/67/67ms, 같은 프레임 합치기) · 편집(자르기 비율/어둡게/기억, 크기/회전/반전, 그리기, EFFECTS 18항목=효과 없음+필터 17, 실시간 미리보기, 텍스트/이모지/이미지 스티커, 액자, 프레임 삭제/자르기/줄이기/시간/속도/역재생/요요/끝에 추가, 전환(페이드/슬라이드/와이프, 방향, 길이, 미리보기, 실행취소), 실행취소) · 재생 막대·확대 · 저장 6형식(GIF/WebP/MP4/WebM/APNG/AVIF) · 관리 · 홈이 첫 탭(홈/녹화/편집/관리) · 설정 왼쪽 목록 12항목(단축키 표는 읽기 전용) · 클립·마스크·CSRT · 소리 시작점 · 자체 업데이트. 일괄 변환 탭은 없다.
+녹화(캡처 창 fps 5–30·프리셋 1920×1080, 녹화 탭 fps 1–60·프리셋은 1280×720까지, 제목·도구막대·테두리 이동, 손잡이 8개, 카운트다운·녹화·일시정지 때 위치 고정, 카운트다운, 커서/강조/클릭, 핀, 바로 저장, 15fps 66/67/67ms, 같은 프레임 합치기) · 편집(자르기 비율/어둡게/기억, 크기/회전/반전, 그리기, EFFECTS 18항목=효과 없음+필터 17, 실시간 미리보기, 텍스트/이모지/이미지 스티커, 액자, 프레임 삭제/자르기/줄이기/시간/속도/역재생/요요/끝에 추가, 전환(페이드/슬라이드/와이프, 방향, 길이, 미리보기, 실행취소), 줌(시작·끝 사각형, 이징, 미리보기, 실행취소, 출력 크기 유지), 실행취소) · 재생 막대·확대 · 저장 6형식(GIF/WebP/MP4/WebM/APNG/AVIF) · 관리 · 홈이 첫 탭(홈/녹화/편집/관리) · 설정 왼쪽 목록 12항목(단축키 표는 읽기 전용) · 클립·마스크·CSRT · 소리 시작점 · 자체 업데이트. 일괄 변환 탭은 없다.
 
 ## UX 추정 88%
-v1.1.4 핸드오프는 **84%**였다. v1.2.0 커밋 `1b767a5`가 `docs/STATE.json`만 **88**로 올렸고 HANDOFF는 84로 남았다. `PARITY.md`는 저장소에 없고 `.gitignore`에도 없다(`qa_shots/`만 무시된다. `DONE*`, `PROGRESS.json`도 무시 목록에 없다). 그때 남은 UX 백로그는 9개로 같았다. 88은 체크리스트를 다시 센 값이 아니다. 두 문서를 88로 맞춘다. 새로 측정하지 않았다. 2026-11-02에 주인이 `text-anim` 1건을 빼 그때 todo는 8개였다. 그 다음 문서에서 순서를 맞추고 항목을 더해 todo는 10개였다. 같은 날 주인이 4건을 영구 제외했다. 그 이름은 AGENTS.md의 never-re-add 규칙에만 있다. 그 뒤 `transitions`를 구현해 지금 `status=todo`는 5개다. 88은 재측정이 아니다.
+v1.1.4 핸드오프는 **84%**였다. v1.2.0 커밋 `1b767a5`가 `docs/STATE.json`만 **88**로 올렸고 HANDOFF는 84로 남았다. `PARITY.md`는 저장소에 없고 `.gitignore`에도 없다(`qa_shots/`만 무시된다. `DONE*`, `PROGRESS.json`도 무시 목록에 없다). 그때 남은 UX 백로그는 9개로 같았다. 88은 체크리스트를 다시 센 값이 아니다. 두 문서를 88로 맞춘다. 새로 측정하지 않았다. 2026-11-02에 주인이 `text-anim` 1건을 빼 그때 todo는 8개였다. 그 다음 문서에서 순서를 맞추고 항목을 더해 todo는 10개였다. 같은 날 주인이 4건을 영구 제외했다. 그 이름은 AGENTS.md의 never-re-add 규칙에만 있다. 그 뒤 `transitions`를 구현해 todo는 5개였고, `zoom-camera`를 구현해 지금 `status=todo`는 4개다. 88은 재측정이 아니다.
 
 ## Backlog (priority order)
-priority 0 `export-rebirth`와 `transitions`는 done이다. 아래 1번이 다음 작업이다. `status=todo`는 5개다.
+priority 0 `export-rebirth`, `transitions`, `zoom-camera`는 done이다. 아래 1번이 다음 작업이다. `status=todo`는 4개다.
 
 | # | id | item | acceptance criteria |
 |---|---|---|---|
 | — | `transitions` | done. 클립 또는 구간 사이 전환 | fade/slide/wipe, 방향, 길이, N프레임, 미리보기, 실행취소, 저장 형식 |
-| 1 | `zoom-camera` | **다음 작업.** Zoom/pan camera | keyframed rect start→end over range; smooth easing; output size constant |
-| 2 | `watermark` | Watermark on save | text/image, position, opacity; saved in SaveDialog options |
-| 3 | `rec-grid-finder` | Recording grid overlay + window finder | grid not captured (exclude from capture); click-to-pick window snaps rect |
-| 4 | `shortcuts` | Custom hotkeys | editable table in 설정 > 단축키, persisted via prefs, conflicts flagged. Today the table is read-only (`NoEditTriggers`) |
-| 5 | `export-advanced` | Advanced export options | WebM alpha actually encoded (today `write_webm(..., alpha=True)` is `pass`); keep the save-dialog VP8/VP9 codec and put codec on the settings WebM page, which today stores quality only; APNG color modes beyond palette on/off plus color count (`apngenc` already writes PLTE or RGBA); a preserve-colors option, which is absent |
+| — | `zoom-camera` | done. 구간 줌·이동 | 시작/끝 사각형, 이징, 미리보기, 실행취소, 출력 크기 유지, 저장 형식 |
+| 1 | `watermark` | **다음 작업.** Watermark on save | text/image, position, opacity; saved in SaveDialog options |
+| 2 | `rec-grid-finder` | Recording grid overlay + window finder | grid not captured (exclude from capture); click-to-pick window snaps rect |
+| 3 | `shortcuts` | Custom hotkeys | editable table in 설정 > 단축키, persisted via prefs, conflicts flagged. Today the table is read-only (`NoEditTriggers`) |
+| 4 | `export-advanced` | Advanced export options | WebM alpha actually encoded (today `write_webm(..., alpha=True)` is `pass`); keep the save-dialog VP8/VP9 codec and put codec on the settings WebM page, which today stores quality only; APNG color modes beyond palette on/off plus color count (`apngenc` already writes PLTE or RGBA); a preserve-colors option, which is absent |
 
 ## 주인에게 남은 질문
 - #19 녹화 프레임 이동·크기 UX를 확인해 달라. Windows 스모크 실행만 되어 있고, 주인 확인은 없다.
@@ -118,6 +121,7 @@ priority 0 `export-rebirth`와 `transitions`는 done이다. 아래 1번이 다�
 GitHub 저장소 설정에서 **Automatically delete head branches** (`deleteBranchOnMerge`)를 켜는 것은 주인 승낙 뒤에 한다. 지금은 false다. 이 작업 시작 때 머지된 `cursor/docs-v170-align-dcba`와 `cursor/drop-owner-backlog-f469`를 지웠다. 그 뒤 원격은 `main`뿐이었다.
 
 ## Session log (append newest first)
+- 2026-11-02 (KST): 편집에 줌을 넣었다. 부모 `50f4137`(#23, 2026-11-02T03:37:23Z). 명령 막대 **줌**. 시작·끝 프레임과 시작·끝 사각형. 이징은 일정, 천천히 시작, 천천히 끝, 부드럽게. 미리보기 슬라이더. 캔버스에서 시작 영역이나 끝 영역을 드래그한다. 화면 비율은 유지되고 결과 크기는 원본과 같다. 적용은 작업 스레드에서 그 구간만 다시 그린다. 프레임 수와 지연은 그대로다. 실행취소. GIF는 편집기 저장으로, WebP·APNG는 확대된 프레임이 맞고, MP4·WebM·AVIF는 파일이 만들어진다. `smoke_test_camera.py` 62. 기존 8개도 통과(120/62/40/15/42/10/33/62). `run_tests.bat`와 `ci.yml`에 9번째로 넣었다. `release.yml`은 고치지 않았다. 버전 1.7.0, 태그 없음. README `## 미공개`. 다음 작업은 `watermark`. #19 UX 주인 확인은 아직 없다. parity 88은 재측정 아님. 주인은 `ci / smoke (ubuntu)`가 녹색이면 이 PR을 스쿼시 머지하고 헤드를 지우라고 했다.
 - 2026-11-02 (KST): 편집에 전환을 넣었다. 부모 `aeef3ec`(#22). 명령 막대 **전환**. 페이드·슬라이드·와이프. 슬라이드와 와이프는 새 화면이 들어오는 방향(왼쪽·오른쪽·위·아래). 길이(ms)와 프레임 수. 미리보기 슬라이더. 적용은 작업 스레드에서 N장을 구워 타임라인에 넣고, 바로 앞 클립이 그 프레임을 포함한다. 실행취소. GIF는 편집기 저장으로, WebP·APNG·MP4는 프레임 수가 맞고, WebM·AVIF는 파일이 만들어진다. `smoke_test_transitions.py` 62. 기존 7개도 통과(120/62/40/15/42/10/33). `run_tests.bat`와 `ci.yml`에 8번째로 넣었다. `release.yml`은 고치지 않았다. 버전 1.7.0, 태그 없음. README `## 미공개`. 다음 작업은 `zoom-camera`. #19 UX 주인 확인은 아직 없다. parity 88은 재측정 아님. 시작 때 머지된 `cursor/docs-v170-align-dcba`와 `cursor/drop-owner-backlog-f469`를 지웠다. 주인은 `ci / smoke (ubuntu)`가 녹색이면 이 PR을 스쿼시 머지하고 헤드를 지우라고 했다.
 - 2026-11-02 (KST): 문서만. 부모 `77cbb90`(#21). 주인이 백로그 4건을 영구 제외했다. 이름은 AGENTS.md never-re-add 규칙에만 적는다. 남은 todo는 6개, 번호는 1부터 다시 매겼다. 다음 작업은 #1 `transitions`. 같은 세션에서 #19 UX 주인 확인은 아직 없다. `parity_estimate_pct` 88은 재측정 아님. 코드·`version.py`·태그는 그대로. 세션 시작 시 origin 헤드는 `main`(`77cbb90`)과 `cursor/docs-v170-align-dcba`(`496a645`)뿐이었다. 주인은 `ci / smoke (ubuntu)`가 녹색이면 이 PR을 스쿼시 머지하고 그 헤드와 `cursor/docs-v170-align-dcba`를 지우라고 했다.
 - 2026-11-02 (KST): 문서만. 버전 1.7.0, 태그 `f1a6d90`, main 부모 `c44f5c9`. 백로그 순서를 맞추고 todo를 10개로 적었다. 효과 개수를 세던 옛 문장은 뺐다. parity 88은 재측정 아님. 그때 origin에 머지된 `cursor/*` 다섯이 남아 있었다. `deleteBranchOnMerge`는 false. `CHANGELOG.md`는 만들지 않았다. 릴리스 노트는 README `## X.Y.Z`. 텍스트 인트로/아웃트로는 #18에서 제거된 상태이며 다시 넣지 않는다. #19 UX는 Windows 스모크 실행만, 주인 미확인. `docs/agent-env.json`의 `smoke_test.py`는 88이 아니라 120이다(#19 이후). `docs/SETUP_AGENT.md`에 읽기 순서를 보탰다. 코드·`version.py`·태그는 그대로. 그 다섯 헤드는 이 수정 시작 때 origin에 없었다.

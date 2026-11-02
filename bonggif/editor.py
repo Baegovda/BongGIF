@@ -21,6 +21,7 @@ from .manage import ManagePanel
 from .prefs import get_bool, get_int, get_str, get_list, get_float, to_int
 from .core import Project, Frame, load_file, load_sequence, emoji_sticker, op_crop, op_resize, op_grayscale, op_sticker, VIDEO_EXT
 from .transitions import (KIND_LABELS, DIRECTION_LABELS, render_transition, build_transition, resolve_transition, frame_delays)
+from .camera import (EASING_LABELS, render_camera, bake_camera, resolve_camera, sample_rect, fit_rect)
 from . import APP_NAME
 from .panels import pil_to_qimage, ExportDialog, VIDEO_FILTER, OpenOptionsDialog, video_settings
 from .workers import Task, ThumbWorker, make_thumb
@@ -58,6 +59,7 @@ class Preview(QLabel):
         self.sel = None; self._p0 = None; self.overlay = None; self.overlay_pos = QPoint(10, 10); self._base = None
         self.ratio = None; self.darken = True; self.draw_layer = None; self.pen = QPen(QColor(255, 60, 60), 6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
         self.mask_overlays = []; self.export_crop_rect = None; self.hide_chrome = False; self._pan = QPointF(0, 0)
+        self.ghost = None; self.zoom_label = "줌"
     rectFinished = Signal(QRect)
     dragStarted = Signal()
     def set_image(self, qi: QImage, orig_size=None):
@@ -97,7 +99,7 @@ class Preview(QLabel):
         if self.overlay is not None and self.mode == "place":
             p.setOpacity(0.9); p.drawImage(self.overlay_pos, self.overlay); p.setOpacity(1)
             p.setPen(QPen(QColor(61, 139, 253), 1 / s, Qt.DashLine)); p.drawRect(QRect(self.overlay_pos, self.overlay.size()))
-        if self.sel is not None and self.mode in ("crop", "rect"):
+        if self.sel is not None and self.mode in ("crop", "rect", "zoom"):
             if self.darken:
                 path = QPainterPath(); path.addRect(QRectF(0, 0, w, h)); inner = QPainterPath(); inner.addRect(QRectF(self.sel)); p.fillPath(path.subtracted(inner), QColor(0, 0, 0, 130))
             p.setPen(QPen(QColor(255, 255, 255), 1.5 / s, Qt.DashLine)); p.drawRect(self.sel)
@@ -107,6 +109,11 @@ class Preview(QLabel):
                 p.drawLine(QPointF(x, self.sel.top()), QPointF(x, self.sel.bottom())); p.drawLine(QPointF(self.sel.left(), y), QPointF(self.sel.right(), y))
             if self.mode == "crop" and self.sel.width() > 2:
                 p.setPen(QPen(QColor(255, 255, 255), 1 / s)); p.drawText(QPointF(self.sel.x(), max(12 / s, self.sel.y() - 4 / s)), f"자르기 {self.sel.width()}×{self.sel.height()}")
+            elif self.mode == "zoom" and self.sel.width() > 2:
+                p.setPen(QPen(QColor(255, 255, 255), 1 / s)); p.drawText(QPointF(self.sel.x(), max(12 / s, self.sel.y() - 4 / s)), f"{self.zoom_label} {self.sel.width()}×{self.sel.height()}")
+        ghost = self.ghost
+        if ghost is not None and self.mode == "zoom" and ghost.width() > 2:
+            p.setPen(QPen(QColor(255, 176, 32), 1.4 / s, Qt.DashLine)); p.setBrush(Qt.NoBrush); p.drawRect(ghost)
         if getattr(self, "hide_chrome", False):
             p.end(); self.setPixmap(pm); return
         if self.export_crop_rect is not None and self.export_crop_rect.width() > 2:
@@ -132,7 +139,7 @@ class Preview(QLabel):
         self._p0 = self._img_pt(e.position()); self._press_btn = e.button(); self._press_pos = e.position()
         if e.button() == Qt.RightButton:
             return
-        if self.mode in ("crop", "rect", "mask"): self.dragStarted.emit()
+        if self.mode in ("crop", "rect", "mask", "zoom"): self.dragStarted.emit()
         if self.mode == "place": self._grab = self._p0 - self.overlay_pos
         if self.mode == "draw" and self.draw_layer is not None: self._last = self._p0; self._stroke(self._p0, self._p0)
     def _stroke(self, a, b):
@@ -142,7 +149,7 @@ class Preview(QLabel):
         if getattr(self, "_press_btn", None) == Qt.RightButton:
             d = e.position() - self._press_pos; self._pan += d; self._press_pos = e.position(); self._redraw(); return
         p = self._img_pt(e.position())
-        if self.mode in ("crop", "rect", "mask"):
+        if self.mode in ("crop", "rect", "mask", "zoom"):
             r = QRect(self._p0, p).normalized()
             if self.ratio:
                 w = r.width(); h = int(round(w / self.ratio))
@@ -155,7 +162,7 @@ class Preview(QLabel):
             self._stroke(self._last, p); self._last = p
         self._redraw()
     def mouseReleaseEvent(self, e):
-        if self.mode in ("crop", "rect", "mask") and self.sel is not None: self.rectFinished.emit(self.sel)
+        if self.mode in ("crop", "rect", "mask", "zoom") and self.sel is not None: self.rectFinished.emit(self.sel)
         self._p0 = None
 
 def _handles(rect: QRect):
@@ -659,19 +666,52 @@ class EditorWindow(QMainWindow):
         f.addRow("앞 구간 끝", self.sp_tr_front); f.addRow("뒤 구간 시작", self.sp_tr_back)
         f.addRow("미리보기", self.sl_tr); f.addRow(self.lbl_tr); f.addRow(self.lbl_tr_help)
         side.addWidget(self._side_page("전환", f, self.apply_transition))
-        self.MODES = {"frame": 0, "crop": 1, "resize": 2, "draw": 3, "effect": 4, "insert": 5, "border": 6, "mask": 7, "transition": 8}
+        # 9 줌 (구간의 시작 사각형 → 끝 사각형. 결과는 원본과 같은 크기)
+        f = QFormLayout()
+        self.cb_cam_ease = QComboBox(); self.cb_cam_ease.setObjectName("camEase")
+        for key, label in EASING_LABELS: self.cb_cam_ease.addItem(label, key)
+        self.cb_cam_ease.setCurrentIndex(3)
+        self.sp_cam_from = QSpinBox(); self.sp_cam_from.setRange(1, 1); self.sp_cam_from.setObjectName("camFrom")
+        self.sp_cam_to = QSpinBox(); self.sp_cam_to.setRange(1, 1); self.sp_cam_to.setObjectName("camTo")
+        self.sp_cam_sx = QSpinBox(); self.sp_cam_sy = QSpinBox(); self.sp_cam_sw = QSpinBox(); self.sp_cam_sh = QSpinBox()
+        self.sp_cam_ex = QSpinBox(); self.sp_cam_ey = QSpinBox(); self.sp_cam_ew = QSpinBox(); self.sp_cam_eh = QSpinBox()
+        for sp, name in ((self.sp_cam_sx, "camSX"), (self.sp_cam_sy, "camSY"), (self.sp_cam_sw, "camSW"), (self.sp_cam_sh, "camSH"),
+                         (self.sp_cam_ex, "camEX"), (self.sp_cam_ey, "camEY"), (self.sp_cam_ew, "camEW"), (self.sp_cam_eh, "camEH")):
+            sp.setRange(0, 9999); sp.setObjectName(name)
+        self.cb_cam_edit = QComboBox(); self.cb_cam_edit.setObjectName("camEdit")
+        self.cb_cam_edit.addItem("결과", "result"); self.cb_cam_edit.addItem("시작 영역", "start"); self.cb_cam_edit.addItem("끝 영역", "end")
+        self.cb_cam_edit.setToolTip("결과는 확대된 화면입니다. 시작·끝 영역은 원본 위에서 드래그합니다.")
+        self.sl_cam = QSlider(Qt.Horizontal); self.sl_cam.setRange(0, 100); self.sl_cam.setValue(50); self.sl_cam.setObjectName("camPreview")
+        self.lbl_cam = QLabel("미리보기 50%"); self.lbl_cam.setWordWrap(True)
+        self.lbl_cam_help = QLabel("시작 영역에서 끝 영역으로 그 구간을 확대·이동합니다. 화면 비율은 유지되고, 결과 크기는 원본과 같습니다.")
+        self.lbl_cam_help.setWordWrap(True)
+        f.addRow("이징", self.cb_cam_ease); f.addRow("시작 프레임", self.sp_cam_from); f.addRow("끝 프레임", self.sp_cam_to)
+        f.addRow("시작 X", self.sp_cam_sx); f.addRow("시작 Y", self.sp_cam_sy); f.addRow("시작 너비", self.sp_cam_sw); f.addRow("시작 높이", self.sp_cam_sh)
+        f.addRow("끝 X", self.sp_cam_ex); f.addRow("끝 Y", self.sp_cam_ey); f.addRow("끝 너비", self.sp_cam_ew); f.addRow("끝 높이", self.sp_cam_eh)
+        h = QHBoxLayout(); self._btn(h, "시작=현재", lambda: self._cam_mark("start")); self._btn(h, "끝=현재", lambda: self._cam_mark("end")); f.addRow(h)
+        h = QHBoxLayout(); self._btn(h, "시작 전체", lambda: self._cam_full("start")); self._btn(h, "끝 전체", lambda: self._cam_full("end")); f.addRow(h)
+        f.addRow("캔버스", self.cb_cam_edit); f.addRow("미리보기", self.sl_cam); f.addRow(self.lbl_cam); f.addRow(self.lbl_cam_help)
+        side.addWidget(self._side_page("줌", f, self.apply_camera))
+        self.MODES = {"frame": 0, "crop": 1, "resize": 2, "draw": 3, "effect": 4, "insert": 5, "border": 6, "mask": 7, "transition": 8, "camera": 9}
         for wdg in (self.cb_tr_kind, self.cb_tr_dir, self.cb_tr_target, self.cb_tr_from, self.cb_tr_to):
             wdg.currentIndexChanged.connect(self._on_transition_controls)
         for wdg in (self.sp_tr_ms, self.sp_tr_n, self.sp_tr_front, self.sp_tr_back, self.sl_tr):
             wdg.valueChanged.connect(self._on_transition_controls)
         self._sync_transition_widgets()
+        for wdg in (self.cb_cam_ease, self.cb_cam_edit):
+            wdg.currentIndexChanged.connect(self._on_cam_controls)
+        for wdg in (self.sp_cam_from, self.sp_cam_to, self.sp_cam_sx, self.sp_cam_sy, self.sp_cam_sw, self.sp_cam_sh,
+                    self.sp_cam_ex, self.sp_cam_ey, self.sp_cam_ew, self.sp_cam_eh, self.sl_cam):
+            wdg.valueChanged.connect(self._on_cam_controls)
+        self.preview.rectFinished.connect(self._cam_rect_finished)
         # 명령 막대
         cmd = QWidget(); cmd.setObjectName("cmdbar"); ch = QHBoxLayout(cmd); ch.setContentsMargins(6, 4, 6, 4); ch.setSpacing(2); self.mode_btns = {}
         def tb(text, ic, slot, checkable=False):
             b = QToolButton(); b.setText(text); b.setIcon(icon(ic)); b.setIconSize(QSize(24, 24)); b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
             b.setCheckable(checkable); b.setAutoRaise(True); b.clicked.connect(lambda _=False: slot()); ch.addWidget(b); return b
         for k, t, ic in (("crop", "자르기", "crop"), ("resize", "크기", "resize"), ("draw", "그리기", "draw"), ("effect", "효과", "effect"),
-                         ("insert", "삽입", "text"), ("border", "액자", "frame"), ("mask", "마스크", "effect"), ("transition", "전환", "transition")):
+                         ("insert", "삽입", "text"), ("border", "액자", "frame"), ("mask", "마스크", "effect"), ("transition", "전환", "transition"),
+                         ("camera", "줌", "camera")):
             self.mode_btns[k] = tb(t, ic, lambda k=k: self.set_mode(k), True)
         ch.addSpacing(12)
         for k, t in (("delete", "삭제"), ("cut", "구간 자르기"), ("reduce", "프레임 줄이기"), ("time", "시간 설정"), ("faster", "10% 빠르게"),
@@ -875,7 +915,7 @@ class EditorWindow(QMainWindow):
     def _on_reorder(self, order):
         self.project.checkpoint(); self.project.frames = [self.project.frames[i] for i in order]; self.refresh()
     def set_frames(self, frames, source=None):
-        self.project = Project(frames); self.cur = 0; self.mark_clean()
+        self.project = Project(frames); self.cur = 0; self.mark_clean(); self._cam_key = None
         if source: self.source_path = source
         self.tabs.setCurrentIndex(self.TAB_EDIT); self.refresh()
 
@@ -1691,17 +1731,22 @@ class EditorWindow(QMainWindow):
             self._refresh_transition_clips()
             self._sync_transition_widgets()
             self._transition_preview()
+        elif k == "camera":
+            self._prepare_camera()
+            self._cam_refresh()
         p._redraw()
     def end_mode(self):
         self._leave_preview_modes(); self.tool_tabs.setCurrentIndex(0)
         for b in self.mode_btns.values(): b.setChecked(False)
         self.show_frame(self.cur)
     def _leave_preview_modes(self):
-        p = self.preview; p.mode = None; p.sel = None; p.overlay = None; p.draw_layer = None; self._fx_active = False
+        p = self.preview; p.mode = None; p.sel = None; p.overlay = None; p.draw_layer = None; p.ghost = None; p.ratio = None; self._fx_active = False
     def crop_mode(self): self.set_mode("crop")
     def _set_sel(self, r):
         self.preview.sel = r; self._on_sel(r); self.preview._redraw()
     def _on_sel(self, r):
+        if self.preview.mode == "zoom" and hasattr(self, "cb_cam_edit"):
+            self._cam_apply_drag(r); return
         for s, v in ((self.cx, r.x()), (self.cy, r.y()), (self.cw, r.width()), (self.ch, r.height())): s.blockSignals(True); s.setValue(v); s.blockSignals(False)
         self.lbl_crop.setText(f"선택 영역: ({r.x()}, {r.y()}) {r.width()}×{r.height()}")
         if self.tool_tabs.currentIndex() == self.MODES["effect"]: self._fx_preview()
@@ -1836,6 +1881,170 @@ class EditorWindow(QMainWindow):
             total = sum(f.delay for f in inserted)
             self.set_status(f"전환 {len(inserted)}프레임({total}ms, {plan.label})을 {plan.out_index + 1}번과 {plan.in_index + 1}번 사이에 넣었습니다. 실행취소는 Ctrl+Z")
         return self.run_task(f"전환 {plan.label}", lambda ctx: build_transition(a, b, plan.kind, plan.count, plan.direction, plan.duration_ms, ctx), done)
+    # 줌
+    def _cam_spins(self, which):
+        if which == "start":
+            return (self.sp_cam_sx, self.sp_cam_sy, self.sp_cam_sw, self.sp_cam_sh)
+        return (self.sp_cam_ex, self.sp_cam_ey, self.sp_cam_ew, self.sp_cam_eh)
+    def _cam_rect(self, which):
+        return tuple(sp.value() for sp in self._cam_spins(which))
+    def _cam_set_rect(self, which, rect):
+        spins = self._cam_spins(which)
+        prev = [sp.blockSignals(True) for sp in spins]
+        for sp, v in zip(spins, rect):
+            sp.setValue(max(sp.minimum(), min(sp.maximum(), int(round(v)))))
+        for sp, was in zip(spins, prev):
+            sp.blockSignals(was)
+    def _prepare_camera(self):
+        fr = self.project.frames
+        if not fr or not hasattr(self, "sp_cam_from"):
+            return
+        n = len(fr)
+        w, h = fr[0].image.size
+        spins = (self.sp_cam_from, self.sp_cam_to, *self._cam_spins("start"), *self._cam_spins("end"))
+        prev = [sp.blockSignals(True) for sp in spins]
+        self.sp_cam_from.setRange(1, n); self.sp_cam_to.setRange(1, n)
+        for sp in (self.sp_cam_sx, self.sp_cam_ex):
+            sp.setRange(0, max(0, w - 1))
+        for sp in (self.sp_cam_sy, self.sp_cam_ey):
+            sp.setRange(0, max(0, h - 1))
+        side = max(1, min(4, w, h))
+        for sp in (self.sp_cam_sw, self.sp_cam_ew):
+            sp.setRange(side, max(side, w))
+        for sp in (self.sp_cam_sh, self.sp_cam_eh):
+            sp.setRange(side, max(side, h))
+        key = (w, h, n)
+        if getattr(self, "_cam_key", None) != key:
+            self.sp_cam_from.setValue(1); self.sp_cam_to.setValue(n)
+            self._cam_set_rect("start", (0, 0, w, h))
+            self._cam_set_rect("end", fit_rect((w / 4.0, h / 4.0, w / 2.0, h / 2.0), w / float(h), w, h))
+            self._cam_key = key
+        else:
+            self.sp_cam_from.setValue(min(max(1, self.sp_cam_from.value()), n))
+            self.sp_cam_to.setValue(min(max(1, self.sp_cam_to.value()), n))
+        for sp, was in zip(spins, prev):
+            sp.blockSignals(was)
+    def _cam_mark(self, which):
+        if not self.project.frames:
+            return
+        (self.sp_cam_from if which == "start" else self.sp_cam_to).setValue(self.cur + 1)
+    def _cam_full(self, which):
+        if not self.project.frames:
+            return
+        w, h = self.project.frames[0].image.size
+        self._cam_set_rect(which, (0, 0, w, h))
+        self._on_cam_controls()
+    def _cam_plan_from_ui(self, **over):
+        fr = self.project.frames
+        size = fr[0].image.size if fr else (0, 0)
+        kw = dict(frame_count=len(fr), size=size, start=self.sp_cam_from.value() - 1, end=self.sp_cam_to.value() - 1,
+                  start_rect=self._cam_rect("start"), end_rect=self._cam_rect("end"),
+                  easing=self.cb_cam_ease.currentData() or "ease_in_out")
+        for key, val in over.items():
+            if val is not None:
+                kw[key] = val
+        return resolve_camera(**kw)
+    def _on_cam_controls(self, *_):
+        if not hasattr(self, "MODES"):
+            return
+        if self.tool_tabs.currentIndex() == self.MODES.get("camera") and not self.is_playing():
+            self._cam_refresh()
+    def _cam_apply_drag(self, r):
+        which = self.cb_cam_edit.currentData()
+        if which not in ("start", "end"):
+            return
+        self._cam_set_rect(which, (max(0, r.x()), max(0, r.y()), max(1, r.width()), max(1, r.height())))
+        self._cam_sync_label()
+    def _cam_rect_finished(self, _r):
+        if self.preview.mode != "zoom" or not hasattr(self, "cb_cam_edit"):
+            return
+        self._cam_show_source()
+    def _cam_sync_label(self, plan=None, pos=None):
+        if plan is None:
+            try:
+                plan = self._cam_plan_from_ui()
+            except ValueError as e:
+                self.lbl_cam.setText(str(e)); return
+        if pos is None:
+            a, b = plan.keys[0].index, plan.keys[-1].index
+            pos = a + (b - a) * (self.sl_cam.value() / 100.0)
+        rect = sample_rect(plan.keys, pos, plan.easing)
+        self.lbl_cam.setText(f"미리보기 {self.sl_cam.value()}% · {plan.label} · 영역 {int(round(rect[0]))},{int(round(rect[1]))} {int(round(rect[2]))}×{int(round(rect[3]))}")
+    def _cam_show_source(self):
+        fr = self.project.frames
+        which = self.cb_cam_edit.currentData()
+        if which not in ("start", "end") or not fr:
+            return
+        idx = (self.sp_cam_from if which == "start" else self.sp_cam_to).value() - 1
+        idx = max(0, min(len(fr) - 1, idx))
+        im = fr[idx].image
+        rect = self._cam_rect(which)
+        other = self._cam_rect("end" if which == "start" else "start")
+        p = self.preview
+        p.mode = "zoom"
+        p.ratio = (im.width / float(im.height)) if im.height else None
+        p.darken = True
+        p.zoom_label = "시작" if which == "start" else "끝"
+        p.sel = QRect(int(rect[0]), int(rect[1]), int(rect[2]), int(rect[3]))
+        p.ghost = QRect(int(other[0]), int(other[1]), int(other[2]), int(other[3]))
+        p.set_image(pil_to_qimage(im), im.size)
+        self._cam_sync_label()
+    def _cam_render_preview(self):
+        fr = self.project.frames
+        if not fr:
+            return
+        try:
+            plan = self._cam_plan_from_ui()
+        except ValueError as e:
+            self.lbl_cam.setText(str(e)); return
+        a, b = plan.keys[0].index, plan.keys[-1].index
+        pos = a + (b - a) * (self.sl_cam.value() / 100.0)
+        i = max(a, min(b, int(pos + 0.5)))
+        im = fr[i].image
+        rect = sample_rect(plan.keys, pos, plan.easing)
+        if im.size != plan.size:
+            sx = im.width / float(plan.size[0]); sy = im.height / float(plan.size[1])
+            rect = (rect[0] * sx, rect[1] * sy, rect[2] * sx, rect[3] * sy)
+        out = render_camera(im, rect, im.size)
+        p = self.preview
+        p.mode = None; p.sel = None; p.ghost = None; p.ratio = None
+        p.set_image(pil_to_qimage(out), out.size)
+        self._cam_sync_label(plan, pos)
+    def _cam_refresh(self):
+        if not self.project.frames or not hasattr(self, "cb_cam_edit"):
+            return
+        if self.cb_cam_edit.currentData() == "result":
+            self._cam_render_preview()
+        else:
+            self._cam_show_source()
+    def apply_camera(self, start=None, end=None, start_rect=None, end_rect=None, easing=None):
+        """구간에 줌을 구워 넣는다. start/end 는 0부터. 길면 작업 스레드에서 만들고, 실행취소된다."""
+        if not self.project.frames or self.is_busy():
+            return None
+        if start is not None:
+            self.sp_cam_from.setValue(int(start) + 1)
+        if end is not None:
+            self.sp_cam_to.setValue(int(end) + 1)
+        if start_rect is not None:
+            self._cam_set_rect("start", start_rect)
+        if end_rect is not None:
+            self._cam_set_rect("end", end_rect)
+        if easing is not None:
+            self._select_combo_data(self.cb_cam_ease, easing)
+        try:
+            plan = self._cam_plan_from_ui()
+        except ValueError as e:
+            self.set_status(str(e)); return None
+        frames = list(self.project.frames)
+        def done(new_frames):
+            self.project.apply(new_frames)
+            keep = min(self.cur, max(0, len(self.project.frames) - 1))
+            self.refresh(keep)
+            if self.tool_tabs.currentIndex() == self.MODES.get("camera"):
+                self.end_mode()
+            a, b = plan.keys[0].index, plan.keys[-1].index
+            self.set_status(f"줌을 {a + 1}–{b + 1}번 프레임에 넣었습니다({plan.label}). 실행취소는 Ctrl+Z")
+        return self.run_task(f"줌 {plan.label}", lambda ctx: bake_camera(frames, plan, ctx), done)
     # 액자
     def apply_border(self):
         m, c, r, sh = self.sp_margin.value(), self.btn_bcolor.rgba(), self.sp_radius.value(), self.chk_bshadow.isChecked()

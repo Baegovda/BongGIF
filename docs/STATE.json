@@ -3,15 +3,25 @@
   "repo": "https://github.com/Baegovda/BongGIF",
   "version": "1.7.0",
   "main": {
-    "sha": "aeef3ec501999b14caf61d540b3cbe293ed179ea",
-    "short": "aeef3ec",
-    "date": "2026-11-02T03:17:38Z",
-    "date_kst": "2026-11-02T12:17:38+09:00",
-    "subject": "docs: drop owner-rejected backlog items (#22)",
-    "note": "이 전환 작업의 부모. version.py는 1.7.0. 태그 v1.7.0은 f1a6d9097817ae92c6039a1d824fafd15186acb7 (#20). 이 수정은 버전과 태그를 움직이지 않는다."
+    "sha": "50f41373e7834ea4e458ff737d60ecc03326cc1d",
+    "short": "50f4137",
+    "date": "2026-11-02T03:37:23Z",
+    "date_kst": "2026-11-02T12:37:23+09:00",
+    "subject": "Add fade, slide, and wipe transitions between clips or ranges. (#23)",
+    "note": "이 줌 작업의 부모. version.py는 1.7.0. 태그 v1.7.0은 f1a6d9097817ae92c6039a1d824fafd15186acb7 (#20). 이 수정은 버전과 태그를 움직이지 않는다."
   },
   "pull_requests": {
     "merged_on_main": [
+      {
+        "number": 23,
+        "title": "편집: 클립·구간 사이 전환 (페이드/슬라이드/와이프)",
+        "state": "MERGED",
+        "merged_at": "2026-11-02T03:37:23Z",
+        "merge_sha": "50f41373e7834ea4e458ff737d60ecc03326cc1d",
+        "head": "cursor/transitions-98a6",
+        "head_sha": "3b39f3ea1967803819630e65bb0ebb2b0170fc54",
+        "head_deleted": true
+      },
       {
         "number": 22,
         "title": "docs: drop owner-rejected backlog items",
@@ -114,7 +124,7 @@
         "state": "CLOSED"
       }
     ],
-    "note": "#21은 문서 정렬. #20은 1.7.0 버전 범프이자 태그 v1.7.0. #18은 text-anim 제거(다시 넣지 않음). 주인이 뺀 다른 항목은 AGENTS.md never-re-add 규칙에만 있고 다시 넣지 않는다. #19는 녹화 프레임 이동/크기(Windows 스모크 실행만, 주인 미확인). #17은 ci.yml. #16은 문서. #15는 v1.4–v1.6 기록. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #19가 #18보다 먼저 머지됐다."
+    "note": "#23은 전환. #21은 문서 정렬. #20은 1.7.0 버전 범프이자 태그 v1.7.0. #18은 text-anim 제거(다시 넣지 않음). 주인이 뺀 다른 항목은 AGENTS.md never-re-add 규칙에만 있고 다시 넣지 않는다. #19는 녹화 프레임 이동/크기(Windows 스모크 실행만, 주인 미확인). #17은 ci.yml. #16은 문서. #15는 v1.4–v1.6 기록. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #19가 #18보다 먼저 머지됐다."
   },
   "pending_release": {
     "tag": null,
@@ -258,20 +268,21 @@
     "smoke_test_export.py": 42,
     "smoke_test_masks.py": 10,
     "smoke_test_webpclip.py": 33,
-    "smoke_test_transitions.py": 62
+    "smoke_test_transitions.py": 62,
+    "smoke_test_camera.py": 62
   },
   "parity_estimate_pct": 88,
-  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 text-anim 1건을 빼 그때 todo는 8개였다. 그 다음 문서에서 순서를 맞추고 항목을 더해 todo는 10개였다. 같은 날 주인이 4건을 영구 제외했다. 그 뒤 transitions를 구현해 status=todo 는 5개다. 뺀 항목 이름은 AGENTS.md never-re-add 규칙에만 있다. 88은 이번에도 재측정이 아니다.",
+  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 text-anim 1건을 빼 그때 todo는 8개였다. 그 다음 문서에서 순서를 맞추고 항목을 더해 todo는 10개였다. 같은 날 주인이 4건을 영구 제외했다. 그 뒤 transitions를 구현해 todo는 5개였고, zoom-camera를 구현해 status=todo 는 4개다. 뺀 항목 이름은 AGENTS.md never-re-add 규칙에만 있다. 88은 이번에도 재측정이 아니다.",
   "recommended_next": {
-    "id": "zoom-camera",
-    "priority": 2,
+    "id": "watermark",
+    "priority": 3,
     "status": "todo",
-    "title": "Zoom/pan camera",
-    "why": "transitions는 done. status=todo 인 백로그 중 priority가 가장 높다.",
+    "title": "Watermark on save",
+    "why": "transitions와 zoom-camera는 done. status=todo 인 백로그 중 priority가 가장 높다.",
     "accept": [
-      "start/end rect",
-      "easing",
-      "constant output size"
+      "text/image",
+      "position",
+      "opacity"
     ],
     "also": "Ask the owner to confirm PR #19 move/resize UX. Do not mark it confirmed. recorder_frame.owner_confirmed stays false."
   },
@@ -310,12 +321,16 @@
     {
       "id": "zoom-camera",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "title": "Zoom/pan camera",
       "accept": [
         "start/end rect",
         "easing",
-        "constant output size"
+        "preview",
+        "undo",
+        "constant output size",
+        "gif and the other export formats",
+        "smoke_test_camera"
       ]
     },
     {
@@ -396,7 +411,8 @@
     "python smoke_test_export.py",
     "python smoke_test_masks.py",
     "python smoke_test_webpclip.py",
-    "python smoke_test_transitions.py"
+    "python smoke_test_transitions.py",
+    "python smoke_test_camera.py"
   ],
   "test_runners": {
     "run_tests.bat": [
@@ -407,7 +423,8 @@
       "smoke_test_export.py",
       "smoke_test_masks.py",
       "smoke_test_webpclip.py",
-      "smoke_test_transitions.py"
+      "smoke_test_transitions.py",
+      "smoke_test_camera.py"
     ],
     "bootstrap_agent.sh": [
       "smoke_test.py",
@@ -438,9 +455,10 @@
       "smoke_test_export.py",
       "smoke_test_masks.py",
       "smoke_test_webpclip.py",
-      "smoke_test_transitions.py"
+      "smoke_test_transitions.py",
+      "smoke_test_camera.py"
     ],
-    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 8개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 33/33 62/62. 마지막 62는 smoke_test_transitions.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
+    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py와 smoke_test_camera.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 9개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 33/33 62/62 62/62. 8번째 62는 smoke_test_transitions.py, 9번째 62는 smoke_test_camera.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
   },
   "expected_test_counts": {
     "smoke_test.py": 120,
@@ -450,7 +468,8 @@
     "smoke_test_export.py": 42,
     "smoke_test_masks.py": 10,
     "smoke_test_webpclip.py": 33,
-    "smoke_test_transitions.py": 62
+    "smoke_test_transitions.py": 62,
+    "smoke_test_camera.py": 62
   },
   "build_commands": [
     "build_exe.bat  (Python 3.12, PyInstaller onedir -> dist\\BongGIF\\BongGIF.exe)"
@@ -502,7 +521,8 @@
       "smoke_test_export.py": "42/42",
       "smoke_test_masks.py": "10/10",
       "smoke_test_webpclip.py": "33/33",
-      "smoke_test_transitions.py": "62/62"
+      "smoke_test_transitions.py": "62/62",
+      "smoke_test_camera.py": "62/62"
     },
     "stdin": "/dev/null on every suite so ffmpeg cannot SIGTTIN on an inherited tty or block on an open stdin",
     "ffmpeg": "imageio-ffmpeg binary; if libaom-av1, libx264, libvpx, or libvpx-vp9 is missing, apt install ffmpeg and set IMAGEIO_FFMPEG_EXE. The export skip path is a failed check, so 40 is not a pass.",
