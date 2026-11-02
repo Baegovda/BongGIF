@@ -3,15 +3,25 @@
   "repo": "https://github.com/Baegovda/BongGIF",
   "version": "1.7.0",
   "main": {
-    "sha": "98704795b3b6a51472e3913167007e2ec6e6f6b7",
-    "short": "9870479",
-    "date": "2026-11-02T04:04:15Z",
-    "date_kst": "2026-11-02T13:04:15+09:00",
-    "subject": "Match the WebP clip panel to the owner's web app and drop clean-room wording. (#25)",
-    "note": "이 워터마크 작업의 부모. version.py는 1.7.0. 태그 v1.7.0은 f1a6d9097817ae92c6039a1d824fafd15186acb7 (#20). 이 수정은 버전과 태그를 움직이지 않는다."
+    "sha": "4bf112cf4f5d87b4dbc285b7fdbb3a90690e95e2",
+    "short": "4bf112c",
+    "date": "2026-11-02T04:17:04Z",
+    "date_kst": "2026-11-02T13:17:04+09:00",
+    "subject": "Add a save-time watermark for every export format. (#26)",
+    "note": "이 격자·창 찾기 작업의 부모. version.py는 1.7.0. 태그 v1.7.0은 f1a6d9097817ae92c6039a1d824fafd15186acb7 (#20). 이 수정은 버전과 태그를 움직이지 않는다."
   },
   "pull_requests": {
     "merged_on_main": [
+      {
+        "number": 26,
+        "title": "저장 워터마크: 글자·로고, 위치, 투명도",
+        "state": "MERGED",
+        "merged_at": "2026-11-02T04:17:05Z",
+        "merge_sha": "4bf112cf4f5d87b4dbc285b7fdbb3a90690e95e2",
+        "head": "cursor/watermark-save-25e4",
+        "head_sha": "358a7ae412f9120d2837cb60e88c68f30d2ac547",
+        "head_deleted": true
+      },
       {
         "number": 25,
         "title": "Match the WebP clip panel to the web app",
@@ -143,7 +153,7 @@
         "state": "CLOSED"
       }
     ],
-    "note": "#23은 전환. #21은 문서 정렬. #20은 1.7.0 버전 범프이자 태그 v1.7.0. #18은 text-anim 제거(다시 넣지 않음). 주인이 뺀 다른 항목은 AGENTS.md never-re-add 규칙에만 있고 다시 넣지 않는다. #19는 녹화 프레임 이동/크기(Windows 스모크 실행만, 주인 미확인). #17은 ci.yml. #16은 문서. #15는 v1.4–v1.6 기록. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #19가 #18보다 먼저 머지됐다."
+    "note": "#26은 저장 워터마크. #25는 WebP 클립 패리티. #24는 줌. #23은 전환. #21은 문서 정렬. #20은 1.7.0 버전 범프이자 태그 v1.7.0. #18은 text-anim 제거(다시 넣지 않음). 주인이 뺀 다른 항목은 AGENTS.md never-re-add 규칙에만 있고 다시 넣지 않는다. #19는 녹화 프레임 이동/크기(Windows 스모크 실행만, 주인 미확인). #17은 ci.yml. #16은 문서. #15는 v1.4–v1.6 기록. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #19가 #18보다 먼저 머지됐다."
   },
   "pending_release": {
     "tag": null,
@@ -289,19 +299,21 @@
     "smoke_test_webpclip.py": 72,
     "smoke_test_transitions.py": 62,
     "smoke_test_camera.py": 62,
-    "smoke_test_watermark.py": 43
+    "smoke_test_watermark.py": 43,
+    "smoke_test_recguide.py": 55
   },
   "parity_estimate_pct": 88,
-  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 text-anim 1건을 빼 그때 todo는 8개였다. 그 다음 문서에서 순서를 맞추고 항목을 더해 todo는 10개였다. 같은 날 주인이 4건을 영구 제외했다. 그 뒤 transitions를 구현해 todo는 5개였고, zoom-camera를 구현해 4개였다. watermark를 구현해 status=todo 는 3개다. 뺀 항목 이름은 AGENTS.md never-re-add 규칙에만 있다. 88은 이번에도 재측정이 아니다.",
+  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 text-anim 1건을 빼 그때 todo는 8개였다. 그 다음 문서에서 순서를 맞추고 항목을 더해 todo는 10개였다. 같은 날 주인이 4건을 영구 제외했다. 그 뒤 transitions를 구현해 todo는 5개였고, zoom-camera를 구현해 4개였다. watermark를 구현해 3개였다. rec-grid-finder를 구현해 status=todo 는 2개다. 뺀 항목 이름은 AGENTS.md never-re-add 규칙에만 있다. 88은 이번에도 재측정이 아니다.",
   "recommended_next": {
-    "id": "rec-grid-finder",
-    "priority": 4,
+    "id": "shortcuts",
+    "priority": 5,
     "status": "todo",
-    "title": "Recording grid + window finder",
-    "why": "watermark는 done. status=todo 인 백로그 중 priority가 가장 높다.",
+    "title": "Custom hotkeys",
+    "why": "rec-grid-finder는 done. status=todo 인 백로그 중 priority가 가장 높다.",
     "accept": [
-      "grid excluded from capture",
-      "pick window"
+      "editable",
+      "persisted via prefs",
+      "conflict check"
     ],
     "also": "Ask the owner to confirm PR #19 move/resize UX. Do not mark it confirmed. recorder_frame.owner_confirmed stays false."
   },
@@ -372,11 +384,15 @@
     {
       "id": "rec-grid-finder",
       "priority": 4,
-      "status": "todo",
+      "status": "done",
       "title": "Recording grid + window finder",
       "accept": [
+        "thirds or N x N",
+        "remembered via prefs",
         "grid excluded from capture",
-        "pick window"
+        "pick window snaps the capture hole",
+        "locked during countdown, recording, and pause",
+        "smoke_test_recguide"
       ]
     },
     {
@@ -438,7 +454,8 @@
     "python smoke_test_webpclip.py",
     "python smoke_test_transitions.py",
     "python smoke_test_camera.py",
-    "python smoke_test_watermark.py"
+    "python smoke_test_watermark.py",
+    "python smoke_test_recguide.py"
   ],
   "test_runners": {
     "run_tests.bat": [
@@ -451,7 +468,8 @@
       "smoke_test_webpclip.py",
       "smoke_test_transitions.py",
       "smoke_test_camera.py",
-      "smoke_test_watermark.py"
+      "smoke_test_watermark.py",
+      "smoke_test_recguide.py"
     ],
     "bootstrap_agent.sh": [
       "smoke_test.py",
@@ -484,9 +502,10 @@
       "smoke_test_webpclip.py",
       "smoke_test_transitions.py",
       "smoke_test_camera.py",
-      "smoke_test_watermark.py"
+      "smoke_test_watermark.py",
+      "smoke_test_recguide.py"
     ],
-    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py, smoke_test_camera.py, smoke_test_watermark.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 10개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 72/72 62/62 62/62 43/43. 8번째 62는 smoke_test_transitions.py, 9번째 62는 smoke_test_camera.py, 43은 smoke_test_watermark.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
+    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py, smoke_test_camera.py, smoke_test_watermark.py, smoke_test_recguide.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 11개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 72/72 62/62 62/62 43/43 55/55. 8번째 62는 smoke_test_transitions.py, 9번째 62는 smoke_test_camera.py, 43은 smoke_test_watermark.py, 55는 smoke_test_recguide.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
   },
   "expected_test_counts": {
     "smoke_test.py": 120,
@@ -498,7 +517,8 @@
     "smoke_test_webpclip.py": 72,
     "smoke_test_transitions.py": 62,
     "smoke_test_camera.py": 62,
-    "smoke_test_watermark.py": 43
+    "smoke_test_watermark.py": 43,
+    "smoke_test_recguide.py": 55
   },
   "build_commands": [
     "build_exe.bat  (Python 3.12, PyInstaller onedir -> dist\\BongGIF\\BongGIF.exe)"
@@ -552,7 +572,8 @@
       "smoke_test_webpclip.py": "72/72",
       "smoke_test_transitions.py": "62/62",
       "smoke_test_camera.py": "62/62",
-      "smoke_test_watermark.py": "43/43"
+      "smoke_test_watermark.py": "43/43",
+      "smoke_test_recguide.py": "55/55"
     },
     "stdin": "/dev/null on every suite so ffmpeg cannot SIGTTIN on an inherited tty or block on an open stdin",
     "ffmpeg": "imageio-ffmpeg binary; if libaom-av1, libx264, libvpx, or libvpx-vp9 is missing, apt install ffmpeg and set IMAGEIO_FFMPEG_EXE. The export skip path is a failed check, so 40 is not a pass.",
@@ -630,15 +651,15 @@
   "remote_branches": {
     "fetched_at": "2026-11-02",
     "delete_branch_on_merge": false,
-    "note": "워터마크 작업 시작 때 origin은 main(9870479)과 머지된 cursor/webpclip-parity-docs-c919(#25)뿐이었다. 그 헤드를 지웠다. 이 브랜치를 푸시하면 헤드가 하나 늘고, ci / smoke (ubuntu)가 녹색이면 스쿼시 머지 뒤 그 헤드를 지운다.",
+    "note": "격자 작업 시작 때 origin은 main(4bf112c)과 머지된 cursor/watermark-save-25e4(#26)뿐이었다. 그 헤드를 지웠다. 이 브랜치를 푸시하면 헤드가 하나 늘고, ci / smoke (ubuntu)가 녹색이면 스쿼시 머지 뒤 그 헤드를 지운다.",
     "deleted_this_session": [
-      "cursor/webpclip-parity-docs-c919"
+      "cursor/watermark-save-25e4"
     ],
     "heads_after_delete_before_this_push": [
       {
         "name": "main",
-        "sha": "98704795b3b6a51472e3913167007e2ec6e6f6b7",
-        "pr": 25,
+        "sha": "4bf112cf4f5d87b4dbc285b7fdbb3a90690e95e2",
+        "pr": 26,
         "state": "MERGED"
       }
     ]
@@ -735,7 +756,21 @@
     "lock_reason": "Frames in one take must share a size. Moving during the take also shifts the picture. Stop returns to idle, which can move and resize again.",
     "windows_hit_test": "WM_NCHITTEST. Move is HTCAPTION, resize is HTLEFT and the other HT codes, the capture hole is HTTRANSPARENT. Physical pixels convert with each monitor's native origin and devicePixelRatio.",
     "other_platforms": "QWindow.startSystemMove and startSystemResize, then manual drag. Offscreen and minimal platforms use manual drag only.",
-    "capture_api": "capture_rect() is still the transparent hole. Chrome sits outside it.",
+    "capture_api": "capture_rect() is still the transparent hole. Chrome sits outside it. Guide lines are painted in the hole and kept out of the grabbed frame.",
+    "grid": {
+      "keys": ["rec_grid", "rec_grid_mode", "rec_grid_n"],
+      "modes": ["thirds", "cells"],
+      "n": "2-12",
+      "default": "off",
+      "windows": "SetWindowDisplayAffinity WDA_EXCLUDEFROMCAPTURE keeps the lines on screen and out of the capture",
+      "other": "lines are hidden for the whole recording and pause, and again around each grab"
+    },
+    "window_finder": {
+      "windows": "WindowFromPoint, GetAncestor GA_ROOT, DwmGetWindowAttribute extended frame bounds",
+      "other": "smallest visible top-level QWidget in this process",
+      "snap": "capture hole matches the target, clamped to the min and max capture size",
+      "locked": "countdown, rec, and pause cancel pick mode and refuse the snap"
+    },
     "preset_index": "Recorder PRESETS order is unchanged, so the record-page combo index still matches through 1280x720. 1920x1080 is index 6 on the capture window only.",
     "version_bumped": true,
     "smoke_test_py": 120,

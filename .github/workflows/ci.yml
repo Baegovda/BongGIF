@@ -166,8 +166,9 @@ jobs:
           run_suite smoke_test_transitions.py 62
           run_suite smoke_test_camera.py 62
           run_suite smoke_test_watermark.py 43
+          run_suite smoke_test_recguide.py 55
           if [[ $fail -ne 0 ]]; then
             echo "::error::one or more smoke suites failed"
             exit 1
           fi
-          echo "All 10 smoke suites passed (120/62/40/15/42/10/72/62/62/43)"
+          echo "All 11 smoke suites passed (120/62/40/15/42/10/72/62/62/43/55)"
