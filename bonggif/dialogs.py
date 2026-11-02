@@ -234,13 +234,15 @@ class SettingsDialog(QDialog):
         root.addWidget(self.nav)
         right = QVBoxLayout(); right.addWidget(self.pages, 1); self.w = {}
         def page(title):
-            w = QWidget(); f = QFormLayout(w)
+            w = QWidget(); w.setObjectName("settingsPage"); f = QFormLayout(w)
+            f.setContentsMargins(16, 16, 16, 12); f.setHorizontalSpacing(12); f.setVerticalSpacing(10)
             sc = QScrollArea(); sc.setWidgetResizable(True); sc.setFrameShape(QFrame.NoFrame); sc.setWidget(w)
             self.pages.addWidget(sc); self.nav.addItem(title); return f
         def spin(key, lo, hi, val, suf=""):
             s = QSpinBox(); s.setRange(lo, hi); s.setValue(get_int(st, key, val, lo, hi)); s.setSuffix(suf); self.w[key] = s; return s
+        from .controls import Switch
         def chk(key, text, val):
-            c = QCheckBox(text); c.setChecked(get_bool(st, key, val)); self.w[key] = c; return c
+            c = Switch(text); c.setChecked(get_bool(st, key, val)); self.w[key] = c; return c
         def combo(key, items, val):
             c = QComboBox(); [c.addItem(t, d) for t, d in items]; i = c.findData(get_str(st, key, val)); c.setCurrentIndex(max(0, i)); self.w[key] = c; return c
         f = page("일반"); f.addRow("시작 탭", combo("start_tab", [("홈", "home"), ("편집", "edit"), ("관리", "manage")], "home"))
@@ -346,7 +348,7 @@ class SettingsDialog(QDialog):
         self._wm_preview()
         f = page("고급"); f.addRow("기본 저장 폴더", self._folder("save_dir")); f.addRow("관리 탭 폴더", self._folder("manage_dir"))
         f = page("언어"); c = QComboBox(); c.addItem("한국어"); c.setEnabled(False); f.addRow("언어", c)
-        self.nav.currentRowChanged.connect(self.pages.setCurrentIndex); self.nav.setCurrentRow(0)
+        self.nav.currentRowChanged.connect(self._show_page); self.nav.setCurrentRow(0)
         right.addWidget(_ok_cancel(self, "저장")); root.addLayout(right, 1)
     def _apng_color_default(self) -> str:
         saved = get_str(self.st, "apng_color", "")
@@ -369,6 +371,15 @@ class SettingsDialog(QDialog):
         w = QWidget(); h = QHBoxLayout(w); h.setContentsMargins(0, 0, 0, 0); e = QLineEdit(get_str(self.st, key, "")); b = QPushButton("…")
         b.clicked.connect(lambda: (lambda d: d and e.setText(d))(QFileDialog.getExistingDirectory(self, "폴더 선택", e.text())))
         h.addWidget(e, 1); h.addWidget(b); self.w[key] = e; return w
+    def _show_page(self, row: int) -> None:
+        if row < 0 or row >= self.pages.count():
+            return
+        self.pages.setCurrentIndex(row)
+        page = self.pages.widget(row)
+        if page is None:
+            return
+        from .controls import fade_widget
+        self._page_fade = fade_widget(page, True)
     def _shortcut_page(self) -> int:
         for i in range(self.nav.count()):
             if self.nav.item(i).text() == "단축키":

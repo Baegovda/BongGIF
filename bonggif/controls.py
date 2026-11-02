@@ -22,6 +22,26 @@ def _anim(target, prop: bytes) -> QPropertyAnimation:
     return anim
 
 
+def fade_widget(widget, showing: bool = True):
+    """자식 위젯의 투명도. 모션이 잠겨 있으면 바로 1(또는 0)이다."""
+    from PySide6.QtWidgets import QGraphicsOpacityEffect
+    effect = widget.graphicsEffect()
+    if not isinstance(effect, QGraphicsOpacityEffect):
+        effect = QGraphicsOpacityEffect(widget)
+        widget.setGraphicsEffect(effect)
+    end = 1.0 if showing else 0.0
+    if not motion_allowed():
+        effect.setOpacity(end)
+        return None
+    effect.setOpacity(0.0 if showing else 1.0)
+    anim = _anim(effect, b"opacity")
+    anim.setStartValue(0.0 if showing else 1.0)
+    anim.setEndValue(end)
+    anim.start()
+    widget._fade_anim = anim
+    return anim
+
+
 def fade(widget, showing: bool = True):
     """창 투명도. 모션이 잠겨 있으면 끝 값만 둔다. 반환이 None이면 재생하지 않은 것이다."""
     end = 1.0 if showing else 0.0

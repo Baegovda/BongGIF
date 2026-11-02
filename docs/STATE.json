@@ -7,8 +7,8 @@
     "bonghub": "Baegovda/BongHub was not accessible (GitHub API 404, git ls-remote repository not found). Design follows the iOS-style spec, not a copied BongHub token file.",
     "stages": [
       {"id": "a", "title": "interfaces, fakes, baseline benchmark", "status": "done"},
-      {"id": "b", "title": "theme, contrast, HiDPI, iOS controls", "status": "in_progress"},
-      {"id": "c", "title": "unified settings shell", "status": "todo"},
+      {"id": "b", "title": "theme, contrast, HiDPI, iOS controls", "status": "done"},
+      {"id": "c", "title": "unified settings shell", "status": "in_progress"},
       {"id": "d", "title": "main screen record/edit/export", "status": "todo"},
       {"id": "e", "title": "benchmark compare and docs", "status": "todo"}
     ],
@@ -382,7 +382,8 @@
     "smoke_test_shortcuts.py": 40,
     "smoke_test_export_adv.py": 35,
     "smoke_test_services.py": 23,
-    "smoke_test_style.py": 28
+    "smoke_test_style.py": 28,
+    "smoke_test_settings_shell.py": 11
   },
   "parity_estimate_pct": 88,
   "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 text-anim 1건을 빼 그때 todo는 8개였다. 그 다음 문서에서 순서를 맞추고 항목을 더해 todo는 10개였다. 같은 날 주인이 4건을 영구 제외했다. 그 뒤 transitions를 구현해 todo는 5개였고, zoom-camera를 구현해 4개였다. watermark를 구현해 3개였다. rec-grid-finder를 구현해 2개였다. shortcuts를 구현해 1개였다. export-advanced를 구현해 status=todo 는 0개다. 뺀 항목 이름은 AGENTS.md never-re-add 규칙에만 있다. 88은 이번에도 재측정이 아니다.",
@@ -540,7 +541,8 @@
     "python smoke_test_shortcuts.py",
     "python smoke_test_export_adv.py",
     "python smoke_test_services.py",
-    "python smoke_test_style.py"
+    "python smoke_test_style.py",
+    "python smoke_test_settings_shell.py"
   ],
   "test_runners": {
     "run_tests.bat": [
@@ -558,7 +560,8 @@
       "smoke_test_shortcuts.py",
       "smoke_test_export_adv.py",
       "smoke_test_services.py",
-      "smoke_test_style.py"
+      "smoke_test_style.py",
+      "smoke_test_settings_shell.py"
     ],
     "bootstrap_agent.sh": [
       "smoke_test.py",
@@ -596,9 +599,10 @@
       "smoke_test_shortcuts.py",
       "smoke_test_export_adv.py",
       "smoke_test_services.py",
-      "smoke_test_style.py"
+      "smoke_test_style.py",
+      "smoke_test_settings_shell.py"
     ],
-    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py, smoke_test_camera.py, smoke_test_watermark.py, smoke_test_recguide.py, smoke_test_shortcuts.py, smoke_test_export_adv.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 15개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 72/72 62/62 62/62 43/43 55/55 40/40 35/35 23/23 28/28. 마지막 28은 smoke_test_style.py. 8번째 62는 smoke_test_transitions.py, 9번째 62는 smoke_test_camera.py, 43은 smoke_test_watermark.py, 55는 smoke_test_recguide.py, 40은 smoke_test_shortcuts.py, 마지막 35는 smoke_test_export_adv.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
+    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py, smoke_test_camera.py, smoke_test_watermark.py, smoke_test_recguide.py, smoke_test_shortcuts.py, smoke_test_export_adv.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 16개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 72/72 62/62 62/62 43/43 55/55 40/40 35/35 23/23 28/28 11/11. 마지막 11은 smoke_test_settings_shell.py. 8번째 62는 smoke_test_transitions.py, 9번째 62는 smoke_test_camera.py, 43은 smoke_test_watermark.py, 55는 smoke_test_recguide.py, 40은 smoke_test_shortcuts.py, 마지막 35는 smoke_test_export_adv.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
   },
   "expected_test_counts": {
     "smoke_test.py": 120,
@@ -615,7 +619,8 @@
     "smoke_test_shortcuts.py": 40,
     "smoke_test_export_adv.py": 35,
     "smoke_test_services.py": 23,
-    "smoke_test_style.py": 28
+    "smoke_test_style.py": 28,
+    "smoke_test_settings_shell.py": 11
   },
   "build_commands": [
     "build_exe.bat  (Python 3.12, PyInstaller onedir -> dist\\BongGIF\\BongGIF.exe)"
@@ -674,7 +679,8 @@
       "smoke_test_shortcuts.py": "40/40",
       "smoke_test_export_adv.py": "35/35",
       "smoke_test_services.py": "23/23",
-      "smoke_test_style.py": "28/28"
+      "smoke_test_style.py": "28/28",
+      "smoke_test_settings_shell.py": "11/11"
     },
     "stdin": "/dev/null on every suite so ffmpeg cannot SIGTTIN on an inherited tty or block on an open stdin",
     "ffmpeg": "imageio-ffmpeg binary; if libaom-av1, libx264, libvpx, or libvpx-vp9 is missing, apt install ffmpeg and set IMAGEIO_FFMPEG_EXE. The export skip path is a failed check, so 40 is not a pass.",
