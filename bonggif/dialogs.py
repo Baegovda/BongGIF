@@ -40,8 +40,6 @@ class SaveDialog(QDialog):
         self.preview.setStyleSheet("background:#111;border:1px solid #30343c"); left.addWidget(self.preview, 1)
         self.lbl_info = QLabel(); self.lbl_info.setWordWrap(True); left.addWidget(self.lbl_info)
         if self.frames:
-            im = self.frames[0].image; im = im.reduce(max(1, im.width // 640)) if im.width > 640 else im
-            self.preview.setPixmap(QPixmap.fromImage(pil_to_qimage(im)).scaled(QSize(480, 300), Qt.KeepAspectRatio, Qt.SmoothTransformation))
             tot = sum(f.delay for f in self.frames); w, h = self.frames[0].image.size
             self.lbl_info.setText(f"이미지 크기 {w}×{h} · {len(self.frames)}프레임 · 재생 시간 {tot / 1000:.2f}초 · 평균 {1000 * len(self.frames) / max(1, tot):.1f} fps")
         root.addLayout(left, 1)
@@ -71,6 +69,15 @@ class SaveDialog(QDialog):
         self.btn_pc = ColorButton(QColor(61, 139, 253)); self.btn_pbg = ColorButton(QColor(0, 0, 0, 120))
         for wd in (self.chk_prog, QLabel("높이"), self.sp_ph, QLabel("색"), self.btn_pc, QLabel("배경"), self.btn_pbg): h.addWidget(wd)
         h.addStretch(); rv.addWidget(g)
+        from .watermark import drawable, load_watermark
+        spec = load_watermark(settings()); ready = drawable(spec)
+        g = QGroupBox("워터마크"); f = QFormLayout(g)
+        self.chk_wm = QCheckBox("이번 저장에 워터마크 넣기")
+        self.chk_wm.setChecked(bool(ready and spec.on))
+        self.chk_wm.setEnabled(ready)
+        self.chk_wm.setToolTip("환경 설정에서 정한 글자나 로고입니다. 끄면 이번 파일만 빼니다." if ready else "환경 설정에서 워터마크를 먼저 정하세요.")
+        self.chk_wm.toggled.connect(lambda _on: self._paint_preview())
+        f.addRow(self.chk_wm); rv.addWidget(g)
         g = QGroupBox("파일"); f = QFormLayout(g)
         self.ed_name = QLineEdit(name); f.addRow("파일 이름", self.ed_name)
         self.cb_folder = QComboBox(); self.cb_folder.setEditable(True)
@@ -81,6 +88,7 @@ class SaveDialog(QDialog):
         self.chk_open = QCheckBox("저장 후 폴더 열기"); self.chk_open.setChecked(get_bool(settings(), "open_after_save", False)); f.addRow(self.chk_open)
         rv.addWidget(g); rv.addStretch(); rv.addWidget(_ok_cancel(self, "저장"))
         sc = QScrollArea(); sc.setWidget(right); sc.setWidgetResizable(True); sc.setMinimumWidth(420); root.addWidget(sc)
+        self._paint_preview()
     def _load_loop(self):
         key = {"gif": "gif", "webp": "webp", "apng": "apng"}.get(self.fmt())
         on = bool(key)
@@ -115,7 +123,21 @@ class SaveDialog(QDialog):
         if self.chk_size.isChecked(): o["max_width"] = self.sp_size.value()
         if self.chk_sim.isChecked(): o["skip_similar"] = self.sp_sim.value()
         if self.chk_prog.isChecked(): o.update(embed_progress=True, progress_height=self.sp_ph.value(), progress_color=self.btn_pc.rgba(), progress_bg=self.btn_pbg.rgba())
+        o["watermark"] = bool(self.chk_wm.isChecked())
         return o
+    def _paint_preview(self):
+        if not self.frames:
+            return
+        im = self.frames[0].image
+        if self.chk_wm.isChecked():
+            from .core import Frame
+            from .watermark import apply_watermark, drawable, load_watermark
+            spec = load_watermark(settings())
+            if drawable(spec):
+                im = apply_watermark([Frame(im, self.frames[0].delay)], spec)[0].image
+        if im.width > 640:
+            im = im.reduce(max(1, im.width // 640))
+        self.preview.setPixmap(QPixmap.fromImage(pil_to_qimage(im)).scaled(QSize(480, 300), Qt.KeepAspectRatio, Qt.SmoothTransformation))
     def accept(self):
         st = settings(); d = self.cb_folder.currentText().strip()
         rec = [d] + [x for x in get_list(st, "recent_dirs") if x and x != d]; st.setValue("recent_dirs", rec[:8])
@@ -208,7 +230,7 @@ SHORTCUTS = [("열기", "Ctrl+O"), ("저장", "Ctrl+S"), ("화면 녹화 / 녹�
              ("클립 추가", "A"), ("클립 모두 움짤로 빼기", "Ctrl+Shift+E"), ("환경 설정", "Ctrl+,"), ("작업 취소", "Esc")]
 
 class SettingsDialog(QDialog):
-    """환경 설정: 일반 · 녹화 · 편집 · 자르기 · 단축키 · GIF · WebP · WebM · MP4 · APNG · 고급 · 언어."""
+    """환경 설정: 일반 · 녹화 · 편집 · 자르기 · 단축키 · GIF · WebP · WebM · MP4 · APNG·AVIF · 워터마크 · 고급 · 언어."""
     def __init__(self, parent=None):
         super().__init__(parent); self.setWindowTitle("환경 설정"); self.resize(760, 520); st = settings(); self.st = st
         root = QHBoxLayout(self)
@@ -259,6 +281,39 @@ class SettingsDialog(QDialog):
         f.addRow(chk("apng_comment", "APNG Software 텍스트", True))
         f.addRow("AVIF 품질", spin("avif_quality", 1, 100, 80))
         f.addRow(QLabel("AVIF 품질 70 이상은 YUV 4:4:4. 앱 이름 주석은 넣지 않습니다."))
+        from .watermark import POSITIONS
+        f = page("워터마크")
+        f.addRow(chk("wm_on", "저장할 때 워터마크 넣기", False))
+        f.addRow("종류", combo("wm_kind", [("글자", "text"), ("이미지", "image")], "text"))
+        self.ed_wm_text = QLineEdit(get_str(st, "wm_text", "")); self.ed_wm_text.setPlaceholderText("문구")
+        self.w["wm_text"] = self.ed_wm_text; f.addRow("문구", self.ed_wm_text)
+        img = QWidget(); ih = QHBoxLayout(img); ih.setContentsMargins(0, 0, 0, 0)
+        self.ed_wm_image = QLineEdit(get_str(st, "wm_image", "")); self.w["wm_image"] = self.ed_wm_image
+        b = QPushButton("찾아보기…"); b.clicked.connect(self._wm_browse)
+        ih.addWidget(self.ed_wm_image, 1); ih.addWidget(b); f.addRow("로고", img)
+        f.addRow("위치", combo("wm_pos", [(label, key) for key, label in POSITIONS], "br"))
+        f.addRow("가장자리 여백", spin("wm_margin", 0, 25, 4, " %"))
+        f.addRow("가로 위치", spin("wm_ox", 0, 100, 70, " %"))
+        f.addRow("세로 위치", spin("wm_oy", 0, 100, 80, " %"))
+        self.sl_wm_opacity = QSlider(Qt.Horizontal); self.sl_wm_opacity.setRange(0, 100)
+        self.sl_wm_opacity.setValue(get_int(st, "wm_opacity", 70, 0, 100))
+        self.lbl_wm_op = QLabel(f"{self.sl_wm_opacity.value()}%")
+        row = QWidget(); rh = QHBoxLayout(row); rh.setContentsMargins(0, 0, 0, 0)
+        rh.addWidget(self.sl_wm_opacity, 1); rh.addWidget(self.lbl_wm_op); f.addRow("투명도", row)
+        f.addRow("크기", spin("wm_size", 4, 80, 18, " %"))
+        f.addRow("글자 색", combo("wm_color", [("흰색", "#FFFFFF"), ("검정", "#111111"), ("노랑", "#FFE14A"), ("남색", "#3D8BFD")], "#FFFFFF"))
+        self.lbl_wm_preview = QLabel(); self.lbl_wm_preview.setMinimumSize(320, 160); self.lbl_wm_preview.setAlignment(Qt.AlignCenter)
+        self.lbl_wm_preview.setStyleSheet("background:#111;border:1px solid #30343c")
+        f.addRow("미리보기", self.lbl_wm_preview)
+        self.lbl_wm_note = QLabel(); self.lbl_wm_note.setWordWrap(True); f.addRow(self.lbl_wm_note)
+        for wdg in (self.w["wm_on"], self.w["wm_kind"], self.ed_wm_text, self.ed_wm_image, self.w["wm_pos"],
+                    self.w["wm_margin"], self.w["wm_ox"], self.w["wm_oy"], self.w["wm_size"], self.w["wm_color"]):
+            if isinstance(wdg, QLineEdit): wdg.textChanged.connect(self._wm_preview)
+            elif isinstance(wdg, QComboBox): wdg.currentIndexChanged.connect(self._wm_preview)
+            elif isinstance(wdg, QCheckBox): wdg.toggled.connect(self._wm_preview)
+            else: wdg.valueChanged.connect(self._wm_preview)
+        self.sl_wm_opacity.valueChanged.connect(self._wm_preview)
+        self._wm_preview()
         f = page("고급"); f.addRow("기본 저장 폴더", self._folder("save_dir")); f.addRow("관리 탭 폴더", self._folder("manage_dir"))
         f = page("언어"); c = QComboBox(); c.addItem("한국어"); c.setEnabled(False); f.addRow("언어", c)
         self.nav.currentRowChanged.connect(self.pages.setCurrentIndex); self.nav.setCurrentRow(0)
@@ -279,4 +334,36 @@ class SettingsDialog(QDialog):
             elif isinstance(w, QCheckBox): self.st.setValue(k, w.isChecked())
             elif isinstance(w, QComboBox): self.st.setValue(k, w.currentData())
             elif isinstance(w, QLineEdit): self.st.setValue(k, w.text())
+        if hasattr(self, "sl_wm_opacity"):
+            self.st.setValue("wm_opacity", int(self.sl_wm_opacity.value()))
         super().accept()
+    def _wm_browse(self):
+        p, _ = QFileDialog.getOpenFileName(self, "로고 이미지", self.ed_wm_image.text(), "이미지 (*.png *.webp *.jpg *.jpeg *.bmp *.gif)")
+        if p:
+            self.ed_wm_image.setText(p)
+    def _wm_spec(self):
+        from .watermark import Watermark
+        return Watermark(
+            on=self.w["wm_on"].isChecked(), kind=self.w["wm_kind"].currentData() or "text",
+            text=self.ed_wm_text.text(), image=self.ed_wm_image.text(),
+            pos=self.w["wm_pos"].currentData() or "br", ox=self.w["wm_ox"].value(), oy=self.w["wm_oy"].value(),
+            margin=self.w["wm_margin"].value(), opacity=self.sl_wm_opacity.value(), size=self.w["wm_size"].value(),
+            color=self.w["wm_color"].currentData() or "#FFFFFF")
+    def _wm_preview(self, *_a):
+        from .watermark import drawable, preview_image
+        kind = self.w["wm_kind"].currentData()
+        self.ed_wm_text.setEnabled(kind == "text"); self.ed_wm_image.setEnabled(kind == "image")
+        self.w["wm_color"].setEnabled(kind == "text")
+        pos = self.w["wm_pos"].currentData()
+        custom = pos == "custom"; corner = pos in ("tl", "tr", "bl", "br")
+        self.w["wm_ox"].setEnabled(custom); self.w["wm_oy"].setEnabled(custom); self.w["wm_margin"].setEnabled(corner)
+        self.lbl_wm_op.setText(f"{self.sl_wm_opacity.value()}%")
+        spec = self._wm_spec()
+        im = preview_image(spec, (320, 160))
+        self.lbl_wm_preview.setPixmap(QPixmap.fromImage(pil_to_qimage(im)))
+        if not self.w["wm_on"].isChecked():
+            self.lbl_wm_note.setText("꺼져 있습니다. 미리보기만 보이고, 저장에는 들어가지 않습니다.")
+        elif not drawable(spec):
+            self.lbl_wm_note.setText("문구를 적거나 로고 파일을 고르면 저장할 때 넣습니다.")
+        else:
+            self.lbl_wm_note.setText("켜져 있습니다. GIF, WebP, MP4, WebM, APNG, AVIF와 WebP 클립 저장에 넣습니다. 저장 창에서 이번 파일만 뺄 수 있습니다.")

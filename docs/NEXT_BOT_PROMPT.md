@@ -60,13 +60,13 @@ Start of a fresh clone: `bash scripts/bootstrap_agent.sh` (Windows: `scripts\boo
 
 ## 4. Next task
 
-`transitions` is done (fade/slide/wipe). `zoom-camera` is done (start/end rect, easing, preview, undo, constant output size, baked into the frames so every export format receives them). Do not re-add either. `smoke_test_transitions.py` and `smoke_test_camera.py` are 62 checks each and are in `run_tests.bat` and `ci.yml`. `release.yml` was not changed and does not run those suites.
+`transitions`, `zoom-camera`, and `watermark` are done. Do not re-add them. Watermark is set once in 환경 설정 (text or image, position, opacity, size, on/off, preview) and stamped on save for GIF, WebP, MP4, WebM, APNG, AVIF, and the WebP clip export. The save dialog checkbox skips one file. `smoke_test_watermark.py` is 43 checks and is in `run_tests.bat` and `ci.yml`. `release.yml` was not changed and does not run it. `smoke_test_transitions.py` and `smoke_test_camera.py` are 62. `smoke_test_webpclip.py` is 72.
 
-WebP Clip parity with https://webp-clip.vercel.app/ is done. The editor command is **WebP 클립**. The comparison table is in `docs/HANDOFF.md`. `smoke_test_webpclip.py` is 72 checks. Do not redo that panel.
+WebP Clip parity with https://webp-clip.vercel.app/ is done. The editor command is **WebP 클립**. The comparison table is in `docs/HANDOFF.md`. Do not redo that panel.
 
-Do both of these. Do not start the item after watermark until watermark is done.
+Do both of these. Do not start the item after rec-grid-finder until that item is done.
 
-1. Backlog item 1, id `watermark`, status `todo`: watermark on save. Acceptance: text or image, position, opacity, saved in the SaveDialog options. Korean UI. A smoke test. Use a worker if drawing the mark on every frame can take longer than 50 ms.
+1. Backlog item 1, id `rec-grid-finder`, status `todo`: recording grid overlay plus window finder. The grid must not be captured. Click-to-pick a window snaps the rect. Korean UI. A smoke test.
 2. Ask the owner to confirm the PR #19 move/resize UX. Record the answer in `docs/HANDOFF.md` and `docs/STATE.json`. Until they answer, leave `recorder_frame.owner_confirmed` false. It is still unconfirmed.
 
 Backlog order in `docs/STATE.json` and `docs/HANDOFF.md` (do not reorder, do not revive `text-anim`, and do not re-add items listed in the never-re-add rule):
@@ -75,10 +75,10 @@ Backlog order in `docs/STATE.json` and `docs/HANDOFF.md` (do not reorder, do not
 |---|---|---|
 | — | `transitions` | done |
 | — | `zoom-camera` | done |
-| 1 | `watermark` | Watermark on save |
-| 2 | `rec-grid-finder` | Recording grid (not captured) + window finder |
-| 3 | `shortcuts` | Custom hotkeys. The 설정 > 단축키 table is read-only today |
-| 4 | `export-advanced` | WebM alpha actually encoded (`write_webm` `alpha=True` is a no-op today), WebM codec (VP8/VP9 already in the save dialog; the settings WebM page stores quality only), APNG color modes beyond palette on/off and color count, preserve colors (no such option today) |
+| — | `watermark` | done |
+| 1 | `rec-grid-finder` | Recording grid (not captured) + window finder |
+| 2 | `shortcuts` | Custom hotkeys. The 설정 > 단축키 table is read-only today |
+| 3 | `export-advanced` | WebM alpha actually encoded (`write_webm` `alpha=True` is a no-op today), WebM codec (VP8/VP9 already in the save dialog; the settings WebM page stores quality only), APNG color modes beyond palette on/off and color count, preserve colors (no such option today) |
 
 `parity_estimate_pct` is 88. That number was not remeasured. Do not invent a new percentage.
 
@@ -97,20 +97,21 @@ python smoke_test_masks.py      # 10
 python smoke_test_webpclip.py   # 72
 python smoke_test_transitions.py # 62
 python smoke_test_camera.py      # 62
+python smoke_test_watermark.py   # 43
 ```
 
-`run_tests.bat` runs all nine. Bootstrap runs the first four only. `OVERALL PASS` does not cover export, masks, webpclip, transitions, or camera.
+`run_tests.bat` runs all ten. Bootstrap runs the first four only. `OVERALL PASS` does not cover export, masks, webpclip, transitions, camera, or watermark.
 
-CI is `.github/workflows/ci.yml`: `pull_request` into `main`, `push` to `main`, and `workflow_dispatch`. The check is `ci / smoke (ubuntu)` on ubuntu-latest, Python 3.12, `PySide6>=6.5,<6.9`. It requires the lines `120/120` `62/62` `40/40` `15/15` `42/42` `10/10` `72/72` `62/62` `62/62` (the 8th is `smoke_test_transitions.py`, the 9th is `smoke_test_camera.py`). Each suite's stdin is `/dev/null`. The result grep is `grep -a` because the export log contains a NUL. This workflow does not build a release.
+CI is `.github/workflows/ci.yml`: `pull_request` into `main`, `push` to `main`, and `workflow_dispatch`. The check is `ci / smoke (ubuntu)` on ubuntu-latest, Python 3.12, `PySide6>=6.5,<6.9`. It requires the lines `120/120` `62/62` `40/40` `15/15` `42/42` `10/10` `72/72` `62/62` `62/62` `43/43` (the 8th is `smoke_test_transitions.py`, the 9th is `smoke_test_camera.py`, the 10th is `smoke_test_watermark.py`). Each suite's stdin is `/dev/null`. The result grep is `grep -a` because the export log contains a NUL. This workflow does not build a release.
 
-`release.yml` still runs its previous six (no crash suite, no transitions suite, no camera suite) and fails the job if any fail. Keep that file as it is.
+`release.yml` still runs its previous six (no crash suite, no transitions suite, no camera suite, no watermark suite) and fails the job if any fail. Keep that file as it is.
 
 Add a test for every fix. Counts are success-path `ok()` calls (`결과: N/M`).
 
 ## 6. Release (only if the owner asks)
 
 1. Bump `bonggif/version.py`.
-2. Run all nine smoke tests (`run_tests.bat`).
+2. Run all ten smoke tests (`run_tests.bat`).
 3. Commit. Put the new notes in a `README.md` `## X.Y.Z` section. Do not add a `CHANGELOG.md`.
 4. `git tag vX.Y.Z && git push origin HEAD vX.Y.Z`.
 5. Watch `.github/workflows/release.yml` until it succeeds, then confirm `BongGIF-vX.Y.Z-win64.zip` and `.sha256` on the release.

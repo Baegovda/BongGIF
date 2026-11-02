@@ -237,7 +237,7 @@ w.goto(-1); ok("마지막 프레임 이동", w.cur == len(w.project.frames) - 1)
 sd = SaveDialog(w, "webm", w.project.frames, out, "x"); ok("저장 대화상자(6형식)", sd.q.cb_fmt.count() == 6 and sd.path().endswith("x.webm"))
 sdl = SettingsDialog(w)
 _labels = [sdl.nav.item(i).text() for i in range(sdl.nav.count())]
-ok("설정 12항목·가로 목록", _labels == ["일반", "녹화", "편집", "자르기", "단축키", "GIF", "WebP", "WebM", "MP4", "APNG·AVIF", "고급", "언어"] and sdl.nav.flow() == QListView.TopToBottom and sdl.findChild(QTabWidget) is None)
+ok("설정 13항목·가로 목록", _labels == ["일반", "녹화", "편집", "자르기", "단축키", "GIF", "WebP", "WebM", "MP4", "APNG·AVIF", "워터마크", "고급", "언어"] and sdl.nav.flow() == QListView.TopToBottom and sdl.findChild(QTabWidget) is None)
 sdl.reject()
 from bonggif.prefs import to_bool, to_int, to_float
 ok("설정 값 변환(문자열 bool/숫자/잘못된 값)", to_bool("true") and not to_bool("false") and to_bool("", True) and to_int("true", 3) == 1 and to_int("false", 3) == 0

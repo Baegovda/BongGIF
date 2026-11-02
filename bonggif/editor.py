@@ -1138,7 +1138,8 @@ class EditorWindow(QMainWindow):
         from .exporter import export_frames
         frames = [Frame(f.image, f.delay) for f in self.project.frames]
         masks = [m.copy() for m in self.project.masks]; crop = None if self.project.export_crop is None else tuple(self.project.export_crop)
-        opts = dict(options or {})
+        from .watermark import prepare_export_options
+        opts = prepare_export_options(options, self.settings)
         def done(r):
             self.last_saved = path; self.last_result = r
             self.settings.setValue("last_dir", os.path.dirname(os.path.abspath(path)))
@@ -1615,6 +1616,8 @@ class EditorWindow(QMainWindow):
         src = float(self.webp_opts.get("src_fps") or self._project_fps())
         export = dict(self.webp_opts["export"])
         snap = self._webp_snapshot()
+        from .watermark import spec_for_save
+        wm = spec_for_save(self.settings, None)
         if path is None:
             from .webpclip.export import suggested_name, clip_dict
             from .webpclip.core import ranges as clip_ranges
@@ -1629,11 +1632,11 @@ class EditorWindow(QMainWindow):
             target = float(ex.get("targetMB") or 0) * 1048576
             note = ""
             if target > 0:
-                fit = choose_fit(snap.frames, snap, src, ex, a, b, target, ctx)
+                fit = choose_fit(snap.frames, snap, src, ex, a, b, target, ctx, watermark=wm)
                 if fit.get("cand"):
                     ex.update(fit["cand"])
                     note = "맞춤" if fit.get("fits") else "목표 초과"
-            result = export_clip(snap.frames, snap, src, ex, a, b, path, ctx)
+            result = export_clip(snap.frames, snap, src, ex, a, b, path, ctx, watermark=wm)
             result["note"] = note
             result["used"] = ex
             return result
@@ -1847,7 +1850,8 @@ class EditorWindow(QMainWindow):
             folder = QFileDialog.getExistingDirectory(self, "클립 저장 폴더", self._start_dir() or os.path.expanduser("~"))
             if not folder: return None
         os.makedirs(folder, exist_ok=True)
-        opt = dict(options or {}); opt.setdefault("colors", 128); opt.setdefault("dither", False)
+        from .watermark import prepare_export_options
+        opt = prepare_export_options(options, self.settings); opt.setdefault("colors", 128); opt.setdefault("dither", False)
         names = [os.path.join(folder, f"{stem}_{i:02d}.{ext}") for i in range(1, len(sel) + 1)] if mode != "join" else [os.path.join(folder, f"{stem}.{ext}")]
         masks = [m.copy() for m in self.project.masks]; crop = None if self.project.export_crop is None else tuple(self.project.export_crop)
         base = [Frame(f.image, f.delay) for f in self.project.frames]
@@ -1890,7 +1894,8 @@ class EditorWindow(QMainWindow):
         from .clipsave import clip_export_name, source_stem, unique_path
         os.makedirs(folder, exist_ok=True)
         stem = source_stem(self.source_path)
-        opt = dict(options or {})
+        from .watermark import prepare_export_options
+        opt = prepare_export_options(options, self.settings)
         paths, labels = [], []
         for i, c in enumerate(sel, 1):
             path = unique_path(folder, clip_export_name(stem, i, ext))
