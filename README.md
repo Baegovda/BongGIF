@@ -5,10 +5,14 @@
 
 1.2.0 부터 저장 파이프라인은 형식마다 분리된 인코더입니다. 팔레트는 Pillow median-cut(libimagequant 없음), 영상은 ffmpeg(libx264 / libvpx / libaom)를 서브프로세스로 호출합니다. 컨테이너 관례와 라이선스는 [docs/FORMATS.md](docs/FORMATS.md).
 
+## 미공개
+`bonggif/version.py`는 **1.7.0**이고, 공개 태그는 **v1.7.0**이다. 아래는 아직 태그가 없는 변경이다.
+- 편집 명령 막대의 **전환**에서 두 클립 사이, 또는 앞 구간 끝과 뒤 구간 시작 사이에 전환을 넣는다. 종류는 페이드, 슬라이드, 와이프이다. 슬라이드와 와이프는 새 화면이 들어오는 방향(왼쪽, 오른쪽, 위, 아래)을 고른다. 길이는 밀리초, 프레임 수는 2–60장이다. 미리보기 슬라이더로 중간 장면을 보고, 적용하면 그 프레임이 타임라인에 들어간다. 바로 앞에서 끝나는 클립은 그 프레임을 포함하므로 클립을 이어 저장해도 전환이 한 번 들어간다. 실행취소와 다시실행이 된다. GIF, WebP, MP4, WebM, APNG, AVIF 저장은 타임라인 프레임을 그대로 쓴다.
+
 ## 1.7.0
 현재 버전은 `bonggif/version.py`의 **1.7.0**이고, 공개 태그 **v1.7.0**과 같다.
 - 녹화 프레임을 옮기고 크기를 조절한다. 제목 막대·하단 도구 막대·테두리를 끌면 이동하고, 모서리 4개와 변 중앙 4개 손잡이로 크기를 바꾼다. 가로×세로는 실시간이고 숫자나 프리셋으로도 맞춘다. 화면과 다른 창 가장자리에 붙는다. 카운트다운·녹화·일시정지에는 위치와 크기를 고정하고 제목에 `위치 고정`을 보인다. 이 동작(PR #19)은 Windows에서 스모크 실행만 됐고, 주인 확인은 아직이다.
-- 문서 백로그에서 텍스트 인트로/아웃트로를 뺐다(PR #18). 그 기능은 다시 넣지 않는다. 주인이 뺀 항목은 AGENTS.md의 never-re-add 규칙에만 적혀 있고, 다시 넣지 않는다. 다음 구현은 전환이다.
+- 문서 백로그에서 텍스트 인트로/아웃트로를 뺐다(PR #18). 그 기능은 다시 넣지 않는다. 주인이 뺀 항목은 AGENTS.md의 never-re-add 규칙에만 적혀 있고, 다시 넣지 않는다. 전환은 위 `## 미공개`에 있다. 그 다음 백로그는 줌 카메라다.
 
 릴리스 노트는 이 파일의 `## x.y.z` 절이다. `CHANGELOG.md`는 없다. GitHub Release 본문은 태그 사이에 머지된 PR 목록이고, 이 절의 복사본이 아니다.
 
@@ -78,7 +82,7 @@ build_exe.bat          :: venv 생성 → 의존성+PyInstaller 설치 → dist\
 - 캡처: `mss` → (선택) `dxcam` → Qt 화면 캡처 순으로 폴백
 
 ## 편집
-- 상단 명령 막대: 자르기 · 크기 · 그리기 · 효과 · 삽입 · 액자 | 삭제 · 구간 자르기 · 프레임 줄이기 · 시간 설정 · 10% 빠르게/느리게 · 역재생 · 요요 · 끝에 추가 · 이미지 가져오기
+- 상단 명령 막대: 자르기 · 크기 · 그리기 · 효과 · 삽입 · 액자 · 마스크 · 전환 | 삭제 · 구간 자르기 · 프레임 줄이기 · 시간 설정 · 10% 빠르게/느리게 · 역재생 · 요요 · 끝에 추가 · 이미지 가져오기
 - 모드를 고르면 오른쪽 패널에 옵션이 나오고 `적용`/`취소`로 끝냅니다.
 - 자르기: 비율 프리셋, X/Y/W/H, 바깥 어둡게, 영역 기억 · 크기: % 프리셋, 회전/반전 · 그리기: 펜 색/굵기/불투명도
 - 효과 목록 18항목(효과 없음 포함, 필터 17: 흑백·세피아·채도·감마·색온도·선명·흐림·영역 모자이크·비네팅·만화 등) 실시간 미리보기 · 액자: 여백/색/둥근 모서리/그림자
@@ -137,9 +141,10 @@ python smoke_test_crash.py
 python smoke_test_export.py
 python smoke_test_masks.py
 python smoke_test_webpclip.py
+python smoke_test_transitions.py
 ```
 `smoke_test_converter.py`는 ffmpeg `testsrc`로 테스트 영상을 만들어 구간 추출 프레임 수, fps/크기, 목표 용량, HQ 경로, WebP·MP4 출력, 영상 드롭 → 편집기 타임라인(첫 프레임 즉시 표시·1280px·30fps 기본·원본 다시 불러오기)·타임라인 구간 자르기, 구간 선택 대화상자, 작업 스레드 진행 메시지, 저장 중 이벤트 루프 응답성(타이머 틱), 저장 알림, 긴 영상의 메모리 상한, RGBA 디코드 등을 검사합니다. 일괄 변환 창은 없는지(`batch_panel` 없음, 도구 메뉴에 '일괄' 없음)도 봅니다.
 
-검사 수(성공 경로): `smoke_test.py` 120, `smoke_test_converter.py` 62, `smoke_test_updater.py` 40, `smoke_test_crash.py` 15, `smoke_test_export.py` 42, `smoke_test_masks.py` 10, `smoke_test_webpclip.py` 33. `run_tests.bat`가 일곱을 모두 돌립니다. `scripts/bootstrap_agent.sh`와 `.ps1`은 앞의 네 개만 돌립니다. 릴리스 워크플로는 `smoke_test_crash.py`를 빼고, 실패한 스모크는 빌드를 막습니다.
+검사 수(성공 경로): `smoke_test.py` 120, `smoke_test_converter.py` 62, `smoke_test_updater.py` 40, `smoke_test_crash.py` 15, `smoke_test_export.py` 42, `smoke_test_masks.py` 10, `smoke_test_webpclip.py` 33, `smoke_test_transitions.py` 62. `run_tests.bat`가 여덟을 모두 돌립니다. `scripts/bootstrap_agent.sh`와 `.ps1`은 앞의 네 개만 돌립니다. 릴리스 워크플로는 바꾸지 않았다. `smoke_test_crash.py`와 `smoke_test_transitions.py`는 그 잡에 없고, 들어 있는 스모크가 실패하면 빌드를 막습니다.
 
 QA 스크린샷: `python qa_screens.py` → `qa_shots/*.png` (오프스크린)

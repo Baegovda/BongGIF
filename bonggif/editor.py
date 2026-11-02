@@ -20,6 +20,7 @@ from .dialogs import ColorButton, SaveDialog, RangeDialog, ReduceDialog, TimeDia
 from .manage import ManagePanel
 from .prefs import get_bool, get_int, get_str, get_list, get_float, to_int
 from .core import Project, Frame, load_file, load_sequence, emoji_sticker, op_crop, op_resize, op_grayscale, op_sticker, VIDEO_EXT
+from .transitions import (KIND_LABELS, DIRECTION_LABELS, render_transition, build_transition, resolve_transition, frame_delays)
 from . import APP_NAME
 from .panels import pil_to_qimage, ExportDialog, VIDEO_FILTER, OpenOptionsDialog, video_settings
 from .workers import Task, ThumbWorker, make_thumb
@@ -633,14 +634,44 @@ class EditorWindow(QMainWindow):
         self.lbl_mask_sum = QLabel("출력 —"); self.lbl_mask_sum.setWordWrap(True); f.addRow(self.lbl_mask_sum)
         b = QPushButton("이 설정으로 WebP 저장"); b.setObjectName("primary"); b.clicked.connect(self._export_webp_masked); f.addRow(b)
         side.addWidget(self._side_page("마스크", f, None, cancel=False))
-        self.MODES = {"frame": 0, "crop": 1, "resize": 2, "draw": 3, "effect": 4, "insert": 5, "border": 6, "mask": 7}
+        # 8 전환 (클립 또는 구간 사이에 프레임을 구워 넣음)
+        f = QFormLayout()
+        self.cb_tr_kind = QComboBox(); self.cb_tr_kind.setObjectName("trKind")
+        for key, label in KIND_LABELS: self.cb_tr_kind.addItem(label, key)
+        self.cb_tr_dir = QComboBox(); self.cb_tr_dir.setObjectName("trDir")
+        for key, label in DIRECTION_LABELS: self.cb_tr_dir.addItem(label, key)
+        self.cb_tr_dir.setToolTip("새 화면이 들어오는 방향입니다. 페이드에는 쓰이지 않습니다.")
+        self.sp_tr_ms = QSpinBox(); self.sp_tr_ms.setRange(20, 10000); self.sp_tr_ms.setValue(400); self.sp_tr_ms.setSuffix(" ms"); self.sp_tr_ms.setObjectName("trMs")
+        self.sp_tr_n = QSpinBox(); self.sp_tr_n.setRange(2, 60); self.sp_tr_n.setValue(8); self.sp_tr_n.setSuffix("장"); self.sp_tr_n.setObjectName("trFrames")
+        self.lbl_tr_len = QLabel("프레임당 50ms · 합계 400ms"); self.lbl_tr_len.setWordWrap(True)
+        self.cb_tr_target = QComboBox(); self.cb_tr_target.setObjectName("trTarget")
+        self.cb_tr_target.addItem("클립 사이", "clips"); self.cb_tr_target.addItem("구간 사이", "segment")
+        self.cb_tr_from = QComboBox(); self.cb_tr_from.setObjectName("trFrom")
+        self.cb_tr_to = QComboBox(); self.cb_tr_to.setObjectName("trTo")
+        self.sp_tr_front = QSpinBox(); self.sp_tr_front.setRange(1, 1); self.sp_tr_front.setObjectName("trFront")
+        self.sp_tr_back = QSpinBox(); self.sp_tr_back.setRange(1, 1); self.sp_tr_back.setObjectName("trBack")
+        self.sl_tr = QSlider(Qt.Horizontal); self.sl_tr.setRange(0, 100); self.sl_tr.setValue(50); self.sl_tr.setObjectName("trPreview")
+        self.lbl_tr = QLabel("미리보기 50%"); self.lbl_tr.setWordWrap(True)
+        self.lbl_tr_help = QLabel("방향은 새 화면이 들어오는 쪽입니다. 적용하면 그 사이 프레임이 타임라인에 들어갑니다.")
+        self.lbl_tr_help.setWordWrap(True)
+        f.addRow("종류", self.cb_tr_kind); f.addRow("방향", self.cb_tr_dir); f.addRow("길이", self.sp_tr_ms); f.addRow("프레임", self.sp_tr_n); f.addRow(self.lbl_tr_len)
+        f.addRow("위치", self.cb_tr_target); f.addRow("앞 클립", self.cb_tr_from); f.addRow("뒤 클립", self.cb_tr_to)
+        f.addRow("앞 구간 끝", self.sp_tr_front); f.addRow("뒤 구간 시작", self.sp_tr_back)
+        f.addRow("미리보기", self.sl_tr); f.addRow(self.lbl_tr); f.addRow(self.lbl_tr_help)
+        side.addWidget(self._side_page("전환", f, self.apply_transition))
+        self.MODES = {"frame": 0, "crop": 1, "resize": 2, "draw": 3, "effect": 4, "insert": 5, "border": 6, "mask": 7, "transition": 8}
+        for wdg in (self.cb_tr_kind, self.cb_tr_dir, self.cb_tr_target, self.cb_tr_from, self.cb_tr_to):
+            wdg.currentIndexChanged.connect(self._on_transition_controls)
+        for wdg in (self.sp_tr_ms, self.sp_tr_n, self.sp_tr_front, self.sp_tr_back, self.sl_tr):
+            wdg.valueChanged.connect(self._on_transition_controls)
+        self._sync_transition_widgets()
         # 명령 막대
         cmd = QWidget(); cmd.setObjectName("cmdbar"); ch = QHBoxLayout(cmd); ch.setContentsMargins(6, 4, 6, 4); ch.setSpacing(2); self.mode_btns = {}
         def tb(text, ic, slot, checkable=False):
             b = QToolButton(); b.setText(text); b.setIcon(icon(ic)); b.setIconSize(QSize(24, 24)); b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
             b.setCheckable(checkable); b.setAutoRaise(True); b.clicked.connect(lambda _=False: slot()); ch.addWidget(b); return b
         for k, t, ic in (("crop", "자르기", "crop"), ("resize", "크기", "resize"), ("draw", "그리기", "draw"), ("effect", "효과", "effect"),
-                         ("insert", "삽입", "text"), ("border", "액자", "frame"), ("mask", "마스크", "effect")):
+                         ("insert", "삽입", "text"), ("border", "액자", "frame"), ("mask", "마스크", "effect"), ("transition", "전환", "transition")):
             self.mode_btns[k] = tb(t, ic, lambda k=k: self.set_mode(k), True)
         ch.addSpacing(12)
         for k, t in (("delete", "삭제"), ("cut", "구간 자르기"), ("reduce", "프레임 줄이기"), ("time", "시간 설정"), ("faster", "10% 빠르게"),
@@ -781,6 +812,8 @@ class EditorWindow(QMainWindow):
         self.sp_to.setValue(max(1, n))
         for sp in (self.sp_trim_a, self.sp_trim_b): sp.setRange(1, max(1, n))
         self.sp_trim_a.setValue(1); self.sp_trim_b.setValue(max(1, n))
+        if hasattr(self, "sp_tr_front"):
+            self.sp_tr_front.setRange(1, max(1, n)); self.sp_tr_back.setRange(1, max(1, n))
         if n and show:
             w, h = self.project.size; self.sp_w.blockSignals(True); self.sp_w.setValue(w); self.sp_h.setValue(h); self.sp_w.blockSignals(False)
             self.timeline.setCurrentRow(self.cur); self.show_frame(self.cur)
@@ -1305,6 +1338,7 @@ class EditorWindow(QMainWindow):
             self.clip_list.setCurrentRow(min(max(0, row), self.clip_list.count() - 1))
         self._sync_clip_bounds_spins()
         self._sync_clip_lane()
+        self._refresh_transition_clips()
     def _sync_clip_lane(self):
         if not hasattr(self, "clip_lane"): return
         n = len(self.project.frames)
@@ -1652,6 +1686,11 @@ class EditorWindow(QMainWindow):
             p.mode = "mask"; p.darken = False
             if self.project.masks and self._mask_row is None: self._mask_row = 0
             self._load_mask_fields(); self._sync_mask_overlay()
+        elif k == "transition":
+            self._prepare_transition_bounds()
+            self._refresh_transition_clips()
+            self._sync_transition_widgets()
+            self._transition_preview()
         p._redraw()
     def end_mode(self):
         self._leave_preview_modes(); self.tool_tabs.setCurrentIndex(0)
@@ -1710,6 +1749,93 @@ class EditorWindow(QMainWindow):
         if idx is None and self.chk_fx_sel.isChecked(): idx = self._sel_or_cur()
         if self.tool_tabs.currentIndex() == self.MODES["effect"]: self.end_mode()
         return self.run_edit("효과", lambda fr, ctx: op_effect(fr, name, strength, rect, idx, ctx))
+    # 전환
+    def _select_combo_data(self, combo, data):
+        if data is None: return
+        for i in range(combo.count()):
+            if combo.itemData(i) == data:
+                combo.setCurrentIndex(i); return
+    def _sync_transition_widgets(self):
+        if not hasattr(self, "cb_tr_kind"): return
+        self.cb_tr_dir.setEnabled(self.cb_tr_kind.currentData() != "fade")
+        clips = self.cb_tr_target.currentData() == "clips"
+        self.cb_tr_from.setEnabled(clips); self.cb_tr_to.setEnabled(clips)
+        self.sp_tr_front.setEnabled(not clips); self.sp_tr_back.setEnabled(not clips)
+        delays = frame_delays(self.sp_tr_ms.value(), self.sp_tr_n.value())
+        per = f"{delays[0]}ms" if delays[0] == delays[-1] else f"{delays[0]}–{delays[-1]}ms"
+        self.lbl_tr_len.setText(f"프레임당 {per} · 합계 {sum(delays)}ms")
+    def _on_transition_controls(self, *_):
+        if not hasattr(self, "MODES"): return
+        self._sync_transition_widgets()
+        if self.tool_tabs.currentIndex() == self.MODES.get("transition") and not self.is_playing():
+            self._transition_preview()
+    def _prepare_transition_bounds(self):
+        n = len(self.project.frames)
+        if n < 2 or not hasattr(self, "sp_tr_front"): return
+        for w in (self.sp_tr_front, self.sp_tr_back, self.cb_tr_target): w.blockSignals(True)
+        if self.cur > 0:
+            front, back = self.cur, min(n, self.cur + 1)
+        else:
+            front, back = 1, min(n, 2)
+        if front == back and n >= 2: front, back = 1, 2
+        self.sp_tr_front.setValue(front); self.sp_tr_back.setValue(back)
+        self.cb_tr_target.setCurrentIndex(0 if len(self.project.clips) >= 2 else 1)
+        for w in (self.sp_tr_front, self.sp_tr_back, self.cb_tr_target): w.blockSignals(False)
+    def _refresh_transition_clips(self):
+        if not hasattr(self, "cb_tr_from"): return
+        prev_a, prev_b = self.cb_tr_from.currentData(), self.cb_tr_to.currentData()
+        self.cb_tr_from.blockSignals(True); self.cb_tr_to.blockSignals(True)
+        self.cb_tr_from.clear(); self.cb_tr_to.clear()
+        for i, c in enumerate(self.project.clips):
+            label = f"{c.name} ({c.start + 1}–{c.end + 1})"
+            self.cb_tr_from.addItem(label, i); self.cb_tr_to.addItem(label, i)
+        self._select_combo_data(self.cb_tr_from, prev_a); self._select_combo_data(self.cb_tr_to, prev_b)
+        if self.cb_tr_from.count() > 1 and self.cb_tr_from.currentIndex() == self.cb_tr_to.currentIndex():
+            self.cb_tr_to.setCurrentIndex(1 if self.cb_tr_from.currentIndex() == 0 else 0)
+        self.cb_tr_from.blockSignals(False); self.cb_tr_to.blockSignals(False)
+    def _transition_plan_from_ui(self, **over):
+        kw = dict(frame_count=len(self.project.frames), target=self.cb_tr_target.currentData(), clips=self.project.clips,
+                  outgoing=self.cb_tr_from.currentData() if self.cb_tr_from.count() else 0,
+                  incoming=self.cb_tr_to.currentData() if self.cb_tr_to.count() else 0,
+                  front_end=self.sp_tr_front.value() - 1, back_start=self.sp_tr_back.value() - 1,
+                  kind=self.cb_tr_kind.currentData(), direction=self.cb_tr_dir.currentData() or "left",
+                  count=self.sp_tr_n.value(), duration_ms=self.sp_tr_ms.value())
+        for key, val in over.items():
+            if val is not None: kw[key] = val
+        if kw.get("outgoing") is None: kw["outgoing"] = 0
+        if kw.get("incoming") is None: kw["incoming"] = 0
+        return resolve_transition(**kw)
+    def _transition_preview(self):
+        if not self.project.frames or not hasattr(self, "sl_tr"): return
+        if self.tool_tabs.currentIndex() != self.MODES.get("transition"): return
+        try:
+            plan = self._transition_plan_from_ui()
+        except ValueError as e:
+            self.lbl_tr.setText(str(e)); return
+        t = self.sl_tr.value() / 100.0
+        im = render_transition(self.project.frames[plan.out_index].image, self.project.frames[plan.in_index].image,
+                               plan.kind, t, plan.direction)
+        self.preview.set_image(pil_to_qimage(im), im.size)
+        self.lbl_tr.setText(f"미리보기 {self.sl_tr.value()}% · {plan.label}")
+    def apply_transition(self, kind=None, direction=None, count=None, duration_ms=None, target=None, at=None, out_index=None, in_index=None):
+        """클립 또는 구간 사이에 전환 프레임을 넣는다. 길면 작업 스레드에서 만들고, 실행취소된다."""
+        if not self.project.frames or self.is_busy(): return None
+        try:
+            plan = self._transition_plan_from_ui(kind=kind, direction=direction, count=count, duration_ms=duration_ms,
+                                                 target=target, at=at, out_index=out_index, in_index=in_index)
+        except ValueError as e:
+            self.set_status(str(e)); return None
+        a = self.project.frames[plan.out_index].image
+        b = self.project.frames[plan.in_index].image
+        def done(inserted):
+            if not inserted or not self.project.insert_transition(plan.at, inserted):
+                self.set_status("전환을 넣지 못했습니다"); return
+            keep = min(plan.at, len(self.project.frames) - 1)
+            self.refresh(keep)
+            if self.tool_tabs.currentIndex() == self.MODES.get("transition"): self.end_mode()
+            total = sum(f.delay for f in inserted)
+            self.set_status(f"전환 {len(inserted)}프레임({total}ms, {plan.label})을 {plan.out_index + 1}번과 {plan.in_index + 1}번 사이에 넣었습니다. 실행취소는 Ctrl+Z")
+        return self.run_task(f"전환 {plan.label}", lambda ctx: build_transition(a, b, plan.kind, plan.count, plan.direction, plan.duration_ms, ctx), done)
     # 액자
     def apply_border(self):
         m, c, r, sh = self.sp_margin.value(), self.btn_bcolor.rgba(), self.sp_radius.value(), self.chk_bshadow.isChecked()

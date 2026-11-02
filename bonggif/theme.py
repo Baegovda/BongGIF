@@ -177,6 +177,10 @@ def _draw(name, p: QPainter, s: float, col: QColor):
         p.drawLine(QPointF(u(.5), u(.55)), QPointF(u(.5), u(.88))); p.drawRect(QRectF(u(.35), u(.15), u(.3), u(.3))); p.drawLine(QPointF(u(.25), u(.55)), QPointF(u(.75), u(.55)))
     elif name == "stop":
         p.setPen(Qt.NoPen); fill(); p.drawRect(QRectF(u(.25), u(.25), u(.5), u(.5)))
+    elif name == "transition":
+        p.drawRect(QRectF(u(.10), u(.28), u(.28), u(.44))); p.drawRect(QRectF(u(.62), u(.28), u(.28), u(.44)))
+        p.drawLine(QPointF(u(.40), u(.50)), QPointF(u(.58), u(.50)))
+        p.setPen(Qt.NoPen); fill(); _poly(p, [(u(.60), u(.50)), (u(.48), u(.40)), (u(.48), u(.60))])
     else:
         p.drawEllipse(QRectF(u(.3), u(.3), u(.4), u(.4)))
 

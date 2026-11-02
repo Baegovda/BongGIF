@@ -3,15 +3,25 @@
   "repo": "https://github.com/Baegovda/BongGIF",
   "version": "1.7.0",
   "main": {
-    "sha": "77cbb9054e9d997bddd614f2123d6d22d68c7c61",
-    "short": "77cbb90",
-    "date": "2026-11-02T03:03:30Z",
-    "date_kst": "2026-11-02T12:03:30+09:00",
-    "subject": "docs: align handoff docs with v1.7.0 and add NEXT_BOT_PROMPT (#21)",
-    "note": "이 문서 수정의 부모. origin/main 팁(브랜치를 만들기 전). version.py는 1.7.0. 태그 v1.7.0은 f1a6d9097817ae92c6039a1d824fafd15186acb7 (#20). 이 수정은 버전과 태그를 움직이지 않는다."
+    "sha": "aeef3ec501999b14caf61d540b3cbe293ed179ea",
+    "short": "aeef3ec",
+    "date": "2026-11-02T03:17:38Z",
+    "date_kst": "2026-11-02T12:17:38+09:00",
+    "subject": "docs: drop owner-rejected backlog items (#22)",
+    "note": "이 전환 작업의 부모. version.py는 1.7.0. 태그 v1.7.0은 f1a6d9097817ae92c6039a1d824fafd15186acb7 (#20). 이 수정은 버전과 태그를 움직이지 않는다."
   },
   "pull_requests": {
     "merged_on_main": [
+      {
+        "number": 22,
+        "title": "docs: drop owner-rejected backlog items",
+        "state": "MERGED",
+        "merged_at": "2026-11-02T03:17:38Z",
+        "merge_sha": "aeef3ec501999b14caf61d540b3cbe293ed179ea",
+        "head": "cursor/drop-owner-backlog-f469",
+        "head_sha": "7105de2251939e936ec8c4017a76f758d60f4a83",
+        "head_deleted": true
+      },
       {
         "number": 21,
         "title": "문서: v1.7.0 핸드오프, 백로그 순서, 남은 브랜치",
@@ -247,22 +257,23 @@
     "smoke_test_crash.py": 15,
     "smoke_test_export.py": 42,
     "smoke_test_masks.py": 10,
-    "smoke_test_webpclip.py": 33
+    "smoke_test_webpclip.py": 33,
+    "smoke_test_transitions.py": 62
   },
   "parity_estimate_pct": 88,
-  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 text-anim 1건을 빼 그때 todo는 8개였다. 그 다음 문서에서 순서를 맞추고 항목을 더해 todo는 10개였다. 같은 날 주인이 4건을 영구 제외해 status=todo 는 6개다. 뺀 항목 이름은 AGENTS.md never-re-add 규칙에만 있다.",
+  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 text-anim 1건을 빼 그때 todo는 8개였다. 그 다음 문서에서 순서를 맞추고 항목을 더해 todo는 10개였다. 같은 날 주인이 4건을 영구 제외했다. 그 뒤 transitions를 구현해 status=todo 는 5개다. 뺀 항목 이름은 AGENTS.md never-re-add 규칙에만 있다. 88은 이번에도 재측정이 아니다.",
   "recommended_next": {
-    "id": "transitions",
-    "priority": 1,
+    "id": "zoom-camera",
+    "priority": 2,
     "status": "todo",
-    "title": "Transitions",
-    "why": "status=todo 인 백로그 중 priority가 가장 높다. export-rebirth(priority 0)는 done.",
+    "title": "Zoom/pan camera",
+    "why": "transitions는 done. status=todo 인 백로그 중 priority가 가장 높다.",
     "accept": [
-      "fade/slide/wipe",
-      "insert N frames",
-      "undo"
+      "start/end rect",
+      "easing",
+      "constant output size"
     ],
-    "also": "Ask the owner to confirm PR #19 move/resize UX. Do not mark it confirmed. Do not start priority 2 until transitions is done."
+    "also": "Ask the owner to confirm PR #19 move/resize UX. Do not mark it confirmed. recorder_frame.owner_confirmed stays false."
   },
   "backlog": [
     {
@@ -283,12 +294,17 @@
     {
       "id": "transitions",
       "priority": 1,
-      "status": "todo",
+      "status": "done",
       "title": "Transitions",
       "accept": [
         "fade/slide/wipe",
+        "direction for slide and wipe",
+        "adjustable duration",
+        "preview",
         "insert N frames",
-        "undo"
+        "undo",
+        "gif and the other export formats",
+        "smoke_test_transitions"
       ]
     },
     {
@@ -379,7 +395,8 @@
     "python smoke_test_crash.py",
     "python smoke_test_export.py",
     "python smoke_test_masks.py",
-    "python smoke_test_webpclip.py"
+    "python smoke_test_webpclip.py",
+    "python smoke_test_transitions.py"
   ],
   "test_runners": {
     "run_tests.bat": [
@@ -389,7 +406,8 @@
       "smoke_test_crash.py",
       "smoke_test_export.py",
       "smoke_test_masks.py",
-      "smoke_test_webpclip.py"
+      "smoke_test_webpclip.py",
+      "smoke_test_transitions.py"
     ],
     "bootstrap_agent.sh": [
       "smoke_test.py",
@@ -419,9 +437,10 @@
       "smoke_test_crash.py",
       "smoke_test_export.py",
       "smoke_test_masks.py",
-      "smoke_test_webpclip.py"
+      "smoke_test_webpclip.py",
+      "smoke_test_transitions.py"
     ],
-    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 동작은 그대로. ci.yml은 pull_request(main)와 push(main), ubuntu-latest, 7개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 33/33. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
+    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 8개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 33/33 62/62. 마지막 62는 smoke_test_transitions.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
   },
   "expected_test_counts": {
     "smoke_test.py": 120,
@@ -430,7 +449,8 @@
     "smoke_test_crash.py": 15,
     "smoke_test_export.py": 42,
     "smoke_test_masks.py": 10,
-    "smoke_test_webpclip.py": 33
+    "smoke_test_webpclip.py": 33,
+    "smoke_test_transitions.py": 62
   },
   "build_commands": [
     "build_exe.bat  (Python 3.12, PyInstaller onedir -> dist\\BongGIF\\BongGIF.exe)"
@@ -481,7 +501,8 @@
       "smoke_test_crash.py": "15/15",
       "smoke_test_export.py": "42/42",
       "smoke_test_masks.py": "10/10",
-      "smoke_test_webpclip.py": "33/33"
+      "smoke_test_webpclip.py": "33/33",
+      "smoke_test_transitions.py": "62/62"
     },
     "stdin": "/dev/null on every suite so ffmpeg cannot SIGTTIN on an inherited tty or block on an open stdin",
     "ffmpeg": "imageio-ffmpeg binary; if libaom-av1, libx264, libvpx, or libvpx-vp9 is missing, apt install ffmpeg and set IMAGEIO_FFMPEG_EXE. The export skip path is a failed check, so 40 is not a pass.",
@@ -559,20 +580,17 @@
   "remote_branches": {
     "fetched_at": "2026-11-02",
     "delete_branch_on_merge": false,
-    "note": "git ls-remote --heads origin at the start of this docs edit, before the branch push. After the push, origin also has this PR head. The owner ordered that head and cursor/docs-v170-align-dcba deleted after ci / smoke (ubuntu) is green.",
-    "heads": [
+    "note": "작업 시작 때 origin은 main(aeef3ec)과 머지된 cursor 헤드 둘이었다. 둘 다 삭제했다. 이 브랜치를 푸시하면 헤드가 하나 늘고, ci / smoke (ubuntu)가 녹색이면 스쿼시 머지 뒤 그 헤드를 지운다.",
+    "deleted_this_session": [
+      "cursor/docs-v170-align-dcba",
+      "cursor/drop-owner-backlog-f469"
+    ],
+    "heads_after_delete_before_this_push": [
       {
         "name": "main",
-        "sha": "77cbb9054e9d997bddd614f2123d6d22d68c7c61",
-        "pr": 21,
+        "sha": "aeef3ec501999b14caf61d540b3cbe293ed179ea",
+        "pr": 22,
         "state": "MERGED"
-      },
-      {
-        "name": "cursor/docs-v170-align-dcba",
-        "sha": "496a645fa7db1ea0ce87a7e3a18339a2743c728c",
-        "pr": 21,
-        "state": "MERGED",
-        "owner_ordered_delete_after_green_ci": true
       }
     ]
   },
