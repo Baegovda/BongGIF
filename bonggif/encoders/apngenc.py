@@ -231,6 +231,6 @@ def write_apng(frames, path, loop=0, ctx=None, palette=True, colors=256, dither=
             prev = np.array(im.convert("RGBA"))
     chunks.append(_chunk(b"IEND", b""))
     ctx.step(0, 0, "APNG 파일 쓰는 중")
-    with open(path, "wb") as f:
-        f.write(b"\x89PNG\r\n\x1a\n" + b"".join(chunks))
+    from ..services import write_bytes
+    write_bytes(path, b"\x89PNG\r\n\x1a\n" + b"".join(chunks))
     return path

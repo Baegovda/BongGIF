@@ -237,8 +237,8 @@ def write_gif(frames, path, colors=256, dither=True, loop=0, palette="perframe",
         out += lzw
     out += b"\x3b"
     ctx.step(0, 0, "GIF 파일 쓰는 중")
-    with open(path, "wb") as f:
-        f.write(out)
+    from ..services import write_bytes
+    write_bytes(path, bytes(out))
     return path
 
 def stamp_gif_metadata(path, quality=80, loop=0, comment=True, when=None):
@@ -282,5 +282,5 @@ def stamp_gif_metadata(path, quality=80, loop=0, comment=True, when=None):
     extra = b"\x21\xff\x0bNETSCAPE2.0\x03\x01" + struct.pack("<H", int(loop) & 0xFFFF) + b"\x00"
     if comment:
         extra += b"\x21\xfe" + _subblocks(text)
-    with open(path, "wb") as f:
-        f.write(head + extra + images)
+    from ..services import write_bytes
+    write_bytes(path, head + extra + images)

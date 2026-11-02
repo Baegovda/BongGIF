@@ -6,6 +6,7 @@
 투명 평면을 남기고 품질만 최대로 올린다.
 """
 from __future__ import annotations
+import io
 import os
 import shutil
 import subprocess
@@ -47,22 +48,23 @@ def write_webm(frames, path, quality=7, ctx=None, codec="vp8", alpha=False, loss
             ctx.step(i, len(frames), f"WebM 프레임 준비 {i}/{len(frames)}")
             im = f.image if hasattr(f, "image") else f
             im = _prep_frame(im, use_alpha, W, H)
+            from ..services import write_bytes
             if use_alpha:
                 fp = os.path.join(tmp, f"f{i:05d}.png")
-                im.save(fp, format="PNG")
+                bio = io.BytesIO()
+                im.save(bio, format="PNG")
+                write_bytes(fp, bio.getvalue())
             else:
                 fp = os.path.join(tmp, f"f{i:05d}.ppm")
-                with open(fp, "wb") as fh:
-                    fh.write(f"P6\n{W} {H}\n255\n".encode("ascii"))
-                    fh.write(im.tobytes())
+                write_bytes(fp, f"P6\n{W} {H}\n255\n".encode("ascii") + im.tobytes())
             dur = max(1, int(getattr(f, "delay", 100) or 100)) / 1000.0
             lines.append(f"file '{fp}'")
             lines.append(f"duration {dur:.6f}")
             paths.append(fp)
         lines.append(f"file '{paths[-1]}'")
         lst = os.path.join(tmp, "list.txt")
-        with open(lst, "w", encoding="ascii", newline="\n") as fh:
-            fh.write("\n".join(lines) + "\n")
+        from ..services import write_text
+        write_text(lst, "\n".join(lines) + "\n", encoding="ascii", newline="\n")
         if use_alpha:
             pix = "yuva420p"
         elif want_lossless and name == "vp9":
