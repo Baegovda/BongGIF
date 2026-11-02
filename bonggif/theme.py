@@ -50,7 +50,7 @@ QListWidget::item:hover {{ background:{t.bg2}; }}
 QListWidget#settingsNav, QListWidget#insetList {{ background:{t.card}; border:1px solid {t.line}; border-radius:{r}px; padding:6px; }}
 QListWidget#settingsNav::item, QListWidget#insetList::item {{ padding:10px 12px; border-radius:{rs}px; }}
 QListWidget#settingsNav::item:selected, QListWidget#insetList::item:selected {{ background:{t.accent}; color:{t.on_accent}; }}
-QFrame#insetGroup {{ background:{t.card}; border:1px solid {t.line}; border-radius:{r}px; }}
+QFrame#insetGroup, QWidget#settingsPage {{ background:{t.card}; border:1px solid {t.line}; border-radius:{r}px; }}
 QLabel#insetTitle {{ color:{t.muted}; background:transparent; font-weight:600; }}
 QHeaderView::section {{ background:{t.card}; color:{t.muted}; border:0; border-right:1px solid {t.line}; padding:6px; }}
 QSlider::groove:horizontal {{ height:4px; background:{t.line}; border-radius:2px; }}
