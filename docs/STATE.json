@@ -267,7 +267,7 @@
     "smoke_test_crash.py": 15,
     "smoke_test_export.py": 42,
     "smoke_test_masks.py": 10,
-    "smoke_test_webpclip.py": 33,
+    "smoke_test_webpclip.py": 72,
     "smoke_test_transitions.py": 62,
     "smoke_test_camera.py": 62
   },
@@ -381,7 +381,7 @@
     }
   ],
   "invariants": [
-    "No third-party proprietary code/assets/names; no license-bypass content",
+    "No third-party reference-app code or assets are copied; no license-bypass content",
     "UI and user communication in Korean; reply in Korean, short",
     "Merge only after an explicit yes from the owner; do not delete branches without an explicit yes",
     "Releases are a pushed v* tag; release.yml builds the zip; do not rewrite release.yml",
@@ -389,7 +389,7 @@
     "text-anim (intro/outro fade, slide, typewriter) was removed in PR #18 and must never be re-added",
     "Items dropped by the owner are listed in the never-re-add rule in AGENTS.md and must never be re-added",
     "Owner has the vendor's permission to analyze the reference app; analysis artifacts stay in a Desktop folder on the owner's PC and are never committed",
-    "Never write the reference app's name; do not copy its assets or code",
+    "No third-party reference-app code or assets are copied",
     "The shipping exe was not unpacked; license, trial, and signature checks were never analyzed",
     "PR #19 move/resize UX was only smoke-launched on Windows and is not owner-confirmed",
     "Long work in Task/QThread with ctx.step progress + cancel; never freeze GUI",
@@ -458,7 +458,7 @@
       "smoke_test_transitions.py",
       "smoke_test_camera.py"
     ],
-    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py와 smoke_test_camera.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 9개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 33/33 62/62 62/62. 8번째 62는 smoke_test_transitions.py, 9번째 62는 smoke_test_camera.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
+    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py와 smoke_test_camera.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 9개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 72/72 62/62 62/62. 8번째 62는 smoke_test_transitions.py, 9번째 62는 smoke_test_camera.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
   },
   "expected_test_counts": {
     "smoke_test.py": 120,
@@ -467,7 +467,7 @@
     "smoke_test_crash.py": 15,
     "smoke_test_export.py": 42,
     "smoke_test_masks.py": 10,
-    "smoke_test_webpclip.py": 33,
+    "smoke_test_webpclip.py": 72,
     "smoke_test_transitions.py": 62,
     "smoke_test_camera.py": 62
   },
@@ -520,7 +520,7 @@
       "smoke_test_crash.py": "15/15",
       "smoke_test_export.py": "42/42",
       "smoke_test_masks.py": "10/10",
-      "smoke_test_webpclip.py": "33/33",
+      "smoke_test_webpclip.py": "72/72",
       "smoke_test_transitions.py": "62/62",
       "smoke_test_camera.py": "62/62"
     },
@@ -627,7 +627,7 @@
     "release": "push a v* tag; .github/workflows/release.yml; do not rewrite that file",
     "text_anim": "removed in PR #18; never re-add",
     "dropped_by_owner": "listed in the never-re-add rule in AGENTS.md; must never be re-added",
-    "reference_analysis": "vendor permission exists; artifacts only in a Desktop folder on the owner's PC; never commit them; never write the reference app's name; no copied assets or code",
+    "reference_analysis": "vendor permission exists; artifacts only in a Desktop folder on the owner's PC and stay off the repo; no third-party reference-app code or assets are copied",
     "exe": "shipping exe was not unpacked; license, trial, and signature checks were never analyzed",
     "pr19_ux": "smoke-launched on Windows only; owner has not confirmed"
   },

@@ -51,12 +51,22 @@ class Mask:
     portal: Optional[Tuple[int, int, int, int]] = None
     boxes: Dict[int, Tuple[int, int, int, int]] = field(default_factory=dict)
     lost: Tuple[int, ...] = ()
+    shape: str = "rect"             # rect | ellipse
+    pad: int = 0
+    zoom: float = 2.0
+    border: int = 2
+    fixed_size: bool = False
+    dest_keys: Dict[int, Tuple[int, int, int, int]] = field(default_factory=dict)
+    track_score: Dict[int, float] = field(default_factory=dict)
     def copy(self):
         return Mask(self.name, int(self.x), int(self.y), int(self.w), int(self.h), self.effect,
                     tuple(self.color), int(self.strength), int(self.feather), int(self.start), int(self.end),
                     bool(self.visible), self.tracker, bool(self.auto_track), int(self.expand), bool(self.smooth),
                     None if self.portal is None else tuple(int(v) for v in self.portal),
-                    {int(k): tuple(v) for k, v in (self.boxes or {}).items()}, tuple(self.lost))
+                    {int(k): tuple(v) for k, v in (self.boxes or {}).items()}, tuple(self.lost),
+                    self.shape or "rect", int(self.pad), float(self.zoom), int(self.border), bool(self.fixed_size),
+                    {int(k): tuple(int(x) for x in v) for k, v in (self.dest_keys or {}).items()},
+                    {int(k): float(v) for k, v in (self.track_score or {}).items()})
     def box_at(self, index: int):
         from .timeline_fx import interpolated_box
         keys = {int(k): tuple(int(v) for v in val) for k, val in (self.boxes or {}).items()}
@@ -223,6 +233,10 @@ class Project:
                 ik = int(k)
                 boxes[ik + n if ik >= at else ik] = tuple(int(x) for x in v)
             m.boxes = boxes
+            m.dest_keys = {int(k) + n if int(k) >= at else int(k): tuple(int(x) for x in v)
+                           for k, v in (m.dest_keys or {}).items()}
+            m.track_score = {int(k) + n if int(k) >= at else int(k): float(v)
+                             for k, v in (m.track_score or {}).items()}
         shifted = []
         for a, b, factor in self.slowmos:
             if a >= at:

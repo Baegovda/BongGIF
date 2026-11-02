@@ -131,9 +131,18 @@ def track_mask(frames, mask, start, direction, ctx=None):
         last = _clip_box(x, y, w, h, W, H, mask.expand or 0)
         boxes[i] = last
         lost.discard(i)
-    if getattr(mask, "smooth", False):
-        from .timeline_fx import smooth_boxes
-        boxes = smooth_boxes(boxes, 2)
+    lock = None
+    if getattr(mask, "fixed_size", False) and start in boxes:
+        lock = (boxes[start][2], boxes[start][3])
+        boxes = {k: (v[0], v[1], lock[0], lock[1]) for k, v in boxes.items()}
+    if getattr(mask, "smooth", False) and len(boxes) >= 5:
+        from .webpclip.core import smooth_keys
+        tmp = {"keys": {int(k): [float(x) for x in v] for k, v in boxes.items()}}
+        ks = list(boxes)
+        smooth_keys(tmp, min(ks), max(ks), 9)
+        boxes = {k: tuple(int(round(x)) for x in v) for k, v in tmp["keys"].items()}
+        if lock:
+            boxes = {k: (v[0], v[1], lock[0], lock[1]) for k, v in boxes.items()}
     return boxes, tuple(sorted(lost))
 
 def apply_masks(frames, masks, crop=None, ctx=None):
