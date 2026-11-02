@@ -19,6 +19,7 @@ from .effects import EFFECTS, op_effect, op_transform, op_border, reduce_frames,
 from .dialogs import ColorButton, SaveDialog, RangeDialog, ReduceDialog, TimeDialog, ImageImportDialog, SettingsDialog
 from .manage import ManagePanel
 from .prefs import get_bool, get_int, get_str, get_list, get_float, to_int
+from .shortcuts import applied, default_key, display, load_map
 from .core import Project, Frame, load_file, load_sequence, emoji_sticker, op_crop, op_resize, op_grayscale, op_sticker, VIDEO_EXT
 from .transitions import (KIND_LABELS, DIRECTION_LABELS, render_transition, build_transition, resolve_transition, frame_delays)
 from .camera import (EASING_LABELS, render_camera, bake_camera, resolve_camera, sample_rect, fit_rect)
@@ -353,7 +354,7 @@ class EditorWindow(QMainWindow):
                           "export": {"fps": None, "speed": 1.0, "width": 0, "quality": 90, "loop": 0, "targetMB": 0}}
         self.timeline.setContextMenuPolicy(Qt.CustomContextMenu); self.timeline.customContextMenuRequested.connect(self._timeline_menu)
         self.timeline.itemSelectionChanged.connect(lambda: self._sync_trim_from_selection())
-        self._build_actions(); self._build_ui(); self._build_status(); self.refresh()
+        self._build_actions(); self._build_ui(); self._build_status(); self.apply_shortcut_map(); self.refresh()
 
     # ================= UI =================
     def _act(self, text, slot, key=None, busy_ok=False):
@@ -365,61 +366,61 @@ class EditorWindow(QMainWindow):
     def _build_actions(self):
         self._busy_actions = []
         A = self.actions_ = {}
-        A["open"] = self._act("열기…", self.open_file, "Ctrl+O")
+        A["open"] = self._act("열기…", self.open_file, default_key("open"))
         A["seq"] = self._act("이미지 시퀀스…", self.open_sequence)
-        A["import"] = self._act("영상 열기…", self.open_converter, "Ctrl+G")
-        A["import_img"] = self._act("이미지 가져오기…", self.import_images, "Ctrl+I")
-        A["save"] = self._act("저장…", self.save_file, "Ctrl+S")
+        A["import"] = self._act("영상 열기…", self.open_converter, default_key("import"))
+        A["import_img"] = self._act("이미지 가져오기…", self.import_images, default_key("import_img"))
+        A["save"] = self._act("저장…", self.save_file, default_key("save"))
         A["clip_sep"] = self._act("선택 클립을 각각 저장…", lambda: self.export_selected_clips(mode="separate"))
         A["clip_join"] = self._act("선택 클립 이어 저장…", lambda: self.export_selected_clips(mode="join"))
-        A["clip_all"] = self._act("클립 모두 움짤로 빼기", self.export_checked_gifs, "Ctrl+Shift+E")
-        A["quit"] = self._act("끝내기", self.close, "Ctrl+Q", busy_ok=True)
-        A["undo"] = self._act("실행취소", self.undo, "Ctrl+Z"); A["redo"] = self._act("다시실행", self.redo, "Ctrl+Y")
-        A["delete"] = self._act("삭제", self.delete_smart, "Delete")
-        A["play"] = self._act("재생/정지", self.toggle_play, "Space")
-        A["first"] = self._act("구간 처음", self.jump_segment_start, "Home"); A["last"] = self._act("구간 끝", self.jump_segment_end, "End")
-        A["prev"] = self._act("이전 프레임", lambda: self.step_frames(-1), "Left"); A["next"] = self._act("다음 프레임", lambda: self.step_frames(1), "Right")
-        A["prev5"] = self._act("5프레임 뒤로", lambda: self.step_frames(-5), "Ctrl+Left")
-        A["next5"] = self._act("5프레임 앞으로", lambda: self.step_frames(5), "Ctrl+Right")
-        A["prev10"] = self._act("10프레임 뒤로", lambda: self.step_frames(-10), "Shift+Left")
-        A["next10"] = self._act("10프레임 앞으로", lambda: self.step_frames(10), "Shift+Right")
-        A["prev30"] = self._act("30프레임 뒤로", lambda: self.step_frames(-30), "Ctrl+Shift+Left")
-        A["next30"] = self._act("30프레임 앞으로", lambda: self.step_frames(30), "Ctrl+Shift+Right")
-        A["rec"] = self._act("화면 녹화", self.open_recorder, "Ctrl+R")
-        A["manage"] = self._act("관리", lambda: self.show_tab("manage"), "Ctrl+M", busy_ok=True)
-        A["settings"] = self._act("환경 설정…", self.open_settings, "Ctrl+,", busy_ok=True)
-        A["cancel"] = self._act("작업 취소", self._esc, "Esc", busy_ok=True)
-        A["cut"] = self._act("프레임 구간 자르기…", self.cut_dialog, "Ctrl+T")
+        A["clip_all"] = self._act("클립 모두 움짤로 빼기", self.export_checked_gifs, default_key("clip_all"))
+        A["quit"] = self._act("끝내기", self.close, default_key("quit"), busy_ok=True)
+        A["undo"] = self._act("실행취소", self.undo, default_key("undo")); A["redo"] = self._act("다시실행", self.redo, default_key("redo"))
+        A["delete"] = self._act("삭제", self.delete_smart, default_key("delete"))
+        A["play"] = self._act("재생/정지", self.toggle_play, default_key("play"))
+        A["first"] = self._act("구간 처음", self.jump_segment_start, default_key("first")); A["last"] = self._act("구간 끝", self.jump_segment_end, default_key("last"))
+        A["prev"] = self._act("이전 프레임", lambda: self.step_frames(-1), default_key("prev")); A["next"] = self._act("다음 프레임", lambda: self.step_frames(1), default_key("next"))
+        A["prev5"] = self._act("5프레임 뒤로", lambda: self.step_frames(-5), default_key("prev5"))
+        A["next5"] = self._act("5프레임 앞으로", lambda: self.step_frames(5), default_key("next5"))
+        A["prev10"] = self._act("10프레임 뒤로", lambda: self.step_frames(-10), default_key("prev10"))
+        A["next10"] = self._act("10프레임 앞으로", lambda: self.step_frames(10), default_key("next10"))
+        A["prev30"] = self._act("30프레임 뒤로", lambda: self.step_frames(-30), default_key("prev30"))
+        A["next30"] = self._act("30프레임 앞으로", lambda: self.step_frames(30), default_key("next30"))
+        A["rec"] = self._act("화면 녹화", self.open_recorder, default_key("rec"))
+        A["manage"] = self._act("관리", lambda: self.show_tab("manage"), default_key("manage"), busy_ok=True)
+        A["settings"] = self._act("환경 설정…", self.open_settings, default_key("settings"), busy_ok=True)
+        A["cancel"] = self._act("작업 취소", self._esc, default_key("cancel"), busy_ok=True)
+        A["cut"] = self._act("프레임 구간 자르기…", self.cut_dialog, default_key("cut"))
         A["reduce"] = self._act("프레임 줄이기…", self.reduce_dialog)
         A["time"] = self._act("프레임 시간 설정…", self.time_dialog)
-        A["faster"] = self._act("10% 빠르게", lambda: self.speed_pct(1.1), "Ctrl+Up"); A["slower"] = self._act("10% 느리게", lambda: self.speed_pct(1 / 1.1), "Ctrl+Down")
+        A["faster"] = self._act("10% 빠르게", lambda: self.speed_pct(1.1), default_key("faster")); A["slower"] = self._act("10% 느리게", lambda: self.speed_pct(1 / 1.1), default_key("slower"))
         A["reverse"] = self._act("역재생", self.reverse_frames); A["yoyo"] = self._act("요요", self.fx_yoyo)
         A["add_last"] = self._act("끝에 복사 추가", self.add_to_last)
-        A["zoom_in"] = self._act("확대", lambda: self.preview.set_zoom(self.preview._scale() * 1.25), "Ctrl+=")
-        A["zoom_out"] = self._act("축소", lambda: self.preview.set_zoom(self.preview._scale() / 1.25), "Ctrl+-")
-        A["fit"] = self._act("창에 맞춤", lambda: self.preview.set_zoom(None), "Ctrl+0")
-        A["mark_a"] = self._act("구간 시작", lambda: self.mark_trim("a"), "I")
-        A["mark_b"] = self._act("구간 끝", lambda: self.mark_trim("b"), "O")
-        A["keep"] = self._act("구간만 남기기", self.keep_trim, "Ctrl+K")
-        A["clip_add"] = self._act("클립 추가", self._if_idle(self.add_clip), "A")
-        A["track_f"] = self._act("앞으로 추적", self._if_idle(lambda: self.track_mask_dir(1)), "T")
-        A["track_b"] = self._act("뒤로 추적", self._if_idle(lambda: self.track_mask_dir(-1)), "Shift+T")
-        A["slow"] = self._act("슬로모 구간", self._if_idle(self.mark_slow), "S")
-        A["freeze"] = self._act("프레임 유지", self._if_idle(self.add_freeze_here), "P")
-        A["crop_mode"] = self._act("자르기 모드", self._if_idle(lambda: self.set_mode("crop")), "C")
-        A["fit_view"] = self._act("화면에 맞춤", self._if_idle(lambda: self.preview.set_zoom(None)), "F")
-        A["hide_box"] = self._act("테두리 숨기기", self._if_idle(self.toggle_chrome), "H")
-        A["key_set"] = self._act("키 고정", self._if_idle(self.set_mask_key), "K")
-        A["key_del"] = self._act("키 삭제", self._if_idle(self.clear_mask_key), "Shift+K")
-        A["key_prev"] = self._act("이전 키", self._if_idle(lambda: self.goto_mask_key(-1)), ",")
-        A["key_next"] = self._act("다음 키", self._if_idle(lambda: self.goto_mask_key(1)), ".")
-        A["track_between"] = self._act("키 사이 추적", self._if_idle(self.track_between), "B")
-        A["weak_next"] = self._act("다음 확인 필요", self._if_idle(lambda: self.goto_weak(1)), "W")
-        A["weak_prev"] = self._act("이전 확인 필요", self._if_idle(lambda: self.goto_weak(-1)), "Shift+W")
-        A["event_next"] = self._act("다음 소리 이벤트", self._if_idle(lambda: self.goto_audio_event(1)), "N")
-        A["event_prev"] = self._act("이전 소리 이벤트", self._if_idle(lambda: self.goto_audio_event(-1)), "Shift+N")
-        A["export_now"] = self._act("내보내기…", self.save_file, "Ctrl+E")
-        A["keys_help"] = self._act("단축키", self.show_shortcuts, "F1", busy_ok=True)
+        A["zoom_in"] = self._act("확대", lambda: self.preview.set_zoom(self.preview._scale() * 1.25), default_key("zoom_in"))
+        A["zoom_out"] = self._act("축소", lambda: self.preview.set_zoom(self.preview._scale() / 1.25), default_key("zoom_out"))
+        A["fit"] = self._act("창에 맞춤", lambda: self.preview.set_zoom(None), default_key("fit"))
+        A["mark_a"] = self._act("구간 시작", lambda: self.mark_trim("a"), default_key("mark_a"))
+        A["mark_b"] = self._act("구간 끝", lambda: self.mark_trim("b"), default_key("mark_b"))
+        A["keep"] = self._act("구간만 남기기", self.keep_trim, default_key("keep"))
+        A["clip_add"] = self._act("클립 추가", self._if_idle(self.add_clip), default_key("clip_add"))
+        A["track_f"] = self._act("앞으로 추적", self._if_idle(lambda: self.track_mask_dir(1)), default_key("track_f"))
+        A["track_b"] = self._act("뒤로 추적", self._if_idle(lambda: self.track_mask_dir(-1)), default_key("track_b"))
+        A["slow"] = self._act("슬로모 구간", self._if_idle(self.mark_slow), default_key("slow"))
+        A["freeze"] = self._act("프레임 유지", self._if_idle(self.add_freeze_here), default_key("freeze"))
+        A["crop_mode"] = self._act("자르기 모드", self._if_idle(lambda: self.set_mode("crop")), default_key("crop_mode"))
+        A["fit_view"] = self._act("화면에 맞춤", self._if_idle(lambda: self.preview.set_zoom(None)), default_key("fit_view"))
+        A["hide_box"] = self._act("테두리 숨기기", self._if_idle(self.toggle_chrome), default_key("hide_box"))
+        A["key_set"] = self._act("키 고정", self._if_idle(self.set_mask_key), default_key("key_set"))
+        A["key_del"] = self._act("키 삭제", self._if_idle(self.clear_mask_key), default_key("key_del"))
+        A["key_prev"] = self._act("이전 키", self._if_idle(lambda: self.goto_mask_key(-1)), default_key("key_prev"))
+        A["key_next"] = self._act("다음 키", self._if_idle(lambda: self.goto_mask_key(1)), default_key("key_next"))
+        A["track_between"] = self._act("키 사이 추적", self._if_idle(self.track_between), default_key("track_between"))
+        A["weak_next"] = self._act("다음 확인 필요", self._if_idle(lambda: self.goto_weak(1)), default_key("weak_next"))
+        A["weak_prev"] = self._act("이전 확인 필요", self._if_idle(lambda: self.goto_weak(-1)), default_key("weak_prev"))
+        A["event_next"] = self._act("다음 소리 이벤트", self._if_idle(lambda: self.goto_audio_event(1)), default_key("event_next"))
+        A["event_prev"] = self._act("이전 소리 이벤트", self._if_idle(lambda: self.goto_audio_event(-1)), default_key("event_prev"))
+        A["export_now"] = self._act("내보내기…", self.save_file, default_key("export_now"))
+        A["keys_help"] = self._act("단축키", self.show_shortcuts, default_key("keys_help"), busy_ok=True)
         A["feedback"] = self._act("의견 보내기…", self.send_feedback, busy_ok=True)
         A["logs"] = self._act("로그 폴더 열기", self.open_log_folder, busy_ok=True)
         A["about"] = self._act("정보", self.about, busy_ok=True)
@@ -491,7 +492,7 @@ class EditorWindow(QMainWindow):
         f.addRow("프레임 속도", self.rec_fps); f.addRow("크기", self.rec_size)
         for c in (self.rec_cd, self.rec_cursor, self.rec_hl, self.rec_click, self.rec_skip, self.rec_pin, self.rec_direct): f.addRow(c)
         v.addWidget(g); b = QPushButton(icon("rec", "#ff5a5a"), "  녹화 영역 열기 (Ctrl+R / F9 시작·종료)"); b.setObjectName("primary"); b.setMinimumHeight(48)
-        b.clicked.connect(self.open_recorder); v.addWidget(b); self._home_buttons.append(b); v.addStretch(); return w
+        b.clicked.connect(self.open_recorder); self.btn_open_recorder = b; v.addWidget(b); self._home_buttons.append(b); v.addStretch(); return w
     def _side_page(self, title, body, ok=None, cancel=True):
         w = QWidget(); v = QVBoxLayout(w); v.addWidget(QLabel(f"<b>{title}</b>")); v.addLayout(body) if isinstance(body, (QVBoxLayout, QFormLayout, QHBoxLayout, QGridLayout)) else v.addWidget(body)
         v.addStretch()
@@ -859,6 +860,11 @@ class EditorWindow(QMainWindow):
         if hasattr(self, "webp_panel"): self.webp_panel.sync()
         self._start_thumbs()
     PLACEHOLDER = "영상(MP4·MOV 등)·GIF·WebP 파일을 여기로 끌어다 놓으세요\n또는 Ctrl+O 열기 · Ctrl+R 화면 녹화"
+    def _empty_hint(self):
+        m = getattr(self, "_shortcut_map", None) or {}
+        op = display(m.get("open") or "Ctrl+O")
+        rec = display(m.get("rec") or "Ctrl+R")
+        return f"영상(MP4·MOV 등)·GIF·WebP 파일을 여기로 끌어다 놓으세요\n또는 {op} 열기 · {rec} 화면 녹화"
     def _update_meta(self, keep=None, show=True):
         fr = self.project.frames
         n = len(fr); self.cur = min(self.cur if keep is None else keep, max(0, n - 1))
@@ -873,7 +879,7 @@ class EditorWindow(QMainWindow):
             w, h = self.project.size; self.sp_w.blockSignals(True); self.sp_w.setValue(w); self.sp_h.setValue(h); self.sp_w.blockSignals(False)
             self.timeline.setCurrentRow(self.cur); self.show_frame(self.cur)
         else:
-            self.preview._base = None; self.preview.clear(); self.preview.setText(self.PLACEHOLDER)
+            self.preview._base = None; self.preview.clear(); self.preview.setText(self._empty_hint())
         self._info_text(); self._update_enabled()
     def _info_text(self, extra=""):
         n = len(self.project.frames); w, h = self.project.size
@@ -1675,11 +1681,36 @@ class EditorWindow(QMainWindow):
             self.webp_panel.sync()
             self.set_status(self.webp_opts["fit_label"])
         return self.run_task("크기에 맞추기", job, done, lambda msg: self.set_status(str(msg)))
+    def apply_shortcut_map(self, mapping=None):
+        """저장된 단축키를 메뉴와, 열려 있는 녹화 창의 전역 키에 바로 넣는다."""
+        eff = load_map(self.settings) if mapping is None else applied(mapping)
+        self._shortcut_map = eff
+        for bid, action in self.actions_.items():
+            if default_key(bid) is None:
+                continue
+            seq = eff.get(bid, "")
+            action.setShortcut(QKeySequence(seq) if seq else QKeySequence())
+        for a in self.actions_.values():
+            sc = a.shortcut().toString(QKeySequence.NativeText)
+            a.setToolTip(a.text().rstrip("…") + (f" ({sc})" if sc else ""))
+        btn = getattr(self, "btn_open_recorder", None)
+        if btn is not None:
+            rec = display(eff.get("rec") or "Ctrl+R")
+            tog = display(eff.get("rec_toggle") or "F9")
+            btn.setText(f"  녹화 영역 열기 ({rec} / {tog} 시작·종료)")
+        if not self.project.frames and hasattr(self, "preview"):
+            self.preview.setText(self._empty_hint())
+        recw = getattr(self, "recorder", None)
+        if recw is not None and recw.isVisible() and hasattr(recw, "apply_record_hotkey"):
+            recw.apply_record_hotkey(eff.get("rec_toggle") or "F9")
     def show_shortcuts(self):
         lines = []
         for a in self.actions_.values():
             sc = a.shortcut().toString(QKeySequence.NativeText)
             if sc: lines.append(f"{sc}  {a.text()}")
+        tog = display((getattr(self, "_shortcut_map", None) or {}).get("rec_toggle") or "F9")
+        if tog and tog != "없음":
+            lines.append(f"{tog}  녹화 시작·종료")
         QMessageBox.information(self, "단축키", "\n".join(lines))
     def send_feedback(self):
         text, ok = QInputDialog.getMultiLineText(self, "의견", "불편한 점이나 바라는 기능을 적어 주세요.")

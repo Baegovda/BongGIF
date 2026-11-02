@@ -48,3 +48,57 @@ def get_int(st, key, default=0, lo=None, hi=None): return to_int(st.value(key, d
 def get_float(st, key, default=0.0): return to_float(st.value(key, default), default)
 def get_str(st, key, default=""): return to_str(st.value(key, default), default)
 def get_list(st, key, default=None): return to_list(st.value(key, default), default)
+
+# 단축키는 동작마다 문자열 키 하나. 접두사 sc_ . 값에 쉼표가 있어도(Ctrl+,) 키를 나누지 않는다.
+_SC_PREFIX = "sc_"
+
+def _shortcut_id(key: str):
+    if not key.startswith(_SC_PREFIX):
+        return ""
+    bid = key[len(_SC_PREFIX):]
+    if not bid or not all(c.isalnum() or c == "_" for c in bid):
+        return ""
+    return bid
+
+def _shortcut_text(v) -> str:
+    """QSettings가 쉼표 때문에 리스트로 돌려주면 다시 붙인다."""
+    if isinstance(v, (list, tuple)):
+        return ",".join(str(x) for x in v)
+    return to_str(v, "")
+
+def get_shortcuts(st) -> dict:
+    """저장된 단축키 {id: 문자열}. 없는 동작은 빠진다. 깨진 값은 그대로 두고 호출측이 거른다."""
+    out = {}
+    try:
+        keys = list(st.allKeys() or [])
+    except Exception:
+        return out
+    for key in keys:
+        bid = _shortcut_id(str(key))
+        if not bid:
+            continue
+        text = _shortcut_text(st.value(str(key), "")).strip()
+        if text:
+            out[bid] = text
+    return out
+
+def set_shortcuts(st, mapping: dict) -> None:
+    """id → 단축키 문자열. 빈 값과 목록에 없는 sc_ 키는 지운다."""
+    wanted = {}
+    for k, v in (mapping or {}).items():
+        bid = str(k)
+        if not _shortcut_id(_SC_PREFIX + bid):
+            continue
+        text = _shortcut_text(v).strip()
+        if text:
+            wanted[bid] = text
+    try:
+        existing = [str(k) for k in (st.allKeys() or [])]
+    except Exception:
+        existing = []
+    for key in existing:
+        bid = _shortcut_id(key)
+        if bid and bid not in wanted:
+            st.remove(key)
+    for bid, text in wanted.items():
+        st.setValue(_SC_PREFIX + bid, text)
