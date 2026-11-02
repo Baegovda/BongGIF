@@ -14,7 +14,7 @@ def main():
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     ico = os.path.join(base, "bonggif.ico")
     if os.path.exists(ico): app.setWindowIcon(QIcon(ico))
-    from .theme import apply_dark; apply_dark(QApplication.instance())
+    from .theme import apply_saved_theme; apply_saved_theme(QApplication.instance())
     args = sys.argv[1:]; w = EditorWindow(); w.show()
     w.start_update_scheduler(5000)
     from . import crashreport; QTimer.singleShot(8000, crashreport.flush_async)

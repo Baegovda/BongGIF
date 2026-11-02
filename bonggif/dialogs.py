@@ -244,6 +244,15 @@ class SettingsDialog(QDialog):
         def combo(key, items, val):
             c = QComboBox(); [c.addItem(t, d) for t, d in items]; i = c.findData(get_str(st, key, val)); c.setCurrentIndex(max(0, i)); self.w[key] = c; return c
         f = page("일반"); f.addRow("시작 탭", combo("start_tab", [("홈", "home"), ("편집", "edit"), ("관리", "manage")], "home"))
+        from .controls import Segmented
+        from .theme import read_ui_theme
+        self.theme_pick = Segmented(); self.theme_pick.setObjectName("uiTheme")
+        for label, data in (("시스템", "system"), ("어둡게", "dark"), ("밝게", "light")):
+            self.theme_pick.addItem(label, data)
+        saved_theme = read_ui_theme(st)
+        theme_i = self.theme_pick.findData(saved_theme)
+        self.theme_pick.setCurrentIndex(0 if theme_i < 0 else theme_i)
+        f.addRow("화면", self.theme_pick)
         f.addRow(chk("update_auto", "자동으로 업데이트 확인 (시작 시·30분마다)", True))
         f.addRow(chk("crash_report", "오류 자동 보고 (익명: 버전·OS·오류 내용·로그 일부)", True))
         f.addRow(chk("confirm_exit_unsaved", "저장하지 않은 편집이 있으면 종료 전에 확인", True))
@@ -370,6 +379,13 @@ class SettingsDialog(QDialog):
             self.nav.setCurrentRow(self._shortcut_page())
             self.lbl_sc_warn.setText(self.shortcut_table.warning_text() or "겹치는 단축키를 먼저 바꾸세요.")
             return
+        if getattr(self, "theme_pick", None) is not None:
+            from PySide6.QtWidgets import QApplication
+            from .theme import apply_saved_theme, set_ui_theme
+            set_ui_theme(self.st, self.theme_pick.currentData() or "system")
+            app = QApplication.instance()
+            if app is not None:
+                apply_saved_theme(app, self.st)
         for k, w in self.w.items():
             if isinstance(w, QSpinBox): self.st.setValue(k, w.value())
             elif isinstance(w, QCheckBox): self.st.setValue(k, w.isChecked())
