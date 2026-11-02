@@ -1,17 +1,38 @@
 {
   "project": "BongGIF",
   "repo": "https://github.com/Baegovda/BongGIF",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "main": {
-    "sha": "8641fd508e4944265a4943114c51b99cb4cdd339",
-    "short": "8641fd5",
-    "date": "2026-11-02T04:54:31Z",
-    "date_kst": "2026-11-02T13:54:31+09:00",
-    "subject": "Make the settings shortcut table editable. (#28)",
-    "note": "이 저장 고급 옵션 작업의 부모. version.py는 1.7.0. 태그 v1.7.0은 f1a6d9097817ae92c6039a1d824fafd15186acb7 (#20). 이 수정은 버전과 태그를 움직이지 않는다."
+    "sha": "23205fda44da51a258f21367fe62ea83b9206e2a",
+    "short": "23205fd",
+    "date": "2026-11-02T05:21:30Z",
+    "date_kst": "2026-11-02T14:21:30+09:00",
+    "subject": "Release 1.8.0: transitions through advanced export. (#30)",
+    "note": "태그 v1.8.0이 이 SHA를 가리킨다. 이 문서 커밋은 태그 다음이다. version.py는 1.8.0. #29 머지는 7f02510d9aca5382f23323a53ab5fb9cbb6535ab."
   },
   "pull_requests": {
     "merged_on_main": [
+      {
+        "number": 30,
+        "title": "Release 1.8.0: 전환부터 저장 고급 옵션",
+        "state": "MERGED",
+        "merged_at": "2026-11-02T05:21:30Z",
+        "merge_sha": "23205fda44da51a258f21367fe62ea83b9206e2a",
+        "head": "cursor/v180-release-87e0",
+        "head_sha": "60cd9b5a8b3466900410af0a9b96450ca6be8b66",
+        "head_deleted": false,
+        "note": "태그 v1.8.0. 이 문서 PR이 녹색이면 헤드를 지운다."
+      },
+      {
+        "number": 29,
+        "title": "저장: WebM 알파·코덱, APNG 색 모드, 색 유지",
+        "state": "MERGED",
+        "merged_at": "2026-11-02T05:14:10Z",
+        "merge_sha": "7f02510d9aca5382f23323a53ab5fb9cbb6535ab",
+        "head": "cursor/export-advanced-841a",
+        "head_sha": "f550aeb3a512938b5ab6ead87f59de6dca99c22c",
+        "head_deleted": true
+      },
       {
         "number": 28,
         "title": "설정: 단축키를 눌러 바꾸고 바로 적용",
@@ -173,30 +194,55 @@
         "state": "CLOSED"
       }
     ],
-    "note": "#28은 단축키 표. #27은 녹화 격자와 창 찾기. #26은 저장 워터마크. #25는 WebP 클립 패리티. #24는 줌. #23은 전환. #21은 문서 정렬. #20은 1.7.0 버전 범프이자 태그 v1.7.0. #18은 text-anim 제거(다시 넣지 않음). 주인이 뺀 다른 항목은 AGENTS.md never-re-add 규칙에만 있고 다시 넣지 않는다. #19는 녹화 프레임 이동/크기(Windows 스모크 실행만, 주인 미확인). #17은 ci.yml. #16은 문서. #15는 v1.4–v1.6 기록. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #19가 #18보다 먼저 머지됐다."
+    "note": "#30은 1.8.0 버전 범프이자 태그 v1.8.0. #29는 저장 고급 옵션. #28은 단축키 표. #27은 녹화 격자와 창 찾기. #26은 저장 워터마크. #25는 WebP 클립 패리티. #24는 줌. #23은 전환. #21은 문서 정렬. #20은 1.7.0 버전 범프이자 태그 v1.7.0. #18은 text-anim 제거(다시 넣지 않음). 주인이 뺀 다른 항목은 AGENTS.md never-re-add 규칙에만 있고 다시 넣지 않는다. #19는 녹화 프레임 이동/크기(Windows 스모크 실행만, 주인 미확인). #17은 ci.yml. #16은 문서. #15는 v1.4–v1.6 기록. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #19가 #18보다 먼저 머지됐다."
   },
   "pending_release": {
     "tag": null,
     "sha": null,
     "run": null,
-    "note": "대기 중인 태그 없음. 최신 공개 릴리스는 v1.7.0."
+    "note": "대기 중인 태그 없음. 최신 공개 릴리스는 v1.8.0."
   },
   "last_release": {
-    "tag": "v1.7.0",
-    "sha": "f1a6d9097817ae92c6039a1d824fafd15186acb7",
-    "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.7.0",
-    "run": "https://github.com/Baegovda/BongGIF/actions/runs/41342191814",
+    "tag": "v1.8.0",
+    "sha": "23205fda44da51a258f21367fe62ea83b9206e2a",
+    "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.8.0",
+    "run": "https://github.com/Baegovda/BongGIF/actions/runs/41393596728",
     "assets": [
-      "BongGIF-v1.7.0-win64.zip",
-      "BongGIF-v1.7.0-win64.zip.sha256"
+      "BongGIF-v1.8.0-win64.zip",
+      "BongGIF-v1.8.0-win64.zip.sha256"
     ],
-    "zip_bytes": 136832273,
-    "date": "2026-11-01",
+    "zip_bytes": 136958886,
+    "sha256_bytes": 90,
+    "date": "2026-11-02",
     "conclusion": "success",
-    "started_at": "2026-11-01T19:31:51Z",
-    "updated_at": "2026-11-01T19:34:55Z"
+    "started_at": "2026-11-02T05:21:58Z",
+    "updated_at": "2026-11-02T05:25:06Z",
+    "published_at": "2026-11-02T05:24:58Z",
+    "job": "build-windows",
+    "job_started_at": "2026-11-02T05:22:00Z",
+    "job_completed_at": "2026-11-02T05:25:06Z"
   },
   "release_history": [
+    {
+      "tag": "v1.8.0",
+      "sha": "23205fda44da51a258f21367fe62ea83b9206e2a",
+      "url": "https://github.com/Baegovda/BongGIF/releases/tag/v1.8.0",
+      "run": "https://github.com/Baegovda/BongGIF/actions/runs/41393596728",
+      "assets": [
+        "BongGIF-v1.8.0-win64.zip",
+        "BongGIF-v1.8.0-win64.zip.sha256"
+      ],
+      "zip_bytes": 136958886,
+      "sha256_bytes": 90,
+      "date": "2026-11-02",
+      "conclusion": "success",
+      "started_at": "2026-11-02T05:21:58Z",
+      "updated_at": "2026-11-02T05:25:06Z",
+      "published_at": "2026-11-02T05:24:58Z",
+      "job": "build-windows",
+      "job_started_at": "2026-11-02T05:22:00Z",
+      "job_completed_at": "2026-11-02T05:25:06Z"
+    },
     {
       "tag": "v1.7.0",
       "sha": "f1a6d9097817ae92c6039a1d824fafd15186acb7",
@@ -682,15 +728,19 @@
   "remote_branches": {
     "fetched_at": "2026-11-02",
     "delete_branch_on_merge": false,
-    "note": "저장 고급 옵션 작업 시작 때 origin은 main(8641fd5)과 머지된 cursor/editable-shortcuts-a368(#28, aee68c3)이었다. 그 헤드를 지웠다. 직후 조회에는 main만 남았다. 이 브랜치를 푸시하면 헤드가 하나 늘고, ci / smoke (ubuntu)가 녹색이면 스쿼시 머지 뒤 그 헤드를 지운다.",
-    "deleted_this_session": [
-      "cursor/editable-shortcuts-a368"
-    ],
-    "heads_after_delete_before_this_push": [
+    "note": "v1.8.0 문서를 적을 때 origin은 main(23205fd)과 머지된 cursor/v180-release-87e0(#30, 60cd9b5)뿐이었다. #29 헤드 cursor/export-advanced-841a는 그 조회에 없었다. ci / smoke (ubuntu)가 녹색이면 이 문서 PR을 스쿼시 머지하고 cursor/v180-release-87e0과 이 헤드를 지운다.",
+    "deleted_this_session": [],
+    "heads_at_docs_start": [
       {
         "name": "main",
-        "sha": "8641fd508e4944265a4943114c51b99cb4cdd339",
-        "pr": 28,
+        "sha": "23205fda44da51a258f21367fe62ea83b9206e2a",
+        "pr": 30,
+        "state": "MERGED"
+      },
+      {
+        "name": "cursor/v180-release-87e0",
+        "sha": "60cd9b5a8b3466900410af0a9b96450ca6be8b66",
+        "pr": 30,
         "state": "MERGED"
       }
     ]
@@ -698,7 +748,7 @@
   "release_notes": {
     "changelog_md": false,
     "human": "README.md sections ## X.Y.Z (newest first)",
-    "github_release_body": "Generated What's Changed list of PRs merged between tags. v1.7.0 lists #15 #16 #17 #19 #18 #20. It is not a copy of the README section.",
+    "github_release_body": "Generated What's Changed list of PRs merged between tags. v1.8.0 lists #21 #22 #23 #24 #25 #26 #27 #28 #29 #30. v1.7.0 lists #15 #16 #17 #19 #18 #20. It is not a copy of the README section.",
     "agent_summary": "docs/HANDOFF.md Version history (SHAs, runs, zip bytes)"
   },
   "owner_rules": {
