@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QRectF, Qt, Signal, Property
 from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath
-from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QListWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QFrame, QLabel, QListWidget, QPushButton, QVBoxLayout, QWidget
 
 from .services import motion_allowed
 from .tokens import DURATION_MS, PAD, current
@@ -229,6 +229,63 @@ class Segmented(QWidget):
             font.setBold(i == self._index)
             p.setFont(font)
             p.drawText(QRectF(i * slot, 0, slot, self.height()), Qt.AlignCenter, text)
+        p.end()
+
+
+class FlowButton(QPushButton):
+    """메인 화면의 큰 동작 버튼. 호버는 240ms, 작업 중에는 바로 둔다."""
+
+    def __init__(self, text: str = "", parent=None):
+        super().__init__(text, parent)
+        self._hover = 0.0
+        self._anim = _anim(self, b"hover")
+        self.setMinimumHeight(44)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def get_hover(self) -> float:
+        return self._hover
+
+    def set_hover(self, value: float) -> None:
+        self._hover = float(value)
+        self.update()
+
+    hover = Property(float, get_hover, set_hover)
+
+    def enterEvent(self, event):
+        self._anim.stop()
+        if not motion_allowed():
+            self.set_hover(1.0)
+        else:
+            self._anim.setStartValue(self._hover)
+            self._anim.setEndValue(1.0)
+            self._anim.start()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._anim.stop()
+        if not motion_allowed():
+            self.set_hover(0.0)
+        else:
+            self._anim.setStartValue(self._hover)
+            self._anim.setEndValue(0.0)
+            self._anim.start()
+        super().leaveEvent(event)
+
+    def paintEvent(self, event):
+        t = current()
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        fill = QColor(t.accent if self.objectName() == "flowExport" else t.card)
+        if self._hover > 0 and self.objectName() != "flowExport":
+            fill = QColor(t.bg2)
+        p.setPen(Qt.NoPen)
+        p.setBrush(fill)
+        p.drawRoundedRect(QRectF(1, 1, self.width() - 2, self.height() - 2), 12, 12)
+        p.setPen(QColor(t.on_accent if self.objectName() == "flowExport" else t.fg))
+        font = QFont(self.font())
+        font.setBold(True)
+        p.setFont(font)
+        p.drawText(self.rect(), Qt.AlignCenter, self.text())
         p.end()
 
 

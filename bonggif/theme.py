@@ -64,7 +64,8 @@ QScrollBar::handle {{ background:{t.line}; border-radius:4px; min-height:24px; }
 QScrollBar::handle:hover {{ background:{t.muted}; }}
 QCheckBox::indicator, QRadioButton::indicator {{ width:16px; height:16px; }}
 QToolTip {{ background:{t.card}; color:{t.fg}; border:1px solid {t.accent_text}; border-radius:{rs}px; padding:6px; }}
-#sidepanel, #cmdbar, #playbar {{ background:{t.card}; }}
+#flowBar, #sidepanel, #cmdbar, #playbar {{ background:{t.card}; }}
+#flowBar {{ border-bottom:1px solid {t.line}; }}
 #cmdbar {{ border-bottom:1px solid {t.line}; }}
 QScrollArea {{ background:transparent; border:0; }}
 QMessageBox {{ background:{t.bg}; }}
