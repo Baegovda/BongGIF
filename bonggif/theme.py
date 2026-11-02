@@ -64,7 +64,9 @@ QScrollBar::handle {{ background:{t.line}; border-radius:4px; min-height:24px; }
 QScrollBar::handle:hover {{ background:{t.muted}; }}
 QCheckBox::indicator, QRadioButton::indicator {{ width:16px; height:16px; }}
 QToolTip {{ background:{t.card}; color:{t.fg}; border:1px solid {t.accent_text}; border-radius:{rs}px; padding:6px; }}
-#flowBar, #sidepanel, #cmdbar, #playbar {{ background:{t.card}; }}
+#flowBar, #sidepanel, #cmdbar, #playbar, QListWidget#timeline {{ background:{t.card}; }}
+QLabel#canvas {{ background:{t.field}; border:1px solid {t.line}; }}
+QLabel#editMeta {{ color:{t.muted}; background:transparent; }}
 #flowBar {{ border-bottom:1px solid {t.line}; }}
 #cmdbar {{ border-bottom:1px solid {t.line}; }}
 QScrollArea {{ background:transparent; border:0; }}
@@ -180,6 +182,22 @@ def _on_scheme(app):
     if read_ui_theme(st) != "system":
         return
     apply_theme(app, system_mode(app))
+
+
+def range_dialog_qss(t=None) -> str:
+    """구간 선택 창. 앱 테마를 따르고 어두운 색을 고정하지 않는다."""
+    from .tokens import RADIUS, RADIUS_SM
+    t = t or current()
+    return (
+        f"#rangedlg{{background:{t.bg};color:{t.fg};}}"
+        f"#card{{background:{t.card};border:1px solid {t.line};border-radius:{RADIUS}px;}}"
+        f"#card QLabel,#rangedlg QLabel{{background:transparent;color:{t.fg};}}"
+        f"#infokey,#rangeHint{{color:{t.muted};background:transparent;}}"
+        f"#infoval{{color:{t.fg};font-weight:600;background:transparent;}}"
+        f"#rangeLink{{color:{t.accent_text};background:transparent;}}"
+        f"#rangeTime{{color:{t.fg};background:transparent;}}"
+        f"#rangePreview{{background:{t.field};border:1px solid {t.line};border-radius:{RADIUS_SM}px;color:{t.fg};}}"
+    )
 
 
 def set_ui_theme(st, mode: str) -> str:

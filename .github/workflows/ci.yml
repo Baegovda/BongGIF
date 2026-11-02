@@ -170,11 +170,11 @@ jobs:
           run_suite smoke_test_shortcuts.py 40
           run_suite smoke_test_export_adv.py 35
           run_suite smoke_test_services.py 23
-          run_suite smoke_test_style.py 28
+          run_suite smoke_test_style.py 32
           run_suite smoke_test_settings_shell.py 11
           run_suite smoke_test_flow.py 10
           if [[ $fail -ne 0 ]]; then
             echo "::error::one or more smoke suites failed"
             exit 1
           fi
-          echo "All 17 smoke suites passed (120/62/40/15/42/10/72/62/62/43/55/40/35/23/28/11/10)"
+          echo "All 17 smoke suites passed (120/62/40/15/42/10/72/62/62/43/55/40/35/23/32/11/10)"

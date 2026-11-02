@@ -1,5 +1,8 @@
-"""화면 토큰. Baegovda/BongHub next/ 는 읽지 못했다(저장소 404).
-iOS에 가까운 둥근 모서리·여백·대비(WCAG AA)를 이 모듈 한곳에 둔다.
+"""화면 토큰.
+
+Baegovda/BongHub 본 저장소(next/ 없음)는 이 환경에서 읽지 못했다.
+GET /repos/Baegovda/BongHub 는 404, git ls-remote 는 Repository not found.
+그래서 색·반지름·여백·240ms OutCubic 은 기존 WCAG AA iOS 값을 유지한다.
 """
 from __future__ import annotations
 

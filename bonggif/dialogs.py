@@ -37,14 +37,30 @@ class SaveDialog(QDialog):
     def __init__(self, parent=None, fmt="gif", frames=None, folder="", name="bonggif"):
         super().__init__(parent); self.setWindowTitle("저장"); self.resize(900, 720); self.frames = frames or []
         root = QHBoxLayout(self)
-        left = QVBoxLayout(); self.preview = QLabel(); self.preview.setMinimumSize(360, 260); self.preview.setAlignment(Qt.AlignCenter)
-        self.preview.setStyleSheet("background:#111;border:1px solid #30343c"); left.addWidget(self.preview, 1)
+        self.setObjectName("rangedlg")
+        from .theme import range_dialog_qss
+        self.setStyleSheet(range_dialog_qss())
+        left = QVBoxLayout(); self.preview = QLabel(); self.preview.setObjectName("rangePreview"); self.preview.setMinimumSize(360, 280); self.preview.setAlignment(Qt.AlignCenter)
+        left.addWidget(self.preview, 1)
         self.lbl_info = QLabel(); self.lbl_info.setWordWrap(True); left.addWidget(self.lbl_info)
+        tot = sum(f.delay for f in self.frames) if self.frames else 0
+        wh = self.frames[0].image.size if self.frames else (0, 0)
+        fps = (1000 * len(self.frames) / tot) if tot else 0
         if self.frames:
-            tot = sum(f.delay for f in self.frames); w, h = self.frames[0].image.size
-            self.lbl_info.setText(f"이미지 크기 {w}×{h} · {len(self.frames)}프레임 · 재생 시간 {tot / 1000:.2f}초 · 평균 {1000 * len(self.frames) / max(1, tot):.1f} fps")
+            self.lbl_info.setText(f"이미지 크기 {wh[0]}×{wh[1]} · {len(self.frames)}프레임 · 재생 시간 {tot / 1000:.2f}초 · 평균 {fps:.1f} fps")
         root.addLayout(left, 1)
         right = QWidget(); rv = QVBoxLayout(right); rv.setContentsMargins(0, 0, 0, 0)
+        card = QGroupBox("크기"); cf = QFormLayout(card)
+        est = (wh[0] * wh[1] * max(1, len(self.frames)) // 12) if self.frames else 0
+        est_txt = "—" if not self.frames else (f"약 {est / 1048576:.2f} MB" if est >= 1048576 else f"약 {max(1, est // 1024)} KB")
+        self.lbl_save_size = QLabel(f"{wh[0]}×{wh[1]}" if self.frames else "—")
+        self.lbl_save_dur = QLabel(f"{tot / 1000:.2f}초" if self.frames else "—")
+        self.lbl_save_fps = QLabel(f"{fps:.1f} fps" if self.frames else "—")
+        self.lbl_save_est = QLabel(est_txt)
+        self.lbl_save_est.setToolTip("팔레트 GIF를 대략 가늠한 값입니다. 실제 파일 크기는 저장할 때 정해집니다.")
+        cf.addRow("크기", self.lbl_save_size); cf.addRow("길이", self.lbl_save_dur)
+        cf.addRow("프레임 속도", self.lbl_save_fps); cf.addRow("예상 크기", self.lbl_save_est)
+        rv.addWidget(card)
         self.q = QualityBox("형식 · 품질")
         self.q.cb_fmt.blockSignals(True); self.q.cb_fmt.clear()
         for t, v, _ in SAVE_FORMATS: self.q.cb_fmt.addItem(t, v)
@@ -145,8 +161,11 @@ class RangeDialog(QDialog):
     """프레임 구간 자르기: 시작/끝 슬라이더 + 미리보기 + 현재 위치·선택/전체 프레임 수·재생 시간."""
     def __init__(self, parent, frames, a=0, b=None):
         super().__init__(parent); self.setWindowTitle("프레임 구간 자르기"); self.frames = frames; n = len(frames); self.resize(640, 520)
-        v = QVBoxLayout(self); self.view = QLabel(); self.view.setAlignment(Qt.AlignCenter); self.view.setMinimumSize(480, 300)
-        self.view.setStyleSheet("background:#111"); v.addWidget(self.view, 1)
+        self.setObjectName("rangedlg")
+        from .theme import range_dialog_qss
+        self.setStyleSheet(range_dialog_qss())
+        v = QVBoxLayout(self); self.view = QLabel(); self.view.setObjectName("rangePreview"); self.view.setAlignment(Qt.AlignCenter); self.view.setMinimumSize(480, 300)
+        v.addWidget(self.view, 1)
         self.sl_a = QSlider(Qt.Horizontal); self.sl_b = QSlider(Qt.Horizontal)
         for sl in (self.sl_a, self.sl_b): sl.setRange(0, n - 1)
         self.sp_a = QSpinBox(); self.sp_b = QSpinBox()

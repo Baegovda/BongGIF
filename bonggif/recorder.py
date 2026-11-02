@@ -879,7 +879,9 @@ class RecorderWindow(QWidget):
         self.bar = _DragBar(self)
         self.bar.setObjectName("bar")
         self.bar.setAttribute(Qt.WA_StyledBackground, True)
-        self.bar.setStyleSheet("#bar{background:#20232a;border-radius:6px} QLabel,QCheckBox{color:#ddd}")
+        from .tokens import current as _tok
+        _t = _tok()
+        self.bar.setStyleSheet(f"#bar{{background:{_t.card};border:1px solid {_t.line};border-radius:10px}} QLabel,QCheckBox{{color:{_t.fg};background:transparent}}")
         lay = QHBoxLayout(self.bar)
         lay.setContentsMargins(6, 4, 6, 4)
         self.grip_bar = _pass_mouse(QLabel())
@@ -912,12 +914,15 @@ class RecorderWindow(QWidget):
         self._title_style(False)
 
     def _title_style(self, locked: bool):
-        bg = "#5a2424" if locked else "#20232a"
+        from .tokens import current
+        t = current()
+        bg = t.danger if locked else t.card
+        fg = t.on_accent if locked else t.fg
         self.title.setStyleSheet(
-            f"#titlebar{{background:{bg};border-radius:6px}}"
-            "QLabel{color:#ddd;background:transparent}"
+            f"#titlebar{{background:{bg};border:1px solid {t.line};border-radius:10px}}"
+            f"QLabel{{color:{fg};background:transparent}}"
             "QLabel#size{font-weight:600}"
-            "QLabel#lock{color:#ffcc66;font-weight:700}"
+            f"QLabel#lock{{color:{t.on_accent};font-weight:700}}"
         )
 
     def _layout_chrome(self):
@@ -1034,7 +1039,9 @@ class RecorderWindow(QWidget):
     def paintEvent(self, e):
         p = QPainter(self)
         r = self.capture_rect()
-        col = {"idle": QColor(0, 150, 255), "rec": QColor(230, 40, 40), "pause": QColor(240, 180, 0)}.get(self.state, QColor(0, 150, 255))
+        from .tokens import current
+        t = current()
+        col = {"idle": QColor(t.accent), "rec": QColor(t.danger), "pause": QColor(240, 180, 0)}.get(self.state, QColor(t.accent))
         if self.state == "countdown":
             col = QColor(240, 180, 0)
         p.fillRect(self.rect(), col)
