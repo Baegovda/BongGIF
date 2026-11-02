@@ -123,13 +123,23 @@ class _Prefixed:
     def step(self, i, n, msg=None): self.ctx.step(i, n, self.prefix + (msg or ""))
     def cancelled(self): return self.ctx.cancelled()
 
+def _stamp(frames, wm, ctx):
+    if wm is None:
+        return frames
+    from .watermark import Watermark, apply_watermark
+    if not isinstance(wm, Watermark):
+        return frames
+    return apply_watermark(frames, wm, ctx)
+
 def export_frames(frames, path, ctx=None, target_mb=0.0, max_attempts=7, **opt) -> dict:
     """target_mb>0이면 품질·너비를 먼저 낮추고, 그래도 넘치면 fps를 줄인다."""
     ctx = ctx or NULL; t0 = time.monotonic()
+    wm = opt.pop("watermark", None)
     pre = {k: opt.pop(k) for k in ("limit_fps", "max_width", "skip_similar", "embed_progress", "progress_height", "progress_color", "progress_bg") if k in opt}
     if pre: frames = preprocess(frames, ctx, **pre)
     os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
     if not target_mb or target_mb <= 0:
+        frames = _stamp(frames, wm, ctx)
         size = export_once(frames, path, ctx, **opt)
         log.info("export %s %d frames -> %d B in %.2fs", path, len(frames), size, time.monotonic() - t0)
         return {"size": size, "attempts": 1, "met": True, "width": frames[0].image.width, "colors": opt.get("colors", 256)}
@@ -157,6 +167,7 @@ def export_frames(frames, path, ctx=None, target_mb=0.0, max_attempts=7, **opt) 
             fr = frames if (w, h) == (W, H) else op_resize(frames, w, h, pc)
             if cap:
                 fr = preprocess(fr, pc, limit_fps=cap)
+            fr = _stamp(fr, wm, pc)
             tp = os.path.join(tmp, f"t{attempts}.{fmt}"); size = export_once(fr, tp, pc, **o)
             log.info("target attempt %d level=%.3f %dx%d %d colors fps=%s -> %d B (limit %d)", attempts, level, w, h, c, fps_label, size, limit)
             r = {"level": level, "path": tp, "size": size, "width": w, "colors": c, "fps": fps_label}

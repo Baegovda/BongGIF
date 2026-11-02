@@ -92,8 +92,11 @@ def write_clip(frames, path, quality, loop, ctx=None):
     return os.path.getsize(path)
 
 
-def export_clip(frames, project, src_fps, export, in_frame, out_frame, path, ctx=None):
+def export_clip(frames, project, src_fps, export, in_frame, out_frame, path, ctx=None, watermark=None):
     built, p, plan, (ow, oh) = build_frames(frames, project, src_fps, export, in_frame, out_frame, ctx)
+    if watermark is not None:
+        from ..watermark import apply_watermark
+        built = apply_watermark(built, watermark, ctx)
     size = write_clip(built, path, p["export"]["quality"], p["export"]["loop"], ctx)
     return {"path": path, "size": size, "frames": len(plan), "encoded": len(built),
             "width": built[0].image.size[0] if built else ow, "height": built[0].image.size[1] if built else oh,
@@ -107,7 +110,7 @@ def _full_width(project, frames, in_frame, out_frame):
     return w
 
 
-def choose_fit(frames, project, src_fps, export, in_frame, out_frame, target_bytes, ctx=None):
+def choose_fit(frames, project, src_fps, export, in_frame, out_frame, target_bytes, ctx=None, watermark=None):
     """사다리를 이분 탐색해 목표의 92% 안에 드는 가장 좋은 후보를 고른다."""
     from ..core import NULL, Cancelled
     ctx = ctx or NULL
@@ -130,7 +133,7 @@ def choose_fit(frames, project, src_fps, export, in_frame, out_frame, target_byt
         fd, tmp = tempfile.mkstemp(suffix=".webp")
         os.close(fd)
         try:
-            got = export_clip(frames, project, src_fps, ex, in_frame, out_frame, tmp, ctx)
+            got = export_clip(frames, project, src_fps, ex, in_frame, out_frame, tmp, ctx, watermark=watermark)
             cache[i] = got["size"]
         finally:
             try:
