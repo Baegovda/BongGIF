@@ -348,6 +348,9 @@ class EditorWindow(QMainWindow):
         self._pcache = {}; self._pcache_key = None; self._pcache_worker = None
         self.preview.resized.connect(self._invalidate_pcache)
         self._loading = None; self._video = None; self._thumbs_ready = None
+        self.webp_opts = {"rise": 12, "floor": -45, "sound": True, "volume": 50, "src_fps": None,
+                          "play_segments": True, "fx_preview": True, "fit_label": "",
+                          "export": {"fps": None, "speed": 1.0, "width": 0, "quality": 90, "loop": 0, "targetMB": 0}}
         self.timeline.setContextMenuPolicy(Qt.CustomContextMenu); self.timeline.customContextMenuRequested.connect(self._timeline_menu)
         self.timeline.itemSelectionChanged.connect(lambda: self._sync_trim_from_selection())
         self._build_actions(); self._build_ui(); self._build_status(); self.refresh()
@@ -408,6 +411,13 @@ class EditorWindow(QMainWindow):
         A["hide_box"] = self._act("테두리 숨기기", self._if_idle(self.toggle_chrome), "H")
         A["key_set"] = self._act("키 고정", self._if_idle(self.set_mask_key), "K")
         A["key_del"] = self._act("키 삭제", self._if_idle(self.clear_mask_key), "Shift+K")
+        A["key_prev"] = self._act("이전 키", self._if_idle(lambda: self.goto_mask_key(-1)), ",")
+        A["key_next"] = self._act("다음 키", self._if_idle(lambda: self.goto_mask_key(1)), ".")
+        A["track_between"] = self._act("키 사이 추적", self._if_idle(self.track_between), "B")
+        A["weak_next"] = self._act("다음 확인 필요", self._if_idle(lambda: self.goto_weak(1)), "W")
+        A["weak_prev"] = self._act("이전 확인 필요", self._if_idle(lambda: self.goto_weak(-1)), "Shift+W")
+        A["event_next"] = self._act("다음 소리 이벤트", self._if_idle(lambda: self.goto_audio_event(1)), "N")
+        A["event_prev"] = self._act("이전 소리 이벤트", self._if_idle(lambda: self.goto_audio_event(-1)), "Shift+N")
         A["export_now"] = self._act("내보내기…", self.save_file, "Ctrl+E")
         A["keys_help"] = self._act("단축키", self.show_shortcuts, "F1", busy_ok=True)
         A["feedback"] = self._act("의견 보내기…", self.send_feedback, busy_ok=True)
@@ -692,7 +702,10 @@ class EditorWindow(QMainWindow):
         h = QHBoxLayout(); self._btn(h, "시작 전체", lambda: self._cam_full("start")); self._btn(h, "끝 전체", lambda: self._cam_full("end")); f.addRow(h)
         f.addRow("캔버스", self.cb_cam_edit); f.addRow("미리보기", self.sl_cam); f.addRow(self.lbl_cam); f.addRow(self.lbl_cam_help)
         side.addWidget(self._side_page("줌", f, self.apply_camera))
-        self.MODES = {"frame": 0, "crop": 1, "resize": 2, "draw": 3, "effect": 4, "insert": 5, "border": 6, "mask": 7, "transition": 8, "camera": 9}
+        from .webpclip.panel import WebPClipPanel
+        self.webp_panel = WebPClipPanel(self)
+        side.addWidget(self.webp_panel)
+        self.MODES = {"frame": 0, "crop": 1, "resize": 2, "draw": 3, "effect": 4, "insert": 5, "border": 6, "mask": 7, "transition": 8, "camera": 9, "webpclip": 10}
         for wdg in (self.cb_tr_kind, self.cb_tr_dir, self.cb_tr_target, self.cb_tr_from, self.cb_tr_to):
             wdg.currentIndexChanged.connect(self._on_transition_controls)
         for wdg in (self.sp_tr_ms, self.sp_tr_n, self.sp_tr_front, self.sp_tr_back, self.sl_tr):
@@ -711,7 +724,7 @@ class EditorWindow(QMainWindow):
             b.setCheckable(checkable); b.setAutoRaise(True); b.clicked.connect(lambda _=False: slot()); ch.addWidget(b); return b
         for k, t, ic in (("crop", "자르기", "crop"), ("resize", "크기", "resize"), ("draw", "그리기", "draw"), ("effect", "효과", "effect"),
                          ("insert", "삽입", "text"), ("border", "액자", "frame"), ("mask", "마스크", "effect"), ("transition", "전환", "transition"),
-                         ("camera", "줌", "camera")):
+                         ("camera", "줌", "camera"), ("webpclip", "WebP 클립", "save")):
             self.mode_btns[k] = tb(t, ic, lambda k=k: self.set_mode(k), True)
         ch.addSpacing(12)
         for k, t in (("delete", "삭제"), ("cut", "구간 자르기"), ("reduce", "프레임 줄이기"), ("time", "시간 설정"), ("faster", "10% 빠르게"),
@@ -842,7 +855,9 @@ class EditorWindow(QMainWindow):
             it = QListWidgetItem(icon, f"{i + 1}\n{f.delay}ms"); it.setData(Qt.UserRole, i); self.timeline.addItem(it)
         self.timeline.blockSignals(False); self._label_items()
         self.project.clamp_clips(); self._refresh_clips(); self._refresh_mask_list(); self._update_mask_summary()
-        self._update_meta(keep); self._start_thumbs()
+        self._update_meta(keep)
+        if hasattr(self, "webp_panel"): self.webp_panel.sync()
+        self._start_thumbs()
     PLACEHOLDER = "영상(MP4·MOV 등)·GIF·WebP 파일을 여기로 끌어다 놓으세요\n또는 Ctrl+O 열기 · Ctrl+R 화면 녹화"
     def _update_meta(self, keep=None, show=True):
         fr = self.project.frames
@@ -906,6 +921,9 @@ class EditorWindow(QMainWindow):
     def show_frame(self, i):
         if 0 <= i < len(self.project.frames):
             self.cur = i; im = self.project.frames[i].image
+            if self._webp_fx_on():
+                from .webpclip.render import render_frame
+                im = render_frame(im, self.project.masks, i)
             k = max(1, min(im.width // max(640, self.preview.width()), im.height // 360))   # 4K 등 큰 프레임은 축소본으로 표시 (GUI 스레드 < 수십 ms)
             self.preview.set_image(pil_to_qimage(im.reduce(k) if k > 1 else im), im.size); self._update_pos(); self._sync_mask_overlay()
             if self.tool_tabs.currentIndex() == self.MODES.get("effect"): self._fx_preview()
@@ -1144,13 +1162,32 @@ class EditorWindow(QMainWindow):
         box.setModal(False); box.show(); self.save_box = box
     def _mask_drag_start(self):
         if self.preview.mode == "mask" and self._mask_row is not None: self.project.checkpoint()
+    def _webp_mode(self):
+        return hasattr(self, "MODES") and self.tool_tabs.currentIndex() == self.MODES.get("webpclip")
+    def _webp_fx_on(self):
+        return self._webp_mode() and self.webp_opts.get("fx_preview", True) and bool(self.project.masks)
+    def _hit_mask(self, pt):
+        if pt is None:
+            return None
+        for i in range(len(self.project.masks) - 1, -1, -1):
+            x, y, w, h = self.project.masks[i].box_at(self.cur)
+            if x <= pt.x() <= x + w and y <= pt.y() <= y + h:
+                return i
+        return None
     def _mask_drag_end(self, r):
-        if self.preview.mode != "mask" or self._mask_row is None: return
-        if not (0 <= self._mask_row < len(self.project.masks)): return
+        if self.preview.mode != "mask" or r.width() < 3 or r.height() < 3: return
+        if self._webp_mode():
+            hit = self._hit_mask(getattr(self.preview, "_p0", None))
+            if hit is None:
+                self._add_webp_mask_rect(r); return
+            self._mask_row = hit
+        if self._mask_row is None or not (0 <= self._mask_row < len(self.project.masks)): return
         m = self.project.masks[self._mask_row]
         m.x, m.y, m.w, m.h = max(0, r.x()), max(0, r.y()), max(2, r.width()), max(2, r.height())
         m.boxes[self.cur] = (m.x, m.y, m.w, m.h)
+        m.track_score.pop(self.cur, None)
         self._sync_mask_overlay()
+        if hasattr(self, "webp_panel"): self.webp_panel.sync()
     def _sync_mask_overlay(self):
         if not hasattr(self, "preview"): return
         boxes = []
@@ -1278,8 +1315,13 @@ class EditorWindow(QMainWindow):
         def done(res):
             boxes, lost = res
             if 0 <= i < len(self.project.masks):
-                self.project.checkpoint(); self.project.masks[i].boxes = boxes; self.project.masks[i].lost = lost
+                self.project.checkpoint()
+                m = self.project.masks[i]
+                m.boxes = boxes; m.lost = lost
+                lost_set = set(lost)
+                m.track_score = {int(k): (0.0 if int(k) in lost_set else 1.0) for k in boxes if int(k) != cur}
             self._load_mask_fields(); self._sync_mask_overlay()
+            if hasattr(self, "webp_panel"): self.webp_panel.sync()
             self.set_status(f"추적 {len(boxes)}프레임 · 놓침 {len(lost)}")
         def fail(msg): self.set_status(str(msg))
         return self.run_task("마스크 추적", job, done, fail)
@@ -1337,12 +1379,299 @@ class EditorWindow(QMainWindow):
     def mark_slow(self):
         if not self.project.frames: return
         if getattr(self, "_slow_arm", None) is None:
-            self._slow_arm = self.cur; self.set_status("슬로모 시작. 끝 프레임에서 S, 취소는 Esc"); return
+            self._slow_arm = self.cur
+            self.set_status(f"슬로우모션 시작 {self.cur}. 끝 프레임에서 S를 한 번 더 누르세요 (Esc 취소).")
+            if hasattr(self, "webp_panel"): self.webp_panel.sync(lists=False)
+            return
         a, b = self._slow_arm, self.cur; self._slow_arm = None
-        self.project.add_slow(a, b, 0.5); self.refresh(); self.set_status(f"슬로모 {a + 1}–{b + 1} · 0.5×")
+        factor = 0.5
+        if hasattr(self, "webp_panel"):
+            factor = round(float(self.webp_panel.slow_in.value()) * 100) / 100
+        self.project.add_slow(a, b, factor); self.refresh(); self.set_status(f"슬로모 {a + 1}–{b + 1} · {factor}×")
     def add_freeze_here(self):
         if not self.project.frames: return
-        self.project.add_freeze(self.cur, 1500); self.refresh(); self.set_status("이 프레임을 1.5초 유지합니다")
+        ms = 1500
+        if hasattr(self, "webp_panel"):
+            ms = int(round(float(self.webp_panel.freeze_in.value()) * 1000))
+        if any(int(i) == self.cur for i, _ms in self.project.freezes):
+            self.project.checkpoint()
+            self.project.freezes = [(i, z) for i, z in self.project.freezes if int(i) != self.cur]
+            self.project.frames[self.cur].delay = max(10, int(round(1000 / self._project_fps())))
+            self.refresh(); self.set_status("현재 프레임의 정지 지점을 뺐습니다"); return
+        self.project.add_freeze(self.cur, ms); self.refresh(); self.set_status(f"이 프레임을 {ms / 1000:.1f}초 유지합니다")
+    def preview_clip_row(self, i):
+        self._preview_clip_row(i)
+    def move_mask(self, delta):
+        i = self._mask_row
+        if i is None: return
+        j = i + int(delta)
+        if j < 0 or j >= len(self.project.masks): return
+        self.project.checkpoint()
+        masks = self.project.masks
+        masks[i], masks[j] = masks[j], masks[i]
+        self._mask_row = j
+        self._refresh_mask_list(); self._sync_mask_overlay()
+        if hasattr(self, "webp_panel"): self.webp_panel.sync()
+    def update_current_segment(self):
+        i = self.clip_list.currentRow() if hasattr(self, "clip_list") else -1
+        if i < 0 and hasattr(self, "webp_panel"):
+            i = self.webp_panel.seg_list.currentRow()
+        if not (0 <= i < len(self.project.clips)): return
+        a, b = self.webp_panel.current_range()
+        self.project.checkpoint()
+        self.project.clips[i].start, self.project.clips[i].end = a, b
+        self._refresh_clips(); self.webp_panel.sync(); self.set_status(f"구간 갱신 {a} → {b}")
+    def delete_slow(self):
+        if not self.project.slowmos: return
+        row = self.webp_panel.slow_list.currentRow()
+        if row < 0: row = len(self.project.slowmos) - 1
+        self.project.checkpoint(); del self.project.slowmos[row]; self.refresh()
+    def _add_webp_mask_rect(self, r):
+        if not self.project.frames: return None
+        from .core import Mask
+        from .webpclip.core import new_mask, default_dest
+        base = None
+        if self.project.masks:
+            prev = self.project.masks[-1]
+            base = {"effect": "box" if prev.effect == "solid" else prev.effect, "strength": prev.strength,
+                    "color": list(prev.color), "zoom": prev.zoom, "border": prev.border, "shape": prev.shape, "pad": prev.pad}
+        spec = new_mask(f"마스크 {len(self.project.masks) + 1}", base)
+        self.project.checkpoint()
+        m = Mask(spec["name"], max(0, r.x()), max(0, r.y()), max(2, r.width()), max(2, r.height()),
+                 effect=spec["effect"], strength=int(spec["strength"]), color=tuple(spec["color"]),
+                 start=0, end=len(self.project.frames) - 1, shape=spec["shape"], pad=int(spec["pad"]),
+                 zoom=float(spec["zoom"]), border=int(spec["border"]),
+                 smooth=self.webp_panel.smooth_chk.isChecked(), fixed_size=self.webp_panel.fix_chk.isChecked())
+        m.boxes[self.cur] = (m.x, m.y, m.w, m.h)
+        if m.effect == "portal":
+            W, H = self.project.size
+            m.dest_keys[self.cur] = tuple(int(round(v)) for v in default_dest([m.x, m.y, m.w, m.h], W, H))
+        self.project.masks.append(m); self._mask_row = len(self.project.masks) - 1
+        self._refresh_mask_list(); self._sync_mask_overlay(); self.webp_panel.sync()
+        self.set_status(f"마스크 추가: {m.name}"); return m
+    def _apply_webp_mask_fields(self):
+        i = self._mask_row
+        if i is None or not (0 <= i < len(self.project.masks)) or self.webp_panel._lock: return
+        p = self.webp_panel
+        m = self.project.masks[i]
+        self.project.checkpoint()
+        m.name = p.p_name.text().strip() or m.name
+        m.effect = p.p_effect.currentData() or "mosaic"
+        m.strength = p.p_strength.value()
+        m.color = (p.p_color.color.red(), p.p_color.color.green(), p.p_color.color.blue())
+        m.zoom = float(p.p_zoom.value()); m.border = int(p.p_border.value())
+        m.shape = p.p_shape.currentData() or "rect"; m.pad = int(p.p_pad.value())
+        m.start = int(p.p_start.value()); m.end = int(p.p_end.value())
+        if m.start > m.end: m.start, m.end = m.end, m.start
+        m.smooth = p.smooth_chk.isChecked(); m.fixed_size = p.fix_chk.isChecked()
+        if m.effect == "portal" and not m.dest_keys:
+            from .webpclip.core import default_dest
+            W, H = self.project.size
+            rect = list(m.box_at(self.cur))
+            m.dest_keys[self.cur] = tuple(int(round(v)) for v in default_dest(rect, W, H))
+        if self.mask_list.currentItem(): self.mask_list.currentItem().setText(m.name)
+        self._sync_mask_overlay(); p.sync()
+    def mask_edge_here(self, which):
+        if which == "a": self.webp_panel.p_start.setValue(self.cur)
+        else: self.webp_panel.p_end.setValue(self.cur)
+        self._apply_webp_mask_fields()
+    def goto_mask_key(self, direction):
+        if self._mask_row is None or not self.project.masks: return
+        m = self.project.masks[self._mask_row]
+        ks = sorted(int(k) for k in (m.boxes or {}))
+        nxt = next((k for k in (reversed(ks) if direction < 0 else ks) if (k < self.cur if direction < 0 else k > self.cur)), None)
+        if nxt is None: return
+        self.goto(nxt)
+    def clear_keys_side(self, direction):
+        if self._mask_row is None: return
+        m = self.project.masks[self._mask_row]
+        f = self.cur
+        anchor = m.boxes.get(f) or (m.x, m.y, m.w, m.h)
+        self.project.checkpoint()
+        if direction > 0:
+            m.boxes = {k: v for k, v in (m.boxes or {}).items() if int(k) <= f}
+            m.track_score = {k: v for k, v in (m.track_score or {}).items() if int(k) <= f}
+        else:
+            m.boxes = {k: v for k, v in (m.boxes or {}).items() if int(k) >= f}
+            m.track_score = {k: v for k, v in (m.track_score or {}).items() if int(k) >= f}
+        m.boxes[f] = tuple(anchor)
+        m.track_score.pop(f, None)
+        self._sync_mask_overlay(); self.webp_panel.sync()
+    def exit_key_delete(self):
+        if self._mask_row is None: return
+        m = self.project.masks[self._mask_row]
+        if self.cur not in (m.dest_keys or {}) or len(m.dest_keys) < 2: return
+        self.project.checkpoint(); del m.dest_keys[self.cur]; self.webp_panel.sync()
+    def exit_pin(self):
+        if self._mask_row is None: return
+        m = self.project.masks[self._mask_row]
+        from .webpclip.core import interp
+        keys = {int(k): list(v) for k, v in (m.dest_keys or {}).items()}
+        r = interp(keys, self.cur) if keys else None
+        if not r: return
+        self.project.checkpoint()
+        m.dest_keys = {self.cur: tuple(int(round(v)) for v in r)}
+        self.webp_panel.sync()
+    def goto_weak(self, direction):
+        if self._mask_row is None: return
+        m = self.project.masks[self._mask_row]
+        from .webpclip.core import next_weak
+        scores = {int(k): float(v) for k, v in (m.track_score or {}).items()}
+        for i in m.lost or ():
+            scores.setdefault(int(i), 0.0)
+        f = next_weak({"track_score": scores}, self.cur, direction)
+        if f is None:
+            self.set_status("확인 필요한 곳이 없습니다"); return
+        self.goto(int(f))
+    def goto_audio_event(self, direction):
+        marks = list(getattr(self, "audio_marks", []) or [])
+        if not marks:
+            self.set_status("소리 이벤트가 없습니다. 파형 분석을 먼저 하세요"); return
+        if direction > 0:
+            nxt = next((i for i in marks if i > self.cur), None)
+        else:
+            nxt = next((i for i in reversed(marks) if i < self.cur), None)
+        if nxt is None:
+            self.set_status("더 이상 소리 이벤트가 없습니다"); return
+        self.goto(int(nxt))
+    def track_between(self):
+        i = self._mask_row
+        if i is None or not self.project.frames or self.is_busy(): return None
+        m = self.project.masks[i]
+        from .webpclip.core import manual_keys
+        pseudo = {"keys": {int(k): list(v) for k, v in (m.boxes or {}).items()},
+                  "track_score": {int(k): float(v) for k, v in (m.track_score or {}).items()}}
+        A = self.cur
+        nxt = [k for k in manual_keys(pseudo) if k > A]
+        if not nxt:
+            self.set_status("다음 직접 놓은 키가 없습니다"); return None
+        B = nxt[0]
+        frames = list(self.project.frames); mask = m.copy()
+        def job(ctx):
+            from .masks import track_mask
+            from .webpclip.core import blend_tracks
+            fwd = mask.copy(); fwd.smooth = False; fwd.fixed_size = mask.fixed_size; fwd.start, fwd.end = A, B
+            back = mask.copy(); back.smooth = False; back.fixed_size = mask.fixed_size; back.start, back.end = A, B
+            fw, lost_f = track_mask(frames, fwd, A, 1, ctx)
+            bw, lost_b = track_mask(frames, back, B, -1, ctx)
+            def pack(boxes, lost):
+                lost = set(int(x) for x in lost)
+                rects, scores = {}, {}
+                for f, box in boxes.items():
+                    f = int(f)
+                    if A < f < B:
+                        rects[f] = list(box)
+                        scores[f] = 0.0 if f in lost else 1.0
+                return {"rects": rects, "scores": scores}
+            return blend_tracks(pack(fw, lost_f), pack(bw, lost_b), A, B)
+        def done(res):
+            if not (0 <= i < len(self.project.masks)): return
+            self.project.checkpoint()
+            mm = self.project.masks[i]
+            for f, rect in res["rects"].items():
+                mm.boxes[int(f)] = tuple(int(round(x)) for x in rect)
+            for f, sc in res["scores"].items():
+                mm.track_score[int(f)] = float(sc)
+            mm.track_score.pop(A, None); mm.track_score.pop(B, None)
+            if mm.smooth:
+                from .webpclip.core import smooth_keys
+                tmp = {"keys": {int(k): [float(x) for x in v] for k, v in mm.boxes.items()}}
+                smooth_keys(tmp, A, B, 9)
+                for f, rect in tmp["keys"].items():
+                    if A < int(f) < B:
+                        mm.boxes[int(f)] = tuple(int(round(x)) for x in rect)
+            self._load_mask_fields(); self._sync_mask_overlay(); self.webp_panel.sync()
+            self.set_status(f"키 사이 {A}–{B} 추적")
+        return self.run_task("키 사이 추적", job, done, lambda msg: self.set_status(str(msg)))
+    def analyze_webp_audio(self):
+        if not self.project.frames or not self.source_path:
+            self.set_status("소리 분석은 원본 파일을 연 뒤에 할 수 있습니다"); return None
+        if self.is_busy(): return None
+        self.webp_panel._push_audio()
+        path, n = self.source_path, len(self.project.frames)
+        fps = float(self.webp_opts.get("src_fps") or self._project_fps())
+        rise, floor = self.webp_opts["rise"], self.webp_opts["floor"]
+        def job(ctx):
+            ctx.step(0, 1, "파형 분석 중")
+            from .audioevents import suggest_starts
+            return suggest_starts(path, fps, n, rise=rise, floor=floor, window=1, gap=0.4)
+        def done(ev):
+            self._show_audio_starts(ev)
+            self.webp_panel.audio_label.setText(f"소리 이벤트 {len(self.audio_marks)}개" if self.audio_marks else "소리 트랙이 없거나 이벤트가 없습니다.")
+        return self.run_task("파형 분석", job, done)
+    def _webp_snapshot(self):
+        from .core import Project, Frame
+        snap = Project([Frame(f.image, f.delay) for f in self.project.frames])
+        snap.clips = [c.copy() for c in self.project.clips]
+        snap.masks = [m.copy() for m in self.project.masks]
+        snap.slowmos = [tuple(s) for s in self.project.slowmos]
+        snap.freezes = [tuple(z) for z in self.project.freezes]
+        snap.export_crop = None if self.project.export_crop is None else tuple(self.project.export_crop)
+        return snap
+    def export_webp_clip(self, path=None, notify=False):
+        if not self.project.frames or self.is_busy(): return None
+        self.webp_panel._push_export(); self.webp_panel._push_audio()
+        a, b = self.webp_panel.current_range()
+        src = float(self.webp_opts.get("src_fps") or self._project_fps())
+        export = dict(self.webp_opts["export"])
+        snap = self._webp_snapshot()
+        if path is None:
+            from .webpclip.export import suggested_name, clip_dict
+            from .webpclip.core import ranges as clip_ranges
+            name = suggested_name(getattr(self, "source_path", "") or "", clip_ranges(clip_dict(snap, src, export, a, b)))
+            start = self._start_dir() or ""
+            path, _ = QFileDialog.getSaveFileName(self, "WebP 내보내기", os.path.join(start, name), "WebP (*.webp)")
+            if not path: return None
+        if not str(path).lower().endswith(".webp"): path += ".webp"
+        def job(ctx):
+            from .webpclip.export import export_clip, choose_fit
+            ex = dict(export)
+            target = float(ex.get("targetMB") or 0) * 1048576
+            note = ""
+            if target > 0:
+                fit = choose_fit(snap.frames, snap, src, ex, a, b, target, ctx)
+                if fit.get("cand"):
+                    ex.update(fit["cand"])
+                    note = "맞춤" if fit.get("fits") else "목표 초과"
+            result = export_clip(snap.frames, snap, src, ex, a, b, path, ctx)
+            result["note"] = note
+            result["used"] = ex
+            return result
+        def done(res):
+            used = res.get("used") or {}
+            for key in ("width", "quality", "fps"):
+                if key in used: self.webp_opts["export"][key] = used[key]
+            self.webp_panel.sync()
+            mb = res["size"] / 1048576
+            tail = f" · {res['note']}" if res.get("note") else ""
+            self.set_status(f"내보내기 완료: {os.path.basename(res['path'])} · {res['width']}×{res['height']} · {res['frames']}프레임 · {mb:.2f}MB{tail}")
+            if notify: self._saved_notice(res["path"], mb, tail)
+        return self.run_task("WebP 내보내기", job, done, lambda msg: self.set_status(str(msg)))
+    def fit_webp_target(self):
+        if not self.project.frames or self.is_busy(): return None
+        self.webp_panel._push_export()
+        target_mb = float(self.webp_opts["export"].get("targetMB") or 0)
+        if target_mb <= 0:
+            self.webp_opts["fit_label"] = "목표 크기를 먼저 정하세요."
+            self.webp_panel.fit_label.setText(self.webp_opts["fit_label"]); return None
+        a, b = self.webp_panel.current_range()
+        src = float(self.webp_opts.get("src_fps") or self._project_fps())
+        export = dict(self.webp_opts["export"])
+        snap = self._webp_snapshot()
+        def job(ctx):
+            from .webpclip.export import choose_fit
+            return choose_fit(snap.frames, snap, src, export, a, b, target_mb * 1048576, ctx)
+        def done(res):
+            cand = res.get("cand")
+            if not cand:
+                self.webp_opts["fit_label"] = "후보가 없습니다."; self.webp_panel.sync(); return
+            self.webp_opts["export"].update(cand)
+            desc = f"너비 {cand['width'] or '원본'} · 화질 {cand['quality']} · {cand['fps']}fps"
+            prefix = "맞춤: " if res.get("fits") else "가장 작게 해도 넘음: "
+            self.webp_opts["fit_label"] = prefix + f"{desc} → {(res['size'] / 1048576):.1f}MB"
+            self.webp_panel.sync()
+            self.set_status(self.webp_opts["fit_label"])
+        return self.run_task("크기에 맞추기", job, done, lambda msg: self.set_status(str(msg)))
     def show_shortcuts(self):
         lines = []
         for a in self.actions_.values():
@@ -1474,17 +1803,20 @@ class EditorWindow(QMainWindow):
         label = name or f"클립 {len(self.project.clips) + 1}"
         self.project.add_clip(label, a, b, True)
         self._refresh_clips(); self.clip_list.setCurrentRow(len(self.project.clips) - 1)
+        if hasattr(self, "webp_panel"): self.webp_panel.sync()
         self.set_status(f"클립 추가: {label} ({a + 1}–{b + 1})")
         return self.project.clips[-1]
     def delete_clip(self):
         i = self.clip_list.currentRow()
         if i < 0: return
         self.project.remove_clip(i); self._refresh_clips()
+        if hasattr(self, "webp_panel"): self.webp_panel.sync()
     def move_clip(self, delta):
         i = self.clip_list.currentRow()
         if i < 0: return
         if self.project.move_clip(i, delta):
             self._refresh_clips(); self.clip_list.setCurrentRow(i + delta)
+            if hasattr(self, "webp_panel"): self.webp_panel.sync()
     def rename_clip(self, index, name):
         if not (0 <= index < len(self.project.clips)): return
         self.project.rename_clip(index, name); self._refresh_clips()
@@ -1726,6 +2058,10 @@ class EditorWindow(QMainWindow):
             p.mode = "mask"; p.darken = False
             if self.project.masks and self._mask_row is None: self._mask_row = 0
             self._load_mask_fields(); self._sync_mask_overlay()
+        elif k == "webpclip":
+            p.mode = "mask"; p.darken = False
+            if self.project.masks and self._mask_row is None: self._mask_row = 0
+            self._load_mask_fields(); self._sync_mask_overlay(); self.webp_panel.sync()
         elif k == "transition":
             self._prepare_transition_bounds()
             self._refresh_transition_clips()
@@ -2304,23 +2640,45 @@ class EditorWindow(QMainWindow):
     def short_delays(self):
         return sum(1 for f in self.project.frames if f.delay < 20)
     def is_playing(self): return self.play_timer.isActive()
+    def play_order(self):
+        """체크가 켜져 있고 구간 목록이 있으면 그 순서. 아니면 타임라인 전체."""
+        n = len(self.project.frames)
+        use = bool(self.webp_opts.get("play_segments")) and bool(self.project.clips)
+        if hasattr(self, "webp_panel"):
+            use = self.webp_panel.seg_play.isChecked() and bool(self.project.clips)
+        if not use:
+            return list(range(n))
+        order = []
+        for c in self.project.clips:
+            a, b = sorted((int(c.start), int(c.end)))
+            a = max(0, min(a, n - 1)); b = max(0, min(b, n - 1))
+            if b >= a:
+                order.extend(range(a, b + 1))
+        return order or list(range(n))
     def toggle_play(self):
         if self.play_timer.isActive(): self.stop_play(); return
         fr = self.project.frames
         if len(fr) < 2: return
         n20 = self.short_delays()
         if n20: self.set_status(f"⚠ 20ms 미만 지연 {n20}개 — GIF는 10ms 단위이고 브라우저는 보통 100ms로 늘려 재생합니다")
+        self._play_order = self.play_order()
         self._cum = []; t = 0
-        for f in fr: t += max(10, f.delay); self._cum.append(t)
-        self._play_start = self.cur; self._play_off = self._cum[self.cur - 1] if self.cur else 0
+        for i in self._play_order:
+            t += max(10, fr[i].delay); self._cum.append(t)
+        try:
+            pos = self._play_order.index(self.cur)
+        except ValueError:
+            pos = 0
+        self._play_start = self._play_order[pos]; self._play_off = self._cum[pos - 1] if pos else 0
         self._ensure_pcache(); self.play_log = []; self.play_clock.start(); self.play_timer.start()
     def stop_play(self):
         self.play_timer.stop(); self.show_frame(self.cur)
     def _play_tick(self):
         fr = self.project.frames
-        if len(fr) != len(self._cum): self.stop_play(); return
+        order = getattr(self, "_play_order", None) or list(range(len(fr)))
+        if len(order) != len(self._cum) or len(fr) < 1: self.stop_play(); return
         total = self._cum[-1]; e = self.play_clock.elapsed(); t = (self._play_off + e) % total
-        i = bisect.bisect_right(self._cum, t)    # 누적 지연 기준 → 늦으면 자동으로 프레임 건너뜀
+        i = order[min(bisect.bisect_right(self._cum, t), len(order) - 1)]    # 누적 지연 기준 → 늦으면 자동으로 프레임 건너뜀
         if i != self.cur:
             self._show_fast(i); self.play_log.append((e, i))
             for wdg in (self.slider, self.timeline): wdg.blockSignals(True)

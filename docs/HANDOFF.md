@@ -33,8 +33,7 @@ main 순서(새 것부터, 이 수정 부모까지): `77cbb90` #21 → `c44f5c9`
 - 릴리스는 `v*` 태그를 푸시하면 `.github/workflows/release.yml`이 만든다. 그 워크플로는 고치지 않는다.
 - 텍스트 인트로/아웃트로(`text-anim`: fade, slide, typewriter)는 #18에서 백로그에서 뺐다. 다시 넣지 않는다. 코드에 그 기능은 없다.
 - 주인이 뺀 항목은 AGENTS.md의 never-re-add 규칙에만 적혀 있다. 다시 넣지 않는다.
-- 주인에게는 참조 앱을 분석해도 된다는 제작사 허락이 있다. 분석 산출물은 주인 PC의 Desktop 폴더에만 둔다. 커밋하지 않는다.
-- 클린룸: 참조 앱 이름을 저장소 어디에도 쓰지 않는다. 에셋과 코드를 복사하지 않는다.
+- 주인에게는 참조 앱을 분석해도 된다는 제작사 허락이 있다. 분석 산출물은 주인 PC의 Desktop 폴더에만 두고 저장소에 넣지 않는다. 참조 앱의 코드와 에셋은 복사하지 않는다.
 - 배포 exe는 언팩하지 않았다. 라이선스·체험판·서명 검사는 분석하지 않았다. 그 알고리즘을 다루지 않는다.
 - #19 녹화 프레임 이동·크기 UX는 Windows에서 스모크 실행만 됐다. 주인은 아직 확인하지 않았다. #19 본문의 자동 검사는 Linux 오프스크린 `120/120` `62/62` `40/40` `15/15` `42/42` `10/10` `33/33`이다.
 
@@ -50,16 +49,16 @@ main 순서(새 것부터, 이 수정 부모까지): `77cbb90` #21 → `c44f5c9`
 | `smoke_test_crash.py` | 15 |
 | `smoke_test_export.py` | 42 (ffmpeg에 libaom-av1이 없으면 40) |
 | `smoke_test_masks.py` | 10 |
-| `smoke_test_webpclip.py` | 33 |
+| `smoke_test_webpclip.py` | 72 |
 | `smoke_test_transitions.py` | 62 |
 | `smoke_test_camera.py` | 62 |
 
-합계 446. 예전에 적힌 70/64/40/15는 v1.1.x 기준이라 현재 파일과 맞지 않는다. 돌리는 집합도 셋이다.
+합계 485. 예전에 적힌 70/64/40/15는 v1.1.x 기준이라 현재 파일과 맞지 않는다. 돌리는 집합도 셋이다.
 
 - `run_tests.bat`: 9개 전부. 마지막이 `smoke_test_camera.py`다.
 - `scripts/bootstrap_agent.sh`, `scripts/bootstrap_agent.ps1`: 앞 4개만. `OVERALL PASS`는 export/masks/webpclip/transitions/camera를 포함하지 않는다. import 검사도 `cv2`와 `keyboard`를 보지 않는다.
 - `.github/workflows/release.yml`: 예전 6개(`smoke_test_crash.py`, `smoke_test_transitions.py`, `smoke_test_camera.py`는 없음). 실패하면 `exit $fail`로 빌드를 막는다. `::warning::`를 찍지만 비차단이 아니다. 태그 push `v*`만. 이 파일은 고치지 않았다.
-- `.github/workflows/ci.yml`: `pull_request`(대상 `main`)와 `push`(main)와 `workflow_dispatch`. 러너 **ubuntu-latest**, Python 3.12, `requirements.txt` 그대로(`PySide6>=6.5,<6.9`), pip 캐시. `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. 9개 전부, 기대 줄은 `120/120` `62/62` `40/40` `15/15` `42/42` `10/10` `33/33` `62/62` `62/62`(8번째는 `smoke_test_transitions.py`, 9번째는 `smoke_test_camera.py`). 개수가 다르거나 종료 코드가 0이 아니면 잡이 실패한다. 각 스위트 stdin은 `/dev/null`이다. WebM `subprocess.run`이 stdin을 닫지 않아, 터미널을 물려받으면 `SIGTTIN`으로 멈추고 열린 stdin이면 읽다 멈춘다. imageio-ffmpeg에 `libaom-av1`·`libx264`·`libvpx`·`libvpx-vp9`가 없으면 distro `ffmpeg`를 설치하고 `IMAGEIO_FFMPEG_EXE`를 둔다. export의 "인코더 없음" 분기는 실패 체크라 40으로 통과시키지 않는다. 빌드·릴리스 업로드는 하지 않는다. windows-latest는 release.yml에만 둔다. PR마다 PySide6+OpenCV를 윈도우에서 한 번 더 받지 않기 위해서다. 7개 오프스크린은 리눅스에서 이미 통과한 기록이 있다. 결과 줄 검사는 `grep -a`다. export 로그에 APNG tEXt NUL이 있어, `-a` 없이는 grep이 바이너리로 보고 `42/42` 줄을 숨긴다. 첫 녹색 런은 [41332687797](https://github.com/Baegovda/BongGIF/actions/runs/41332687797) (success). 런 시각 2026-11-01T17:40:38Z–17:41:45Z (67초). 잡 `smoke (ubuntu)` 17:40:41Z–17:41:44Z (1분 3초). 스모크 단계 36초. PySide6 6.8.3. 번들 ffmpeg에 libaom-av1이 있어 distro ffmpeg는 쓰지 않았다. 바로 앞 [41332512818](https://github.com/Baegovda/BongGIF/actions/runs/41332512818)은 7개 결과가 모두 N/N이었는데 그 NUL 때문에 실패했다.
+- `.github/workflows/ci.yml`: `pull_request`(대상 `main`)와 `push`(main)와 `workflow_dispatch`. 러너 **ubuntu-latest**, Python 3.12, `requirements.txt` 그대로(`PySide6>=6.5,<6.9`), pip 캐시. `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. 9개 전부, 기대 줄은 `120/120` `62/62` `40/40` `15/15` `42/42` `10/10` `72/72` `62/62` `62/62`(8번째는 `smoke_test_transitions.py`, 9번째는 `smoke_test_camera.py`). 개수가 다르거나 종료 코드가 0이 아니면 잡이 실패한다. 각 스위트 stdin은 `/dev/null`이다. WebM `subprocess.run`이 stdin을 닫지 않아, 터미널을 물려받으면 `SIGTTIN`으로 멈추고 열린 stdin이면 읽다 멈춘다. imageio-ffmpeg에 `libaom-av1`·`libx264`·`libvpx`·`libvpx-vp9`가 없으면 distro `ffmpeg`를 설치하고 `IMAGEIO_FFMPEG_EXE`를 둔다. export의 "인코더 없음" 분기는 실패 체크라 40으로 통과시키지 않는다. 빌드·릴리스 업로드는 하지 않는다. windows-latest는 release.yml에만 둔다. PR마다 PySide6+OpenCV를 윈도우에서 한 번 더 받지 않기 위해서다. 7개 오프스크린은 리눅스에서 이미 통과한 기록이 있다. 결과 줄 검사는 `grep -a`다. export 로그에 APNG tEXt NUL이 있어, `-a` 없이는 grep이 바이너리로 보고 `42/42` 줄을 숨긴다. 첫 녹색 런은 [41332687797](https://github.com/Baegovda/BongGIF/actions/runs/41332687797) (success). 런 시각 2026-11-01T17:40:38Z–17:41:45Z (67초). 잡 `smoke (ubuntu)` 17:40:41Z–17:41:44Z (1분 3초). 스모크 단계 36초. PySide6 6.8.3. 번들 ffmpeg에 libaom-av1이 있어 distro ffmpeg는 쓰지 않았다. 바로 앞 [41332512818](https://github.com/Baegovda/BongGIF/actions/runs/41332512818)은 7개 결과가 모두 N/N이었는데 그 NUL 때문에 실패했다.
 
 Linux 오프스크린 결과(2026-11-02, Python 3.12.3, `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`):
 
@@ -120,7 +119,37 @@ priority 0 `export-rebirth`, `transitions`, `zoom-camera`는 done이다. 아래 
 ## 권장
 GitHub 저장소 설정에서 **Automatically delete head branches** (`deleteBranchOnMerge`)를 켜는 것은 주인 승낙 뒤에 한다. 지금은 false다. 이 작업 시작 때 머지된 `cursor/docs-v170-align-dcba`와 `cursor/drop-owner-backlog-f469`를 지웠다. 그 뒤 원격은 `main`뿐이었다.
 
+## WebP Clip 패리티 (https://webp-clip.vercel.app/)
+
+공개 파일은 `app.js`, `core.js`, `render.js`, `mp4.js`, `tracker.js`, `style.css`다. 페이지가 가리키는 별도 GitHub 저장소는 없다. 비교 기준은 2026-11-02에 받은 그 파일이다. `parity_estimate_pct` 88은 재측정하지 않았다.
+
+| 웹 기능 | BongGIF 이전 | 이후 |
+|---|---|---|
+| 영상 열기·드래그, 빈 안내 | 편집기 드롭·Ctrl+O. 구간 선택 창이 먼저 | 그대로. 데스크톱은 편집 프레임으로 불러온 뒤 WebP 클립 패널을 연다 |
+| 데모 영상 버튼 | 없음 | 없음. `demo.mp4`를 받지 않는다 |
+| 오디오 감도 12 dB, 최소 -45 dB, 창 1초, 간격 0.4초 | `소리로 시작점`만. 창 0.4초·간격 0.35초 | 패널 기본값이 웹과 같다. `파형 분석`이 그 값으로 찾는다. 예전 버튼의 창·간격은 그대로다 |
+| 재생 소리·볼륨 50% | 프레임 재생만. 소리 없음 | 체크와 50%를 저장한다. 미리보기는 여전히 소리가 없다 |
+| 원본 FPS 수정 | 프레임 지연으로만 추정 | `원본 FPS` 칸. 비우면 자동, 고치면 그 값을 계획에 쓴다 |
+| 마스크 효과 모자이크·블러·박스·확대·포탈, 기본 모자이크·강도 12 | 단색·모자이크·흐림·확대·포털. 추가 시 단색 | WebP 클립 목록 이름이 웹과 같다. 빈 곳 드래그는 모자이크·강도 12. 예전 마스크 패널의 단색 추가는 남김 |
+| 모양 사각형/타원, 여백, 확대 배율 2, 테두리 2px, 포탈 출구 | 사각형만. 확대는 강도/8. 포탈은 출구 하나 | 패널에 같은 칸. 내보내기·효과 미리보기가 그 값을 그린다 |
+| 키프레임 K / Shift+K / , / . / 이전·이후 삭제 | K·Shift+K만 | 같은 단축키와 버튼 |
+| 추적: 떨림 완화·박스 크기 고정 기본 켜짐, 앞/뒤/중지 | CSRT. 흔들림 줄이기는 기본 꺼짐. 이동 평균 | 웹 기본은 켜짐. 완화는 Savitzky–Golay 창 9. 크기 고정은 추적 후 가로·세로를 유지. 엔진은 CSRT |
+| ↔ 키 사이, 확인 필요 W / Shift+W | 없음 | 양방향 추적 후 `blend_tracks`. 점수 0.6 미만과 놓친 프레임으로 이동. 템플릿 추적 코드는 `webpclip/tracker.py`에 남아 있고 버튼은 CSRT를 쓴다 |
+| 구간 목록, 추가·갱신·순서·삭제, 비면 시작~끝 | 클립 목록. 체크한 것만 움짤로 저장 | 같은 목록·같은 문구. 내보내기는 목록 전체 순서. 체크 움짤은 예전 그대로 |
+| 재생할 때 목록 순서로 이어서 (기본 켜짐) | 타임라인 순서만 | 체크가 켜지고 구간이 있으면 Space가 그 순서로 재생 |
+| 슬로우모션 기본 0.5×, S로 시작·끝, Esc 취소, 삭제 | S가 0.5로 고정. 지연을 프레임에 굽는다. 목록 없음 | 배속 칸 0.5. 목록·삭제. WebP 계획은 웹 `outputFrames`와 같다. 지워도 이미 길어진 GIF 지연은 되돌리지 않는다 |
+| 정지 기본 1.5초, P로 토글 | P가 1.5초를 지연으로 굽기만 함 | 초 단위 칸, 버튼 문구가 웹과 같이 바뀐다. WebP는 그 프레임을 반복 |
+| 내보내기 FPS=min(원본,60), 속도 1, 너비 0=원본, 화질 90(40–100), 무한/1회, 목표 MB 0 | `이 설정으로 WebP 저장`은 화질 95, 전체 프레임, EXIF | WebP 클립 내보내기가 같은 기본값. 부분 프레임(변경 없으면 시간만 합침), 루프 0, EXIF 없음. 파일 이름 `stem_시작-끝.webp` 또는 `stem_N구간.webp` |
+| 크기에 맞추기, 같은 화질 사다리, 목표의 92% | GIF 쪽 이진 탐색만 | 같은 사다리. 웹은 표본으로 크기를 추정하고, 데스크톱은 후보를 실제로 인코딩해 고른다 |
+| 효과 미리보기·테두리 H·자르기 C·맞춤 F | 마스크는 테두리만. H/C/F는 있음 | 패널을 연 채 멈춰 있으면 효과를 그려 보여 준다. 재생 중에는 캐시 화면이라 효과를 다시 그리지 않는다. C는 편집 자르기, 저장 전용 자르기는 마스크 패널의 체크 |
+| 단축키 표의 나머지 (Space, 화살표, I/O, Delete, Ctrl+Z/Y, Ctrl+E) | 이미 있음. Ctrl+E는 저장 대화상자 | 그대로. Ctrl+E는 형식 선택 저장이고, WebP만 받으려면 패널의 WebP 내보내기 |
+| 개발자 한마디 → 디스코드 | 의견은 오류 보고 경로. 웹훅은 없음 | 그대로. 디스코드 주소는 넣지 않았다 |
+| 타임라인 휠 확대, 우클릭 이동 | 미리보기 휠·우클릭 이동은 있음 | 타임라인 휠 확대는 없다 |
+| 박스 8핸들로 크기 조절 | 드래그하면 사각형을 다시 그린다 | 그대로. 핸들 히트는 웹만 |
+| MP4/MKV 헤더로 FPS | ffmpeg probe | 그대로 |
+
 ## Session log (append newest first)
+- 2026-11-02 (KST): WebP Clip 패리티. 위 표. 명령 막대 `WebP 클립`. `smoke_test_webpclip.py` 33→72. 문서에서 clean-room 규칙·문구를 뺐다. 라이선스·체험·서명 검사는 하지 않았다는 사실, 분석 산출물은 저장소 밖, 참조 앱 코드·에셋은 복사하지 않는다는 사실은 남겼다. never-re-add 목록은 그대로다. 줌(#24) 위에 리베이스했다. 버전 1.7.0. 태그 없음. 다음 todo는 `watermark`.
 - 2026-11-02 (KST): 편집에 줌을 넣었다. 부모 `50f4137`(#23, 2026-11-02T03:37:23Z). 명령 막대 **줌**. 시작·끝 프레임과 시작·끝 사각형. 이징은 일정, 천천히 시작, 천천히 끝, 부드럽게. 미리보기 슬라이더. 캔버스에서 시작 영역이나 끝 영역을 드래그한다. 화면 비율은 유지되고 결과 크기는 원본과 같다. 적용은 작업 스레드에서 그 구간만 다시 그린다. 프레임 수와 지연은 그대로다. 실행취소. GIF는 편집기 저장으로, WebP·APNG는 확대된 프레임이 맞고, MP4·WebM·AVIF는 파일이 만들어진다. `smoke_test_camera.py` 62. 기존 8개도 통과(120/62/40/15/42/10/33/62). `run_tests.bat`와 `ci.yml`에 9번째로 넣었다. `release.yml`은 고치지 않았다. 버전 1.7.0, 태그 없음. README `## 미공개`. 다음 작업은 `watermark`. #19 UX 주인 확인은 아직 없다. parity 88은 재측정 아님. 주인은 `ci / smoke (ubuntu)`가 녹색이면 이 PR을 스쿼시 머지하고 헤드를 지우라고 했다.
 - 2026-11-02 (KST): 편집에 전환을 넣었다. 부모 `aeef3ec`(#22). 명령 막대 **전환**. 페이드·슬라이드·와이프. 슬라이드와 와이프는 새 화면이 들어오는 방향(왼쪽·오른쪽·위·아래). 길이(ms)와 프레임 수. 미리보기 슬라이더. 적용은 작업 스레드에서 N장을 구워 타임라인에 넣고, 바로 앞 클립이 그 프레임을 포함한다. 실행취소. GIF는 편집기 저장으로, WebP·APNG·MP4는 프레임 수가 맞고, WebM·AVIF는 파일이 만들어진다. `smoke_test_transitions.py` 62. 기존 7개도 통과(120/62/40/15/42/10/33). `run_tests.bat`와 `ci.yml`에 8번째로 넣었다. `release.yml`은 고치지 않았다. 버전 1.7.0, 태그 없음. README `## 미공개`. 다음 작업은 `zoom-camera`. #19 UX 주인 확인은 아직 없다. parity 88은 재측정 아님. 시작 때 머지된 `cursor/docs-v170-align-dcba`와 `cursor/drop-owner-backlog-f469`를 지웠다. 주인은 `ci / smoke (ubuntu)`가 녹색이면 이 PR을 스쿼시 머지하고 헤드를 지우라고 했다.
 - 2026-11-02 (KST): 문서만. 부모 `77cbb90`(#21). 주인이 백로그 4건을 영구 제외했다. 이름은 AGENTS.md never-re-add 규칙에만 적는다. 남은 todo는 6개, 번호는 1부터 다시 매겼다. 다음 작업은 #1 `transitions`. 같은 세션에서 #19 UX 주인 확인은 아직 없다. `parity_estimate_pct` 88은 재측정 아님. 코드·`version.py`·태그는 그대로. 세션 시작 시 origin 헤드는 `main`(`77cbb90`)과 `cursor/docs-v170-align-dcba`(`496a645`)뿐이었다. 주인은 `ci / smoke (ubuntu)`가 녹색이면 이 PR을 스쿼시 머지하고 그 헤드와 `cursor/docs-v170-align-dcba`를 지우라고 했다.

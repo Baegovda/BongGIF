@@ -1,7 +1,7 @@
 # BongGIF — GIF 녹화·편집기 (Windows)
 
 화면의 원하는 영역을 녹화해 바로 편집하고 GIF / WebP / MP4 / WebM / APNG / AVIF로 저장하는 데스크톱 프로그램입니다.
-(독자 구현 · Python 3.12 + PySide6 · 소스 MIT)
+(Python 3.12 + PySide6 · 소스 MIT)
 
 1.2.0 부터 저장 파이프라인은 형식마다 분리된 인코더입니다. 팔레트는 Pillow median-cut(libimagequant 없음), 영상은 ffmpeg(libx264 / libvpx / libaom)를 서브프로세스로 호출합니다. 컨테이너 관례와 라이선스는 [docs/FORMATS.md](docs/FORMATS.md).
 
@@ -9,6 +9,7 @@
 `bonggif/version.py`는 **1.7.0**이고, 공개 태그는 **v1.7.0**이다. 아래는 아직 태그가 없는 변경이다.
 - 편집 명령 막대의 **전환**에서 두 클립 사이, 또는 앞 구간 끝과 뒤 구간 시작 사이에 전환을 넣는다. 종류는 페이드, 슬라이드, 와이프이다. 슬라이드와 와이프는 새 화면이 들어오는 방향(왼쪽, 오른쪽, 위, 아래)을 고른다. 길이는 밀리초, 프레임 수는 2–60장이다. 미리보기 슬라이더로 중간 장면을 보고, 적용하면 그 프레임이 타임라인에 들어간다. 바로 앞에서 끝나는 클립은 그 프레임을 포함하므로 클립을 이어 저장해도 전환이 한 번 들어간다. 실행취소와 다시실행이 된다. GIF, WebP, MP4, WebM, APNG, AVIF 저장은 타임라인 프레임을 그대로 쓴다.
 - 편집 명령 막대의 **줌**에서 구간의 시작 영역과 끝 영역을 정하면, 그 사이로 화면이 확대·이동한다. 이징은 일정, 천천히 시작, 천천히 끝, 부드럽게이다. 미리보기 슬라이더로 중간을 보고, 캔버스 목록에서 시작 영역이나 끝 영역을 고르면 원본 위에 드래그해 사각형을 고친다. 화면 비율은 유지되고 결과 크기는 원본과 같다. 적용하면 그 구간 프레임만 바뀌고, 프레임 수와 지연은 그대로이며 실행취소가 된다. GIF, WebP, MP4, WebM, APNG, AVIF 저장은 바뀐 타임라인을 그대로 쓴다.
+- **WebP 클립** 패널은 https://webp-clip.vercel.app/ 와 같은 단계·기본값이다. 이벤트 감도 12 dB, 최소 크기 -45 dB, 볼륨 50%, 원본 FPS, 마스크(모자이크·블러·박스·확대·포탈, 사각형/타원), 떨림 완화와 박스 크기 고정, 구간 목록, 슬로우모션 0.5×, 정지 1.5초, WebP 내보내기(화질 90, 너비 0이면 원본, 무한 반복, 크기에 맞추기).
 
 ## 1.7.0
 현재 버전은 `bonggif/version.py`의 **1.7.0**이고, 공개 태그 **v1.7.0**과 같다.
@@ -83,7 +84,7 @@ build_exe.bat          :: venv 생성 → 의존성+PyInstaller 설치 → dist\
 - 캡처: `mss` → (선택) `dxcam` → Qt 화면 캡처 순으로 폴백
 
 ## 편집
-- 상단 명령 막대: 자르기 · 크기 · 그리기 · 효과 · 삽입 · 액자 · 마스크 · 전환 · 줌 | 삭제 · 구간 자르기 · 프레임 줄이기 · 시간 설정 · 10% 빠르게/느리게 · 역재생 · 요요 · 끝에 추가 · 이미지 가져오기
+- 상단 명령 막대: 자르기 · 크기 · 그리기 · 효과 · 삽입 · 액자 · 마스크 · 전환 · 줌 · WebP 클립 | 삭제 · 구간 자르기 · 프레임 줄이기 · 시간 설정 · 10% 빠르게/느리게 · 역재생 · 요요 · 끝에 추가 · 이미지 가져오기
 - 모드를 고르면 오른쪽 패널에 옵션이 나오고 `적용`/`취소`로 끝냅니다.
 - 자르기: 비율 프리셋, X/Y/W/H, 바깥 어둡게, 영역 기억 · 크기: % 프리셋, 회전/반전 · 그리기: 펜 색/굵기/불투명도
 - 효과 목록 18항목(효과 없음 포함, 필터 17: 흑백·세피아·채도·감마·색온도·선명·흐림·영역 모자이크·비네팅·만화 등) 실시간 미리보기 · 액자: 여백/색/둥근 모서리/그림자
@@ -146,6 +147,6 @@ python smoke_test_transitions.py
 ```
 `smoke_test_converter.py`는 ffmpeg `testsrc`로 테스트 영상을 만들어 구간 추출 프레임 수, fps/크기, 목표 용량, HQ 경로, WebP·MP4 출력, 영상 드롭 → 편집기 타임라인(첫 프레임 즉시 표시·1280px·30fps 기본·원본 다시 불러오기)·타임라인 구간 자르기, 구간 선택 대화상자, 작업 스레드 진행 메시지, 저장 중 이벤트 루프 응답성(타이머 틱), 저장 알림, 긴 영상의 메모리 상한, RGBA 디코드 등을 검사합니다. 일괄 변환 창은 없는지(`batch_panel` 없음, 도구 메뉴에 '일괄' 없음)도 봅니다.
 
-검사 수(성공 경로): `smoke_test.py` 120, `smoke_test_converter.py` 62, `smoke_test_updater.py` 40, `smoke_test_crash.py` 15, `smoke_test_export.py` 42, `smoke_test_masks.py` 10, `smoke_test_webpclip.py` 33, `smoke_test_transitions.py` 62. `run_tests.bat`가 여덟을 모두 돌립니다. `scripts/bootstrap_agent.sh`와 `.ps1`은 앞의 네 개만 돌립니다. 릴리스 워크플로는 바꾸지 않았다. `smoke_test_crash.py`와 `smoke_test_transitions.py`는 그 잡에 없고, 들어 있는 스모크가 실패하면 빌드를 막습니다.
+검사 수(성공 경로): `smoke_test.py` 120, `smoke_test_converter.py` 62, `smoke_test_updater.py` 40, `smoke_test_crash.py` 15, `smoke_test_export.py` 42, `smoke_test_masks.py` 10, `smoke_test_webpclip.py` 72, `smoke_test_transitions.py` 62. `run_tests.bat`가 여덟을 모두 돌립니다. `scripts/bootstrap_agent.sh`와 `.ps1`은 앞의 네 개만 돌립니다. 릴리스 워크플로는 바꾸지 않았다. `smoke_test_crash.py`와 `smoke_test_transitions.py`는 그 잡에 없고, 들어 있는 스모크가 실패하면 빌드를 막습니다.
 
 QA 스크린샷: `python qa_screens.py` → `qa_shots/*.png` (오프스크린)

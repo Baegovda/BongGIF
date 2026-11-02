@@ -4,7 +4,7 @@ Paste everything below the line into a new bot. It is self-contained. After clon
 
 ---
 
-You are working in https://github.com/Baegovda/BongGIF (Windows desktop GIF recorder/editor, Python 3.12, PySide6, ffmpeg via imageio-ffmpeg, clean-room). The owner talks in Korean. Reply in Korean, short.
+You are working in https://github.com/Baegovda/BongGIF (Windows desktop GIF recorder/editor, Python 3.12, PySide6, ffmpeg via imageio-ffmpeg). The owner talks in Korean. Reply in Korean, short.
 
 ## 1. Current state (checked 2026-11-02 against git, GitHub releases, and the code)
 
@@ -41,11 +41,11 @@ PRs #6, #8, #10, #12, and #14 were closed on 2026-10-31 without merging (superse
 
 Then `git fetch` and re-check tags, `origin` heads, and the latest release before you edit. Docs go stale.
 
-Start of a fresh clone: `bash scripts/bootstrap_agent.sh` (Windows: `scripts\bootstrap_agent.ps1`). It must print `OVERALL PASS`. That script runs four smoke tests, not seven.
+Start of a fresh clone: `bash scripts/bootstrap_agent.sh` (Windows: `scripts\bootstrap_agent.ps1`). It must print `OVERALL PASS`. That script runs four smoke tests, not eight.
 
 ## 3. Rules
 
-- Clean-room. Never write the reference app's name in code, UI, docs, commits, or PR text. Do not copy its assets or code. Icons are drawn in code (`bonggif/theme.py`).
+- No third-party reference-app code or assets are copied. Icons are drawn in code (`bonggif/theme.py`). Analysis artifacts stay off the repo.
 - The owner has the vendor's permission to analyze the reference app. Analysis artifacts live only on the owner's PC, in a folder on the Desktop. Never commit that folder, never copy it into the repo, and never ask for it to be uploaded.
 - The shipping exe was not unpacked. License, trial, and signature checks were never analyzed. Do not unpack the exe to study them. No license-bypass, keygen, or license-algorithm material.
 - Text intro/outro animation (old backlog id `text-anim`: fade, slide, typewriter) was removed in PR #18. Never re-add it. It is not in the code.
@@ -61,6 +61,8 @@ Start of a fresh clone: `bash scripts/bootstrap_agent.sh` (Windows: `scripts\boo
 ## 4. Next task
 
 `transitions` is done (fade/slide/wipe). `zoom-camera` is done (start/end rect, easing, preview, undo, constant output size, baked into the frames so every export format receives them). Do not re-add either. `smoke_test_transitions.py` and `smoke_test_camera.py` are 62 checks each and are in `run_tests.bat` and `ci.yml`. `release.yml` was not changed and does not run those suites.
+
+WebP Clip parity with https://webp-clip.vercel.app/ is done. The editor command is **WebP 클립**. The comparison table is in `docs/HANDOFF.md`. `smoke_test_webpclip.py` is 72 checks. Do not redo that panel.
 
 Do both of these. Do not start the item after watermark until watermark is done.
 
@@ -92,14 +94,14 @@ python smoke_test_updater.py    # 40
 python smoke_test_crash.py      # 15
 python smoke_test_export.py     # 42 (40 if ffmpeg has no libaom-av1; CI treats 40 as failure)
 python smoke_test_masks.py      # 10
-python smoke_test_webpclip.py   # 33
+python smoke_test_webpclip.py   # 72
 python smoke_test_transitions.py # 62
 python smoke_test_camera.py      # 62
 ```
 
 `run_tests.bat` runs all nine. Bootstrap runs the first four only. `OVERALL PASS` does not cover export, masks, webpclip, transitions, or camera.
 
-CI is `.github/workflows/ci.yml`: `pull_request` into `main`, `push` to `main`, and `workflow_dispatch`. The check is `ci / smoke (ubuntu)` on ubuntu-latest, Python 3.12, `PySide6>=6.5,<6.9`. It requires the lines `120/120` `62/62` `40/40` `15/15` `42/42` `10/10` `33/33` `62/62` `62/62` (the 8th is `smoke_test_transitions.py`, the 9th is `smoke_test_camera.py`). Each suite's stdin is `/dev/null`. The result grep is `grep -a` because the export log contains a NUL. This workflow does not build a release.
+CI is `.github/workflows/ci.yml`: `pull_request` into `main`, `push` to `main`, and `workflow_dispatch`. The check is `ci / smoke (ubuntu)` on ubuntu-latest, Python 3.12, `PySide6>=6.5,<6.9`. It requires the lines `120/120` `62/62` `40/40` `15/15` `42/42` `10/10` `72/72` `62/62` `62/62` (the 8th is `smoke_test_transitions.py`, the 9th is `smoke_test_camera.py`). Each suite's stdin is `/dev/null`. The result grep is `grep -a` because the export log contains a NUL. This workflow does not build a release.
 
 `release.yml` still runs its previous six (no crash suite, no transitions suite, no camera suite) and fails the job if any fail. Keep that file as it is.
 

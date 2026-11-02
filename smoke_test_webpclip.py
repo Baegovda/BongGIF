@@ -31,6 +31,28 @@ samples = [0.0] * 800 + [0.5] * 800
 env = envelope(samples, 8000, 10, 4)
 ok("파형 RMS", env[0] < env[1])
 ok("FPS 스냅", snap_fps(29.98) == 29.97)
+from bonggif.webpclip.core import (smooth_keys, next_weak, weak_count, blend_tracks, diff_box,
+                                   default_export_fps, export_filename, new_mask)
+sm = {"keys": {i: [i * 10, 0, 10, 10] for i in range(9)}}
+smooth_keys(sm, 0, 8, 9)
+ok("직선 키는 떨림 완화 뒤에도 직선", abs(sm["keys"][4][0] - 40) < 0.05, str(sm["keys"][4]))
+ok("떨림 완화는 끝 키를 그대로 둠", sm["keys"][0][0] == 0)
+wk = {"track_score": {0: 0.1, 1: 0.1, 5: 0.2}}
+ok("확인 필요는 지금 묶음을 건너뜀", next_weak(wk, 0, 1) == 5)
+ok("확인 필요 묶음 수", weak_count(wk) == 2)
+bl = blend_tracks({"rects": {5: [0, 0, 10, 10]}, "scores": {5: 0.9}},
+                   {"rects": {5: [80, 0, 10, 10]}, "scores": {5: 0.9}}, 0, 10)
+ok("어긋난 추적은 확인 필요 점수", bl["scores"][5] <= 0.59, str(bl["scores"]))
+same = bytes(4 * 4 * 4)
+diff = bytearray(same); diff[(3 * 4 + 2) * 4] = 20
+ok("다른 영역은 짝수 좌표", diff_box(same, diff, 4, 4) == [2, 2, 3, 4], str(diff_box(same, diff, 4, 4)))
+ok("같은 버퍼는 차이 없음", diff_box(same, same, 4, 4) is None)
+ok("내보내기 FPS 기본은 60 상한", default_export_fps(120) == 60 and default_export_fps(24) == 24)
+ok("한 구간 파일 이름", export_filename("clip", [[3, 9]]) == "clip_3-9.webp")
+ok("여러 구간 파일 이름", export_filename("clip", [[0, 1], [4, 5]]) == "clip_2구간.webp")
+nm = new_mask("마스크 1")
+ok("새 마스크 기본값", nm["effect"] == "mosaic" and nm["strength"] == 12 and nm["zoom"] == 2
+   and nm["border"] == 2 and nm["shape"] == "rect" and nm["pad"] == 0 and isinstance(nm["track_score"], dict))
 cands = fit_candidates(800, 60)
 ok("목표 용량 후보가 화질 높은 순", cands[0]["quality"] >= cands[-1]["quality"] and cands)
 from PySide6.QtWidgets import QApplication
@@ -43,6 +65,19 @@ w = EditorWindow()
 want = {"A": "클립 추가", "T": "앞으로 추적", "S": "슬로모 구간", "P": "프레임 유지", "Ctrl+E": "내보내기…", "F1": "단축키"}
 got = {a.shortcut().toString(): a.text() for a in w.actions_.values() if a.shortcut().toString()}
 ok("단축키 매핑", all(got.get(k) == v for k, v in want.items()), str({k: got.get(k) for k in want}))
+from PySide6.QtWidgets import QPushButton
+ok("WebP 클립 모드", w.mode_btns["webpclip"].text() == "WebP 클립" and w.MODES["webpclip"] == 10 and w.MODES["camera"] == 9 and w.MODES["transition"] == 8)
+pan = w.webp_panel
+ok("화질·속도·너비 기본", pan.ex_quality.value() == 90 and pan.ex_speed.value() == 1 and pan.ex_width.value() == 0)
+ok("반복·목표 기본", pan.ex_loop.currentText() == "무한 반복" and pan.ex_loop.currentData() == 0 and pan.ex_target.value() == 0)
+ok("오디오 기본값", pan.rise_in.value() == 12 and pan.floor_in.value() == -45 and pan.vol_in.value() == 50 and pan.sound_chk.isChecked())
+ok("슬로모·정지 기본", abs(pan.slow_in.value() - 0.5) < 1e-9 and abs(pan.freeze_in.value() - 1.5) < 1e-9)
+ok("추적·구간재생 기본 켜짐", pan.smooth_chk.isChecked() and pan.fix_chk.isChecked() and pan.seg_play.isChecked())
+ok("효과 이름", [pan.p_effect.itemText(i) for i in range(pan.p_effect.count())] == ["모자이크", "블러", "박스", "확대", "포탈"])
+ok("모양 이름", [pan.p_shape.itemText(i) for i in range(pan.p_shape.count())] == ["사각형", "타원"])
+btn_text = [b.text() for b in pan.findChildren(QPushButton)]
+for name in ("WebP 내보내기", "크기에 맞추기", "+ 현재 구간 추가", "여기서 시작", "현재 프레임에 추가", "파형 분석", "◀ 역방향", "추적 ▶", "↔ 키 사이"):
+    ok(f"버튼 {name}", name in btn_text)
 # 실제 인코딩이 목표보다 작아지는지 (기존 이진 탐색)
 from PIL import Image
 from bonggif.core import Frame
@@ -122,6 +157,47 @@ tiny = export_frames(noise, os.path.join(td, "tiny.gif"), colors=128, dither=Fal
                     target_mb=cap_b / 1048576, max_attempts=9)
 ok("품질·너비로 부족하면 fps를 낮춤", tiny["met"] and tiny["size"] <= cap_b and tiny["fps"] < 20,
    f"{tiny['size']} B / 한도 {cap_b} B, {tiny.get('fps')}fps, 시도 {tiny['attempts']}")
+from PySide6.QtCore import QRect, QPoint
+w.set_frames([Frame(Image.new("RGBA", (24, 16), (i * 40, 10, 20, 255)), 100) for i in range(4)])
+w.set_mode("webpclip")
+w.preview._p0 = QPoint(0, 0)
+w._mask_drag_end(QRect(2, 2, 8, 6))
+ok("빈 곳 드래그로 모자이크 마스크", bool(w.project.masks) and w.project.masks[-1].effect == "mosaic" and w.project.masks[-1].strength == 12
+   and w.project.masks[-1].fixed_size and w.project.masks[-1].smooth)
+w.sp_trim_a.setValue(1); w.sp_trim_b.setValue(2); w.add_clip()
+ok("구간 목록 형식", w.webp_panel.seg_list.count() == 1 and "0 → 1" in w.webp_panel.seg_list.item(0).text())
+w.add_clip(2, 3, name="뒤")
+w.project.clips[0].start, w.project.clips[0].end = 2, 3
+w.project.clips[1].start, w.project.clips[1].end = 0, 1
+ok("재생은 구간 목록 순서", w.play_order() == [2, 3, 0, 1])
+w.webp_panel.seg_play.setChecked(False)
+ok("구간 재생을 끄면 타임라인 전체", w.play_order() == [0, 1, 2, 3])
+w.webp_panel.seg_play.setChecked(True)
+w.project.clips.clear(); w.webp_panel.sync()
+w.goto(0); w.add_freeze_here()
+ok("정지 지점 토글 문구", w.webp_panel.freeze_btn.text() == "현재 프레임의 정지 지점 삭제")
+clip_path = os.path.join(td, "clip.webp")
+w.export_webp_clip(clip_path); w.wait_task()
+blob = open(clip_path, "rb").read()
+ok("WebP 클립 헤더", blob[:4] == b"RIFF" and blob[8:12] == b"WEBP")
+at = blob.find(b"ANIM")
+loop = int.from_bytes(blob[at + 12:at + 14], "little") if at >= 0 else -1
+ok("웹과 같은 무한 반복", at >= 0 and loop == 0, str(loop))
+ok("클립 내보내기는 EXIF를 넣지 않음", b"EXIF" not in blob)
+w.project.clips.clear(); w.project.freezes.clear()
+w.project.add_slow(0, 3, 0.5)
+w.webp_opts["export"]["fps"] = 10
+w.webp_opts["src_fps"] = 10
+from bonggif.webpclip.export import export_clip
+slow_path = os.path.join(td, "slow.webp")
+slow = export_clip(w.project.frames, w.project, 10, dict(w.webp_opts["export"]), 0, 3, slow_path)
+ok("0.5배속은 출력 프레임이 늘어남", slow["frames"] >= 7, str(slow["frames"]))
+from bonggif.webpclip.export import choose_fit
+ladder = choose_fit(w.project.frames, w.project, 10, dict(w.webp_opts["export"]), 0, 3, 80)
+ok("크기에 맞추기 사다리", bool(ladder.get("cand")) and "quality" in ladder["cand"], str(ladder.get("cand")))
+w.webp_panel.ex_target.setValue(0.5)
+w.fit_webp_target(); w.wait_task()
+ok("크기에 맞추기 버튼", "화질" in (w.webp_opts.get("fit_label") or ""), w.webp_opts.get("fit_label"))
 w.close()
 print(f"결과: {sum(c for _, c in R)}/{len(R)} 통과")
 sys.exit(0 if all(c for _, c in R) else 1)
