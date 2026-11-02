@@ -6,7 +6,7 @@ from PySide6.QtGui import QPixmap, QColor, QIcon
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QGridLayout, QLabel, QPushButton, QSlider,
                                QSpinBox, QDoubleSpinBox, QComboBox, QCheckBox, QLineEdit, QGroupBox, QDialogButtonBox,
                                QFileDialog, QListWidget, QListWidgetItem, QRadioButton, QTabWidget, QWidget, QColorDialog, QStackedWidget,
-                               QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView, QScrollArea, QButtonGroup, QFrame)
+                               QAbstractItemView, QScrollArea, QButtonGroup, QFrame)
 from .panels import QualityBox, pil_to_qimage
 
 def settings() -> QSettings:
@@ -20,7 +20,8 @@ def _ok_cancel(dlg, ok="확인"):
     bb.button(QDialogButtonBox.Ok).setText(ok); bb.button(QDialogButtonBox.Cancel).setText("취소")
     bb.button(QDialogButtonBox.Ok).setObjectName("primary"); bb.accepted.connect(dlg.accept); bb.rejected.connect(dlg.reject); return bb
 
-from .prefs import get_bool, get_int, get_str, get_list
+from .prefs import get_bool, get_int, get_str, get_list, get_shortcuts, set_shortcuts
+from .shortcuts import ShortcutTable
 
 class ColorButton(QPushButton):
     def __init__(self, color=QColor(61, 139, 253)):
@@ -224,11 +225,6 @@ class ImageImportDialog(QDialog):
     def paths(self): return [self.list.item(i).data(Qt.UserRole) for i in range(self.list.count())]
     def mode(self): return "max" if self.r_max.isChecked() else "first"
 
-SHORTCUTS = [("열기", "Ctrl+O"), ("저장", "Ctrl+S"), ("화면 녹화 / 녹화 시작·종료", "Ctrl+R / F9"), ("실행취소 / 다시실행", "Ctrl+Z / Ctrl+Y"),
-             ("재생/정지", "Space"), ("처음/이전/다음/마지막 프레임", "Home / ← / → / End"), ("프레임 삭제", "Delete"),
-             ("구간 시작/끝 지정", "I / O"), ("구간만 남기기", "Ctrl+K"), ("프레임 구간 자르기", "Ctrl+T"), ("확대/축소/맞춤", "Ctrl++ / Ctrl+- / Ctrl+0"),
-             ("클립 추가", "A"), ("클립 모두 움짤로 빼기", "Ctrl+Shift+E"), ("환경 설정", "Ctrl+,"), ("작업 취소", "Esc")]
-
 class SettingsDialog(QDialog):
     """환경 설정: 일반 · 녹화 · 편집 · 자르기 · 단축키 · GIF · WebP · WebM · MP4 · APNG·AVIF · 워터마크 · 고급 · 언어."""
     def __init__(self, parent=None):
@@ -260,9 +256,26 @@ class SettingsDialog(QDialog):
         f = page("편집"); f.addRow("영상 불러오기 최대 FPS", spin("load_fps_cap", 0, 60, 30, " fps (0=원본)")); f.addRow("영상 작업 해상도(너비)", spin("load_max_w", 0, 7680, 1280, " px (0=원본)"))
         f.addRow("메모리 경고 한도", spin("mem_limit_mb", 256, 65536, 3072, " MB")); f.addRow("실행취소 단계", spin("max_undo", 5, 200, 30))
         f = page("자르기"); f.addRow(chk("crop_remember", "마지막 자르기 영역 기억", True)); f.addRow(chk("crop_darken", "선택 영역 바깥 어둡게", True))
-        f = page("단축키"); t = QTableWidget(len(SHORTCUTS), 2); t.setHorizontalHeaderLabels(["동작", "키"]); t.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        for i, (a, k) in enumerate(SHORTCUTS): t.setItem(i, 0, QTableWidgetItem(a)); t.setItem(i, 1, QTableWidgetItem(k))
-        t.setEditTriggers(QAbstractItemView.NoEditTriggers); f.addRow(t)
+        f = page("단축키")
+        self.shortcut_table = ShortcutTable(get_shortcuts(st))
+        f.addRow(self.shortcut_table)
+        hint = QLabel("행을 고른 뒤 키 조합을 누르세요. 겹치면 그 키는 들어가지 않고 아래에 이유가 나옵니다. "
+                      "저장하면 앱 안 단축키와 녹화 전역 키가 바로 바뀝니다. 다시 시작하지 않아도 됩니다.")
+        hint.setWordWrap(True)
+        f.addRow(hint)
+        self.lbl_sc_warn = QLabel(self.shortcut_table.warning_text())
+        self.lbl_sc_warn.setObjectName("shortcutWarn")
+        self.lbl_sc_warn.setWordWrap(True)
+        self.lbl_sc_warn.setStyleSheet("color:#e0a040")
+        self.shortcut_table.warningChanged.connect(self.lbl_sc_warn.setText)
+        f.addRow(self.lbl_sc_warn)
+        row = QWidget(); rh = QHBoxLayout(row); rh.setContentsMargins(0, 0, 0, 0)
+        b_one = QPushButton("이 항목 기본값"); b_one.setObjectName("shortcutResetOne")
+        b_all = QPushButton("모두 기본값"); b_all.setObjectName("shortcutResetAll")
+        b_one.clicked.connect(self.shortcut_table.reset_current)
+        b_all.clicked.connect(self.shortcut_table.reset_all)
+        rh.addWidget(b_one); rh.addWidget(b_all); rh.addStretch(1)
+        f.addRow(row)
         f = page("GIF"); f.addRow("기본 색상 수", spin("gif_colors", 2, 256, 256)); f.addRow("품질(주석 q=)", spin("gif_quality", 1, 100, 80))
         f.addRow("기본 인코더", combo("gif_encoder", [("기본(적응 팔레트)", "pil"), ("HQ(ffmpeg)", "ffmpeg")], "pil"))
         f.addRow(chk("gif_remove_similar", "같은 픽셀은 투명하게 저장", True))
@@ -328,7 +341,16 @@ class SettingsDialog(QDialog):
         w = QWidget(); h = QHBoxLayout(w); h.setContentsMargins(0, 0, 0, 0); e = QLineEdit(get_str(self.st, key, "")); b = QPushButton("…")
         b.clicked.connect(lambda: (lambda d: d and e.setText(d))(QFileDialog.getExistingDirectory(self, "폴더 선택", e.text())))
         h.addWidget(e, 1); h.addWidget(b); self.w[key] = e; return w
+    def _shortcut_page(self) -> int:
+        for i in range(self.nav.count()):
+            if self.nav.item(i).text() == "단축키":
+                return i
+        return 0
     def accept(self):
+        if getattr(self, "shortcut_table", None) is not None and self.shortcut_table.has_conflict():
+            self.nav.setCurrentRow(self._shortcut_page())
+            self.lbl_sc_warn.setText(self.shortcut_table.warning_text() or "겹치는 단축키를 먼저 바꾸세요.")
+            return
         for k, w in self.w.items():
             if isinstance(w, QSpinBox): self.st.setValue(k, w.value())
             elif isinstance(w, QCheckBox): self.st.setValue(k, w.isChecked())
@@ -336,6 +358,20 @@ class SettingsDialog(QDialog):
             elif isinstance(w, QLineEdit): self.st.setValue(k, w.text())
         if hasattr(self, "sl_wm_opacity"):
             self.st.setValue("wm_opacity", int(self.sl_wm_opacity.value()))
+        saved = {}
+        if getattr(self, "shortcut_table", None) is not None:
+            saved = self.shortcut_table.mapping()
+            targets = [self.st]
+            parent = self.parent()
+            other = getattr(parent, "settings", None)
+            if other is not None and other is not self.st:
+                targets.append(other)
+            for target in targets:
+                set_shortcuts(target, saved)
+                target.sync()
+            apply = getattr(parent, "apply_shortcut_map", None)
+            if callable(apply):
+                apply(saved)
         super().accept()
     def _wm_browse(self):
         p, _ = QFileDialog.getOpenFileName(self, "로고 이미지", self.ed_wm_image.text(), "이미지 (*.png *.webp *.jpg *.jpeg *.bmp *.gif)")

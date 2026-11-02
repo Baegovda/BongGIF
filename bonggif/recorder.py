@@ -691,6 +691,8 @@ class RecorderWindow(QWidget):
         self._pick_phase = "idle"
         self._pick_rect = None
         self.highlight = WindowHighlight()
+        from .shortcuts import record_toggle
+        self._toggle_seq = record_toggle(_app_settings())
         self._build_bar()
         self._load_grid()
         self._layout_chrome()
@@ -702,8 +704,8 @@ class RecorderWindow(QWidget):
         self.timer = QTimer(self); self.timer.setTimerType(Qt.PreciseTimer); self.timer.setSingleShot(True); self.timer.timeout.connect(self._tick)
         self._interval_rem = 0
         self.cd_timer = QTimer(self); self.cd_timer.timeout.connect(self._cd_tick)
-        QShortcut(QKeySequence("F9"), self, activated=self.toggle)
-        QShortcut(QKeySequence("Esc"), self, activated=self._on_esc)
+        self._toggle_shortcut = QShortcut(QKeySequence(self._toggle_seq or "F9"), self, activated=self.toggle)
+        self._esc_shortcut = QShortcut(QKeySequence("Esc"), self, activated=self._on_esc)
         self._global_hotkey()
 
     def showEvent(self, e):
@@ -873,7 +875,7 @@ class RecorderWindow(QWidget):
         self.grip_bar.setPixmap(bar_icon)
         self.grip_bar.setFixedSize(bar_icon.size())
         self.grip_bar.setToolTip("도구 막대를 끌어서 이동")
-        self.btn_rec = QPushButton("● 녹화 (F9)"); self.btn_rec.clicked.connect(self.toggle)
+        self.btn_rec = QPushButton(self._rec_button_text(False)); self.btn_rec.clicked.connect(self.toggle)
         self.btn_pause = QPushButton("일시정지"); self.btn_pause.clicked.connect(self.pause); self.btn_pause.setEnabled(False)
         self.btn_stop = QPushButton("■ 정지"); self.btn_stop.clicked.connect(self.stop); self.btn_stop.setEnabled(False)
         self.btn_pick = QPushButton("창 찾기")
@@ -1430,13 +1432,43 @@ class RecorderWindow(QWidget):
         return self.mapFromGlobal(QPoint(int(round(lx)), int(round(ly))))
 
     # ---------- 녹화 ----------
+    def _rec_button_text(self, recording: bool) -> str:
+        from .shortcuts import display
+        key = display(getattr(self, "_toggle_seq", "") or "F9")
+        return ("■ 종료" if recording else "● 녹화") + f" ({key})"
+
+    def apply_record_hotkey(self, seq: str):
+        """녹화 시작·종료 키를 창 단축키와 전역 후킹에 바로 넣는다."""
+        from .shortcuts import normalize
+        self._toggle_seq = normalize(seq) or "F9"
+        if getattr(self, "_toggle_shortcut", None) is not None:
+            self._toggle_shortcut.setKey(QKeySequence(self._toggle_seq))
+        self._rebind_global()
+        if getattr(self, "btn_rec", None) is not None:
+            self.btn_rec.setText(self._rec_button_text(self.state in ("rec", "pause")))
+
+    def _rebind_global(self):
+        if getattr(self, "_kb", None):
+            try:
+                self._kb.unhook_all_hotkeys()
+            except Exception:
+                pass
+            self._kb = None
+        self._global_hotkey()
+
     def _global_hotkey(self):
         self._kb = None
+        from .shortcuts import keyboard_name
+        spec = keyboard_name(getattr(self, "_toggle_seq", "") or "F9")
+        if not spec:
+            return
         try:
             import keyboard  # 선택 사항 (Windows 전역 단축키)
-            keyboard.add_hotkey("f9", lambda: QTimer.singleShot(0, self.toggle)); self._kb = keyboard
+            keyboard.add_hotkey(spec, lambda: QTimer.singleShot(0, self.toggle))
+            self._kb = keyboard
+            self._global_spec = spec
         except Exception:
-            pass
+            self._global_spec = ""
 
     def toggle(self):
         if self.state == "idle": self.start()
@@ -1464,7 +1496,7 @@ class RecorderWindow(QWidget):
                 self._apply_lock_ui()
                 return
         self.state = "rec"; self.update(); self.btn_pause.setEnabled(True); self.btn_stop.setEnabled(True)
-        self.btn_rec.setText("■ 종료 (F9)"); self._t_last = time.perf_counter(); self._interval_rem = 0
+        self.btn_rec.setText(self._rec_button_text(True)); self._t_last = time.perf_counter(); self._interval_rem = 0
         self._apply_lock_ui()
         self._schedule()
     def _schedule(self):
@@ -1506,7 +1538,7 @@ class RecorderWindow(QWidget):
         if self.state == "rec": self._schedule()
     def stop(self):
         self.timer.stop(); self.cd_timer.stop(); self.state = "idle"; self.update()
-        self.btn_rec.setText("● 녹화 (F9)"); self.btn_pause.setEnabled(False); self.btn_stop.setEnabled(False)
+        self.btn_rec.setText(self._rec_button_text(False)); self.btn_pause.setEnabled(False); self.btn_stop.setEnabled(False)
         self.btn_pause.setText("일시정지")
         self._clear_drag()
         if self.frames: self.finished.emit(self.frames); self.frames = []
