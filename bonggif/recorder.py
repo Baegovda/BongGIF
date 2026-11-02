@@ -1486,8 +1486,23 @@ class RecorderWindow(QWidget):
         if self.state == "idle": self.start()
         elif self.state in ("rec", "pause"): self.stop()
 
+    def _hold_capture_motion(self):
+        if getattr(self, "_motion_held", False):
+            return
+        from .services import hold_motion
+        hold_motion()
+        self._motion_held = True
+
+    def _release_capture_motion(self):
+        if not getattr(self, "_motion_held", False):
+            return
+        from .services import release_motion
+        release_motion()
+        self._motion_held = False
+
     def start(self):
         self.cancel_pick()
+        self._hold_capture_motion()
         self.frames = []; self._countdown = self.sp_cd.value()
         if self._countdown > 0:
             self.state = "countdown"
@@ -1506,6 +1521,7 @@ class RecorderWindow(QWidget):
                 self.lbl.setText(f"캡처 불가: {e}")
                 self.state = "idle"
                 self._apply_lock_ui()
+                self._release_capture_motion()
                 return
         self.state = "rec"; self.update(); self.btn_pause.setEnabled(True); self.btn_stop.setEnabled(True)
         self.btn_rec.setText(self._rec_button_text(True)); self._t_last = time.perf_counter(); self._interval_rem = 0
@@ -1550,6 +1566,7 @@ class RecorderWindow(QWidget):
         if self.state == "rec": self._schedule()
     def stop(self):
         self.timer.stop(); self.cd_timer.stop(); self.state = "idle"; self.update()
+        self._release_capture_motion()
         self.btn_rec.setText(self._rec_button_text(False)); self.btn_pause.setEnabled(False); self.btn_stop.setEnabled(False)
         self.btn_pause.setText("일시정지")
         self._clear_drag()
@@ -1565,4 +1582,5 @@ class RecorderWindow(QWidget):
         if self._kb:
             try: self._kb.unhook_all_hotkeys()
             except Exception: pass
+        self._release_capture_motion()
         super().closeEvent(e)

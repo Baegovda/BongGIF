@@ -1,81 +1,191 @@
-"""다크 테마 + 직접 그린 단색 아이콘 (QPainter, 외부 이미지 없음)."""
+"""테마 + 직접 그린 단색 아이콘 (QPainter, 외부 이미지 없음).
+
+색·모서리·여백은 tokens.py. 밝은/어두운 화면과 시스템 따라가기를 지원한다.
+"""
 from __future__ import annotations
 import math
-from PySide6.QtCore import Qt, QRectF, QPointF
-from PySide6.QtGui import QPalette, QColor, QIcon, QPixmap, QPainter, QPen, QPainterPath, QPolygonF, QFont
+from PySide6.QtCore import Qt, QRectF, QPointF, QSettings
+from PySide6.QtGui import QPalette, QColor, QIcon, QPixmap, QPainter, QPen, QPainterPath, QPolygonF, QFont, QFontDatabase
+from .tokens import DARK, LIGHT, FONT_FAMILIES, FONT_PT, RADIUS, RADIUS_SM, set_current, current
 
-ACCENT = "#3d8bfd"; BG = "#1a1e27"; BG2 = "#232833"; BG3 = "#2e3542"; FG = "#e8eaef"; MUTED = "#9aa3b2"
-NAVY = "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #152033, stop:1 #1c1f27)"
-BAR = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2a3344, stop:1 #1e2430)"
-ACCENT_G = "qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3d8bfd, stop:1 #6aa6ff)"
-
-QSS = f"""
-QWidget {{ background:{BG}; color:{FG}; font-size:9pt; }}
-QMainWindow, QDialog {{ background:{NAVY}; }}
-QMainWindow::separator {{ background:{BG3}; width:1px; height:1px; }}
-QMenuBar {{ background:{BAR}; spacing:2px; padding:2px; }}
-QMenuBar::item {{ padding:4px 10px; border-radius:4px; background:transparent; }}
-QMenuBar::item:selected {{ background:#314057; }}
-QMenu {{ background:#232833; border:1px solid #3a4454; border-radius:6px; padding:4px; }}
-QMenu::item {{ padding:5px 18px; border-radius:4px; }}
-QMenu::item:selected {{ background:{ACCENT_G}; color:white; }}
-QMenu::separator {{ height:1px; background:#3a4454; margin:4px 8px; }}
-QToolBar {{ background:{BAR}; border:0; spacing:4px; padding:4px 6px; }}
-QToolButton {{ background:transparent; border:1px solid transparent; border-radius:6px; padding:4px 8px; color:{FG}; }}
-QToolButton:hover {{ background:#314057; border-color:#46556c; }}
-QToolButton:pressed, QToolButton:checked {{ background:{ACCENT_G}; color:white; border-color:#6aa6ff; }}
-QToolButton:disabled {{ color:#5c6570; }}
-QPushButton {{ background:{BG3}; border:1px solid #46556c; border-radius:6px; padding:5px 12px; }}
-QPushButton:hover {{ border-color:#6aa6ff; background:#364256; }}
-QPushButton:pressed {{ background:#24477a; }}
-QPushButton:disabled {{ color:#5c6570; border-color:#2c333d; background:#242830; }}
-QPushButton#primary {{ background:{ACCENT_G}; border-color:#6aa6ff; color:white; font-weight:600; }}
-QPushButton#primary:hover {{ background:qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #5b9bff, stop:1 #8cbcff); }}
-QPushButton#primary:disabled {{ background:#2c3848; color:#7d8794; border-color:#2c3848; }}
+def _qss(t) -> str:
+    r, rs = RADIUS, RADIUS_SM
+    return f"""
+QWidget {{ background:{t.bg}; color:{t.fg}; font-size:{FONT_PT}pt; }}
+QMainWindow, QDialog {{ background:{t.bg}; }}
+QMainWindow::separator {{ background:{t.line}; width:1px; height:1px; }}
+QMenuBar {{ background:{t.card}; spacing:2px; padding:4px; }}
+QMenuBar::item {{ padding:6px 12px; border-radius:{rs}px; background:transparent; }}
+QMenuBar::item:selected {{ background:{t.bg2}; }}
+QMenu {{ background:{t.card}; border:1px solid {t.line}; border-radius:{r}px; padding:6px; }}
+QMenu::item {{ padding:8px 16px; border-radius:{rs}px; }}
+QMenu::item:selected {{ background:{t.accent}; color:{t.on_accent}; }}
+QMenu::separator {{ height:1px; background:{t.line}; margin:6px 8px; }}
+QToolBar {{ background:{t.card}; border:0; spacing:6px; padding:6px 8px; }}
+QToolButton {{ background:transparent; border:1px solid transparent; border-radius:{rs}px; padding:6px 10px; color:{t.fg}; }}
+QToolButton:hover {{ background:{t.bg2}; border-color:{t.line}; }}
+QToolButton:pressed, QToolButton:checked {{ background:{t.accent}; color:{t.on_accent}; border-color:{t.accent}; }}
+QToolButton:disabled {{ color:{t.disabled}; }}
+QPushButton {{ background:{t.bg2}; color:{t.fg}; border:1px solid {t.line}; border-radius:{r}px; padding:8px 14px; }}
+QPushButton:hover {{ border-color:{t.accent_text}; background:{t.card}; }}
+QPushButton:pressed {{ background:{t.bg2}; }}
+QPushButton:disabled {{ color:{t.disabled}; border-color:{t.line}; background:{t.bg}; }}
+QPushButton#primary {{ background:{t.accent}; border-color:{t.accent}; color:{t.on_accent}; font-weight:600; border-radius:{r}px; padding:8px 16px; }}
+QPushButton#primary:hover {{ background:{t.accent}; }}
+QPushButton#primary:disabled {{ background:{t.bg2}; color:{t.disabled}; border-color:{t.line}; }}
 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QFontComboBox, QPlainTextEdit {{
-    background:#141820; border:1px solid #3a4454; border-radius:6px; padding:3px 6px; selection-background-color:{ACCENT}; }}
-QLineEdit:focus, QSpinBox:focus, QComboBox:focus {{ border-color:#6aa6ff; }}
-QComboBox QAbstractItemView {{ background:#232833; selection-background-color:#24477a; border-radius:4px; }}
-QTabWidget::pane {{ border:1px solid #3a4454; border-radius:8px; top:-1px; background:transparent; }}
-QTabBar::tab {{ background:#232833; color:{MUTED}; padding:7px 16px; border:1px solid #3a4454; border-bottom:0; border-top-left-radius:8px; border-top-right-radius:8px; margin-right:2px; }}
-QTabBar::tab:selected {{ background:{ACCENT_G}; color:white; border-color:#6aa6ff; }}
-QTabBar::tab:hover:!selected {{ color:{FG}; background:#2c3544; }}
-QGroupBox {{ border:1px solid #3a4454; border-radius:8px; margin-top:14px; padding:8px 6px 6px 6px; background:rgba(20,24,32,80); }}
-QGroupBox::title {{ subcontrol-origin:margin; left:10px; padding:0 4px; color:{MUTED}; }}
-QListWidget, QTableWidget, QTreeWidget {{ background:#141820; border:1px solid #3a4454; border-radius:6px; }}
-QListWidget::item {{ padding:4px 6px; border-radius:4px; }}
-QListWidget::item:selected, QTableWidget::item:selected, QTreeWidget::item:selected {{ background:#24477a; color:white; }}
-QListWidget::item:hover {{ background:#2a3342; }}
-QListWidget#settingsNav {{ background:#141820; border-radius:8px; padding:4px; }}
-QListWidget#settingsNav::item {{ padding:8px 10px; }}
-QListWidget#settingsNav::item:selected {{ background:{ACCENT_G}; color:white; }}
-QHeaderView::section {{ background:#232833; border:0; border-right:1px solid #3a4454; padding:4px; }}
-QSlider::groove:horizontal {{ height:4px; background:#3a4454; border-radius:2px; }}
-QSlider::sub-page:horizontal {{ background:{ACCENT_G}; border-radius:2px; }}
-QSlider::handle:horizontal {{ background:{FG}; width:14px; margin:-5px 0; border-radius:7px; }}
-QProgressBar {{ background:#141820; border:1px solid #3a4454; border-radius:6px; text-align:center; color:{FG}; }}
-QProgressBar::chunk {{ background:{ACCENT_G}; border-radius:5px; }}
-QStatusBar {{ background:{BAR}; }} QStatusBar QLabel {{ background:transparent; }}
+    background:{t.field}; color:{t.fg}; border:1px solid {t.line}; border-radius:{rs}px; padding:6px 8px; selection-background-color:{t.accent}; selection-color:{t.on_accent}; }}
+QLineEdit:focus, QSpinBox:focus, QComboBox:focus {{ border-color:{t.accent_text}; }}
+QComboBox QAbstractItemView {{ background:{t.card}; color:{t.fg}; selection-background-color:{t.accent}; selection-color:{t.on_accent}; border-radius:{rs}px; }}
+QTabWidget::pane {{ border:1px solid {t.line}; border-radius:{r}px; top:-1px; background:transparent; }}
+QTabBar::tab {{ background:{t.card}; color:{t.muted}; padding:8px 16px; border:1px solid {t.line}; border-bottom:0; border-top-left-radius:{r}px; border-top-right-radius:{r}px; margin-right:4px; }}
+QTabBar::tab:selected {{ background:{t.accent}; color:{t.on_accent}; border-color:{t.accent}; }}
+QTabBar::tab:hover:!selected {{ color:{t.fg}; background:{t.bg2}; }}
+QGroupBox {{ border:1px solid {t.line}; border-radius:{r}px; margin-top:16px; padding:12px 10px 10px 10px; background:{t.card}; }}
+QGroupBox::title {{ subcontrol-origin:margin; left:12px; padding:0 6px; color:{t.muted}; }}
+QListWidget, QTableWidget, QTreeWidget {{ background:{t.field}; color:{t.fg}; border:1px solid {t.line}; border-radius:{r}px; }}
+QListWidget::item {{ padding:6px 8px; border-radius:{rs}px; }}
+QListWidget::item:selected, QTableWidget::item:selected, QTreeWidget::item:selected {{ background:{t.accent}; color:{t.on_accent}; }}
+QListWidget::item:hover {{ background:{t.bg2}; }}
+QListWidget#settingsNav, QListWidget#insetList {{ background:{t.card}; border:1px solid {t.line}; border-radius:{r}px; padding:6px; }}
+QListWidget#settingsNav::item, QListWidget#insetList::item {{ padding:10px 12px; border-radius:{rs}px; }}
+QListWidget#settingsNav::item:selected, QListWidget#insetList::item:selected {{ background:{t.accent}; color:{t.on_accent}; }}
+QFrame#insetGroup {{ background:{t.card}; border:1px solid {t.line}; border-radius:{r}px; }}
+QLabel#insetTitle {{ color:{t.muted}; background:transparent; font-weight:600; }}
+QHeaderView::section {{ background:{t.card}; color:{t.muted}; border:0; border-right:1px solid {t.line}; padding:6px; }}
+QSlider::groove:horizontal {{ height:4px; background:{t.line}; border-radius:2px; }}
+QSlider::sub-page:horizontal {{ background:{t.accent}; border-radius:2px; }}
+QSlider::handle:horizontal {{ background:{t.fg}; width:16px; margin:-6px 0; border-radius:8px; }}
+QProgressBar {{ background:{t.field}; border:1px solid {t.line}; border-radius:{rs}px; text-align:center; color:{t.fg}; }}
+QProgressBar::chunk {{ background:{t.accent}; border-radius:{rs}px; }}
+QStatusBar {{ background:{t.card}; }} QStatusBar QLabel {{ background:transparent; color:{t.fg}; }}
 QScrollBar:horizontal, QScrollBar:vertical {{ background:transparent; border:0; }}
-QScrollBar::handle {{ background:#3a4454; border-radius:4px; min-height:24px; }}
-QScrollBar::handle:hover {{ background:#4d5b70; }}
-QCheckBox::indicator, QRadioButton::indicator {{ width:14px; height:14px; }}
-QToolTip {{ background:#232833; color:{FG}; border:1px solid #6aa6ff; border-radius:4px; padding:3px; }}
-#sidepanel, #cmdbar, #playbar {{ background:{BAR}; }}
-#cmdbar {{ border-bottom:1px solid #3a4454; }}
+QScrollBar::handle {{ background:{t.line}; border-radius:4px; min-height:24px; }}
+QScrollBar::handle:hover {{ background:{t.muted}; }}
+QCheckBox::indicator, QRadioButton::indicator {{ width:16px; height:16px; }}
+QToolTip {{ background:{t.card}; color:{t.fg}; border:1px solid {t.accent_text}; border-radius:{rs}px; padding:6px; }}
+#sidepanel, #cmdbar, #playbar {{ background:{t.card}; }}
+#cmdbar {{ border-bottom:1px solid {t.line}; }}
 QScrollArea {{ background:transparent; border:0; }}
-QMessageBox {{ background:#1c2230; }}
+QMessageBox {{ background:{t.bg}; }}
 """
 
-def apply_dark(app):
-    app.setStyle("Fusion")
+# 아이콘 기본색. apply_theme가 현재 글자색으로 바꾼다.
+FG = DARK.fg
+ACCENT = DARK.accent
+BG = DARK.bg
+BG2 = DARK.bg2
+BG3 = DARK.card
+MUTED = DARK.muted
+
+
+def ui_font() -> QFont:
+    font = QFont()
+    font.setFamilies(list(FONT_FAMILIES))
+    font.setPointSize(FONT_PT)
+    installed = set(QFontDatabase.families())
+    for name in FONT_FAMILIES:
+        if name in installed:
+            font.setFamily(name)
+            break
+    return font
+
+
+def _palette(t) -> QPalette:
     pal = QPalette()
-    for role, c in [(QPalette.Window, BG), (QPalette.WindowText, FG), (QPalette.Base, "#16181c"), (QPalette.AlternateBase, BG2),
-                    (QPalette.Text, FG), (QPalette.Button, BG3), (QPalette.ButtonText, FG), (QPalette.Highlight, ACCENT),
-                    (QPalette.HighlightedText, "#ffffff"), (QPalette.ToolTipBase, BG2), (QPalette.ToolTipText, FG)]:
-        pal.setColor(role, QColor(c))
-    pal.setColor(QPalette.Disabled, QPalette.Text, QColor("#5c6066")); pal.setColor(QPalette.Disabled, QPalette.ButtonText, QColor("#5c6066"))
-    app.setPalette(pal); app.setStyleSheet(QSS)
+    roles = (
+        (QPalette.Window, t.bg), (QPalette.WindowText, t.fg), (QPalette.Base, t.field),
+        (QPalette.AlternateBase, t.bg2), (QPalette.Text, t.fg), (QPalette.Button, t.card),
+        (QPalette.ButtonText, t.fg), (QPalette.Highlight, t.accent), (QPalette.HighlightedText, t.on_accent),
+        (QPalette.ToolTipBase, t.card), (QPalette.ToolTipText, t.fg), (QPalette.PlaceholderText, t.muted),
+    )
+    for role, color in roles:
+        pal.setColor(role, QColor(color))
+    pal.setColor(QPalette.Disabled, QPalette.Text, QColor(t.disabled))
+    pal.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(t.disabled))
+    pal.setColor(QPalette.Disabled, QPalette.WindowText, QColor(t.disabled))
+    return pal
+
+
+def apply_theme(app, mode: str = "dark"):
+    """mode는 dark 또는 light. 스타일시트는 한 번만 바꾼다."""
+    global FG, ACCENT, BG, BG2, BG3, MUTED
+    t = LIGHT if mode == "light" else DARK
+    set_current(t)
+    FG, ACCENT, BG, BG2, BG3, MUTED = t.fg, t.accent, t.bg, t.bg2, t.card, t.muted
+    app.setStyle("Fusion")
+    app.setPalette(_palette(t))
+    app.setStyleSheet(_qss(t))
+    app.setFont(ui_font())
+    return t
+
+
+def apply_dark(app):
+    return apply_theme(app, "dark")
+
+
+def apply_light(app):
+    return apply_theme(app, "light")
+
+
+def read_ui_theme(st) -> str:
+    """settings 키 ui_theme. 없거나 모르면 system. 기존 키는 지우지 않는다."""
+    from .prefs import get_str
+    mode = get_str(st, "ui_theme", "system").strip().lower()
+    if mode not in ("system", "dark", "light"):
+        return "system"
+    return mode
+
+
+def system_mode(app) -> str:
+    """Qt 색 구성. 모르면 지금까지의 어두운 화면."""
+    try:
+        scheme = app.styleHints().colorScheme()
+        dark = getattr(Qt, "ColorScheme", None)
+        if dark is not None and scheme == Qt.ColorScheme.Light:
+            return "light"
+        if dark is not None and scheme == Qt.ColorScheme.Dark:
+            return "dark"
+    except Exception:
+        pass
+    return "dark"
+
+
+def resolve_mode(app, saved: str) -> str:
+    if saved == "light":
+        return "light"
+    if saved == "dark":
+        return "dark"
+    return system_mode(app)
+
+
+def apply_saved_theme(app, st=None):
+    if st is None:
+        st = QSettings(QSettings.defaultFormat(), QSettings.UserScope, "BongGIF", "BongGIF")
+    mode = resolve_mode(app, read_ui_theme(st))
+    apply_theme(app, mode)
+    hints = app.styleHints()
+    if not getattr(app, "_bonggif_scheme", False):
+        try:
+            hints.colorSchemeChanged.connect(lambda *_a: _on_scheme(app))
+            app._bonggif_scheme = True
+        except Exception:
+            app._bonggif_scheme = True
+    return mode
+
+
+def _on_scheme(app):
+    st = QSettings(QSettings.defaultFormat(), QSettings.UserScope, "BongGIF", "BongGIF")
+    if read_ui_theme(st) != "system":
+        return
+    apply_theme(app, system_mode(app))
+
+
+def set_ui_theme(st, mode: str) -> str:
+    """system/dark/light만 저장한다. 다른 설정 키는 그대로 둔다."""
+    saved = mode if mode in ("system", "dark", "light") else "system"
+    st.setValue("ui_theme", saved)
+    return saved
 
 # ---------------- 아이콘 ----------------
 def _poly(p, pts): p.drawPolygon(QPolygonF([QPointF(x, y) for x, y in pts]))
@@ -189,11 +299,13 @@ def _draw(name, p: QPainter, s: float, col: QColor):
         p.drawEllipse(QRectF(u(.3), u(.3), u(.4), u(.4)))
 
 _cache = {}
-def icon(name: str, color: str = FG, size: int = 32) -> QIcon:
+def icon(name: str, color: str | None = None, size: int = 32) -> QIcon:
+    if color is None:
+        color = current().fg
     key = (name, color, size)
     if key in _cache: return _cache[key]
     ic = QIcon()
-    for c, mode in ((color, QIcon.Normal), ("#5c6066", QIcon.Disabled)):
+    for c, mode in ((color, QIcon.Normal), (current().disabled, QIcon.Disabled)):
         pm = QPixmap(size, size); pm.fill(Qt.transparent); p = QPainter(pm); p.setRenderHint(QPainter.Antialiasing)
         _draw(name, p, float(size), QColor(c)); p.end(); ic.addPixmap(pm, mode)
     _cache[key] = ic; return ic

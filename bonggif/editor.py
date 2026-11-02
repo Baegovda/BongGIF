@@ -89,13 +89,32 @@ class Preview(QLabel):
         if self._base is None: return
         s = self._scale(); w, h = self.img_size
         tw, th = max(1, int(w * s)), max(1, int(h * s))
-        pm = QPixmap.fromImage(self._base).scaled(tw, th, Qt.IgnoreAspectRatio, Qt.SmoothTransformation if s < 2 else Qt.FastTransformation)
-        if pm.width() > self.width() or pm.height() > self.height():   # 확대 시 가운데 부분만
-            pm = pm.copy((pm.width() - self.width()) // 2 if pm.width() > self.width() else 0,
-                         (pm.height() - self.height()) // 2 if pm.height() > self.height() else 0, min(pm.width(), self.width()), min(pm.height(), self.height()))
-            self._crop_off = ((tw - pm.width()) / 2 / s, (th - pm.height()) / 2 / s)
-        else: self._crop_off = (0, 0)
-        p = QPainter(pm); p.scale(s, s); p.translate(-self._crop_off[0], -self._crop_off[1])
+        from .hidpi import scaled_pixmap, widget_dpr
+        dpr = widget_dpr(self)
+        pm = scaled_pixmap(self._base, tw, th, dpr, smooth=s < 2)
+        if dpr <= 1.01:
+            if pm.width() > self.width() or pm.height() > self.height():   # 확대 시 가운데 부분만
+                pm = pm.copy((pm.width() - self.width()) // 2 if pm.width() > self.width() else 0,
+                             (pm.height() - self.height()) // 2 if pm.height() > self.height() else 0, min(pm.width(), self.width()), min(pm.height(), self.height()))
+                self._crop_off = ((tw - pm.width()) / 2 / s, (th - pm.height()) / 2 / s)
+            else: self._crop_off = (0, 0)
+            paint_scale = s
+        else:
+            log_w, log_h = pm.deviceIndependentSize().width(), pm.deviceIndependentSize().height()
+            if log_w > self.width() or log_h > self.height():
+                ox = int(round((log_w - self.width()) / 2 * dpr)) if log_w > self.width() else 0
+                oy = int(round((log_h - self.height()) / 2 * dpr)) if log_h > self.height() else 0
+                cw = max(1, int(round(min(log_w, self.width()) * dpr)))
+                ch = max(1, int(round(min(log_h, self.height()) * dpr)))
+                pm = pm.copy(ox, oy, cw, ch)
+                pm.setDevicePixelRatio(dpr)
+                shown_w = pm.deviceIndependentSize().width()
+                shown_h = pm.deviceIndependentSize().height()
+                self._crop_off = ((tw - shown_w) / 2 / s, (th - shown_h) / 2 / s)
+            else:
+                self._crop_off = (0, 0)
+            paint_scale = s * dpr
+        p = QPainter(pm); p.scale(paint_scale, paint_scale); p.translate(-self._crop_off[0], -self._crop_off[1])
         if self.draw_layer is not None and self.mode == "draw": p.drawImage(0, 0, self.draw_layer)
         if self.overlay is not None and self.mode == "place":
             p.setOpacity(0.9); p.drawImage(self.overlay_pos, self.overlay); p.setOpacity(1)
@@ -783,6 +802,10 @@ class EditorWindow(QMainWindow):
         self.setCentralWidget(self.tabs)
         start = get_str(self.settings, "start_tab", "home")
         self.show_tab({"home": "home", "rec": "rec", "edit": "edit", "manage": "manage"}.get(start, "home"))
+    def showEvent(self, event):
+        super().showEvent(event)
+        from .backdrop import try_apply_backdrop
+        try_apply_backdrop(self)
     def _build_status(self):
         self.status = self.statusBar()
         self.lbl_status = QLabel("준비"); self.lbl_info = QLabel("")
@@ -798,6 +821,8 @@ class EditorWindow(QMainWindow):
         """fn(ctx)를 QThread에서 실행. 상태바에 단계 메시지 + % + 취소 버튼, 충돌 동작 비활성화."""
         if self.task is not None:
             self.set_status(f"다른 작업 진행 중: {self.task.label}"); return None
+        from .services import hold_motion
+        hold_motion()
         if self.play_timer.isActive(): self.stop_play()
         t = Task(label, fn, self); self.task = t; self._t0 = time.monotonic()
         self._set_busy(True); self.set_status(label + "…"); self.prog.setRange(0, 0); self.prog.show(); self.btn_cancel.show()
@@ -812,6 +837,8 @@ class EditorWindow(QMainWindow):
         pct = f" ({int(100 * min(i, n) / n)}%)" if n > 0 else ""
         self.set_status((msg or self.task.label if self.task else msg) + pct)
     def _finish(self, t, kind, payload, on_done, on_fail, on_cancel=None):
+        from .services import release_motion
+        release_motion()
         t.wait(); self.task = None; self._set_busy(False); self.prog.hide(); self.btn_cancel.hide()
         dt = time.monotonic() - self._t0
         if kind == "done":
@@ -851,7 +878,7 @@ class EditorWindow(QMainWindow):
     def refresh(self, keep=None):
         if self.play_timer.isActive(): self.play_timer.stop()
         fr = self.project.frames; self.timeline.blockSignals(True); self.timeline.clear()
-        blank = QPixmap(96, 72); blank.fill(QColor(60, 62, 70)); icon = QIcon(blank)
+        icon = self._thumb_icon(None)
         for i, f in enumerate(fr):
             it = QListWidgetItem(icon, f"{i + 1}\n{f.delay}ms"); it.setData(Qt.UserRole, i); self.timeline.addItem(it)
         self.timeline.blockSignals(False); self._label_items()
@@ -904,7 +931,7 @@ class EditorWindow(QMainWindow):
         t.start()
     def _thumb_ready(self, gen, i, qi):
         if gen != self._gen or i >= self.timeline.count(): return
-        self.timeline.item(i).setIcon(QIcon(QPixmap.fromImage(qi)))
+        self.timeline.item(i).setIcon(self._thumb_icon(qi))
     # ---- 미리보기 캐시 (뷰 크기로 미리 축소한 픽스맵) ----
     def _invalidate_pcache(self):
         if self._pcache_worker: self._pcache_worker.stop()
@@ -912,14 +939,24 @@ class EditorWindow(QMainWindow):
     def _ensure_pcache(self):
         fr = self.project.frames
         if not fr: return
-        tw, th = self.preview.target_size(); key = (self._gen, tw, th)
+        tw, th = self.preview.target_size()
+        from .hidpi import widget_dpr
+        dpr = widget_dpr(self.preview)
+        key = (self._gen, tw, th, round(dpr, 2))
         if key == self._pcache_key: return
         self._invalidate_pcache(); self._pcache_key = key
         from .workers import ScaleWorker
-        w = ScaleWorker(key, [f.image for f in fr], (tw, th), list(range(self.cur, len(fr))) + list(range(0, self.cur)), self)
+        pw, ph = max(1, int(round(tw * dpr))), max(1, int(round(th * dpr)))
+        w = ScaleWorker(key, [f.image for f in fr], (pw, ph), list(range(self.cur, len(fr))) + list(range(0, self.cur)), self)
         w.ready.connect(self._pcache_ready); self._pcache_worker = w; w.finished.connect(w.deleteLater); w.start()
     def _pcache_ready(self, key, i, qi):
-        if key == self._pcache_key: self._pcache[i] = QPixmap.fromImage(qi)
+        if key == self._pcache_key:
+            from .hidpi import widget_dpr
+            pm = QPixmap.fromImage(qi)
+            dpr = widget_dpr(self.preview)
+            if dpr > 1.01:
+                pm.setDevicePixelRatio(dpr)
+            self._pcache[i] = pm
     def _show_fast(self, i):
         pm = self._pcache.get(i)
         if pm is None: return self.show_frame(i)
@@ -1023,10 +1060,16 @@ class EditorWindow(QMainWindow):
         t = self.run_task(label, job, fin, on_cancel=lambda: (fin(), self.set_status(f"불러오기 취소 — 지금까지 {len(self.project.frames)}프레임을 불러왔습니다")))
         if t: t.partial.connect(self._on_partial)
         return t
+    def _thumb_icon(self, qi):
+        from .hidpi import blank_pixmap, scaled_pixmap, widget_dpr
+        dpr = widget_dpr(self.timeline)
+        if qi is None:
+            return QIcon(blank_pixmap(96, 72, QColor(60, 62, 70), dpr))
+        return QIcon(scaled_pixmap(qi, 96, 72, dpr, smooth=True))
     def _blank_thumb(self):
         icon = getattr(self, "_blank_icon", None)
         if icon is None:
-            pm = QPixmap(96, 72); pm.fill(QColor(60, 62, 70)); icon = QIcon(pm); self._blank_icon = icon
+            icon = self._thumb_icon(None); self._blank_icon = icon
         return icon
     def _on_partial(self, items):
         ld = self._loading
@@ -1039,7 +1082,7 @@ class EditorWindow(QMainWindow):
         self.timeline.setUpdatesEnabled(False)
         for k, (fr, qi) in enumerate(items):
             self.project.frames.append(fr)
-            icon = QIcon(QPixmap.fromImage(qi)) if qi is not None else self._blank_thumb()
+            icon = self._thumb_icon(qi) if qi is not None else self._blank_thumb()
             it = QListWidgetItem(icon, f"{start + k + 1}\n{fr.delay}ms"); it.setData(Qt.UserRole, start + k)
             self.timeline.addItem(it)
         self.timeline.setUpdatesEnabled(True)
