@@ -3,18 +3,99 @@
   "repo": "https://github.com/Baegovda/BongGIF",
   "version": "1.7.0",
   "main": {
-    "sha": "f1a6d9097817ae92c6039a1d824fafd15186acb7",
-    "short": "f1a6d90",
-    "date_kst": "2026-11-02T04:31:40+09:00",
-    "subject": "Release 1.7.0: recording frame move/resize and docs cleanup. (#20)",
-    "note": "태그 v1.7.0이 이 SHA를 가리킨다. 이 문서 커밋은 태그 다음이다. version.py는 1.7.0. #18 머지 32d8656, #19 59c2330."
+    "sha": "c44f5c9fa63a28354c357412d67d0ebaee5e4fd9",
+    "short": "c44f5c9",
+    "date": "2026-11-01T19:35:47Z",
+    "date_kst": "2026-11-02T04:35:47+09:00",
+    "subject": "docs: record the released v1.7.0 tag and assets.",
+    "note": "이 문서 PR의 부모. origin/main 팁(브랜치를 만들기 전). version.py는 1.7.0. 태그 v1.7.0은 f1a6d9097817ae92c6039a1d824fafd15186acb7 (#20). 이 PR은 버전과 태그를 움직이지 않는다."
   },
   "pull_requests": {
-    "merged_tip": {"number": 20, "merged_at": "2026-11-01T19:31:40Z", "state": "MERGED", "sha": "f1a6d9097817ae92c6039a1d824fafd15186acb7"},
-    "text_anim_docs": {"number": 18, "merged_at": "2026-11-01T19:26:26Z", "sha": "32d86565cf473693151fa9576940b7c475c30350", "state": "MERGED"},
-    "recording_frame": {"number": 19, "sha": "59c2330", "state": "MERGED"},
-    "closed_superseded_on_2026_10_31": [6, 8, 10, 12, 14],
-    "note": "#20은 1.7.0 버전 범프. #18은 text-anim 제거. #19는 녹화 프레임 이동/크기. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다."
+    "merged_on_main": [
+      {
+        "number": 20,
+        "title": "Release 1.7.0: 녹화 프레임과 문서 정리",
+        "state": "MERGED",
+        "merged_at": "2026-11-01T19:31:40Z",
+        "merge_sha": "f1a6d9097817ae92c6039a1d824fafd15186acb7",
+        "head": "cursor/v170-release-9fb2",
+        "head_sha": "3ea479bb0815f4e18e3794fc22daea9518044784"
+      },
+      {
+        "number": 18,
+        "title": "문서: 텍스트 인트로/아웃트로 백로그 제거",
+        "state": "MERGED",
+        "merged_at": "2026-11-01T19:26:26Z",
+        "merge_sha": "32d86565cf473693151fa9576940b7c475c30350",
+        "head": "cursor/drop-text-anim-b03d",
+        "head_sha": "249ba9fa4f9b08d1055ac0650399865f09f8ab0c"
+      },
+      {
+        "number": 19,
+        "title": "녹화 프레임을 옮기고 크기를 조절하기 쉽게",
+        "state": "MERGED",
+        "merged_at": "2026-11-01T19:20:26Z",
+        "merge_sha": "59c23309d4cba7909b1f0e45765826ff4dd81715",
+        "head": "cursor/recorder-frame-move-resize-134c",
+        "head_sha": "2a07888934040c7104f4c97549cfcd86143f415a"
+      },
+      {
+        "number": 17,
+        "title": "Run the seven smoke suites on pull requests",
+        "state": "MERGED",
+        "merged_at": "2026-11-01T18:04:32Z",
+        "merge_sha": "bd5c3888961f923ddc9d2fb7ad87d33aa1055d02",
+        "head": "cursor/pr-smoke-ci-edf6",
+        "head_sha": "483f41f134afc1b09b946d9a6b6f5e412d18fb5d"
+      },
+      {
+        "number": 16,
+        "title": "문서: 핸드오프를 코드와 저장소 상태에 맞춤",
+        "state": "MERGED",
+        "merged_at": "2026-11-01T17:18:30Z",
+        "merge_sha": "1ebbb9b30b8644fae0d960832f406d4eb42bb85a",
+        "head": "cursor/docs-handoff-refresh-0b5d",
+        "head_sha": "019d0301e549195a464fff76dc7749c61f351271"
+      },
+      {
+        "number": 15,
+        "title": "핸드오프: v1.6.0 릴리스 기록을 실제 태그와 맞춤",
+        "state": "MERGED",
+        "merged_at": "2026-10-31T14:48:49Z",
+        "merge_sha": "c4a45115d74055b5afdc7648a82fe8bfe1cbcf6c",
+        "head": "cursor/sync-handoff-v160-bead",
+        "head_sha": null,
+        "note": "헤드 브랜치는 2026-11-02 14개 삭제에 포함됐다."
+      }
+    ],
+    "closed_superseded_on_2026_10_31": [
+      {
+        "number": 14,
+        "closed_at": "2026-10-31T14:48:54Z",
+        "state": "CLOSED"
+      },
+      {
+        "number": 12,
+        "closed_at": "2026-10-31T14:48:53Z",
+        "state": "CLOSED"
+      },
+      {
+        "number": 10,
+        "closed_at": "2026-10-31T14:48:52Z",
+        "state": "CLOSED"
+      },
+      {
+        "number": 8,
+        "closed_at": "2026-10-31T14:48:50Z",
+        "state": "CLOSED"
+      },
+      {
+        "number": 6,
+        "closed_at": "2026-10-31T14:48:49Z",
+        "state": "CLOSED"
+      }
+    ],
+    "note": "#20은 1.7.0 버전 범프이자 태그 v1.7.0. #18은 text-anim 제거(다시 넣지 않음). #19는 녹화 프레임 이동/크기(Windows 스모크 실행만, 주인 미확인). #17은 ci.yml. #16은 문서. #15는 v1.4–v1.6 기록. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #19가 #18보다 먼저 머지됐다."
   },
   "pending_release": {
     "tag": null,
@@ -160,14 +241,20 @@
     "smoke_test_webpclip.py": 33
   },
   "parity_estimate_pct": 88,
-  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 todo 1건을 빼서 지금 status=todo 는 8개다.",
+  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 text-anim 1건을 빼 그때 todo는 8개였다. 이번 문서에서 순서를 맞추고 frame-catalog와 export-advanced를 넣어 status=todo 는 10개다.",
   "recommended_next": {
     "id": "bubbles",
     "priority": 1,
     "status": "todo",
     "title": "Speech bubble stickers",
     "why": "status=todo 인 백로그 중 priority가 가장 높다. export-rebirth(priority 0)는 done.",
-    "accept": ["3+ shapes drawn in code", "text inside", "draggable", "colors"]
+    "accept": [
+      "3+ shapes drawn in code",
+      "text inside",
+      "draggable",
+      "color and outline"
+    ],
+    "also": "Ask the owner to confirm PR #19 move/resize UX. Do not mark it confirmed. Do not start priority 2 until bubbles is done."
   },
   "backlog": [
     {
@@ -194,7 +281,7 @@
         "3+ shapes drawn in code",
         "text inside",
         "draggable",
-        "colors"
+        "color and outline"
       ]
     },
     {
@@ -231,20 +318,46 @@
       ]
     },
     {
-      "id": "effects-9",
+      "id": "frame-catalog",
       "priority": 5,
       "status": "todo",
-      "title": "9 more effects (parenthetical list names 8; the 9th name is not written down)",
+      "title": "Richer frame catalog",
       "accept": [
-        "in EFFECTS",
-        "strength",
+        "several frame styles drawn in code",
+        "picker in the 액자 panel",
+        "undo"
+      ],
+      "today": "op_border is one border: margin, color, rounded corner, shadow. No style catalog."
+    },
+    {
+      "id": "effects-more",
+      "priority": 6,
+      "status": "todo",
+      "title": "More effects (bloom, chroma key, color curves, tilt-shift, inpaint)",
+      "replaces": "effects-9",
+      "replaces_note": "The old effects-9 entry said 9 effects and then named 8 (chroma key, color curve, bloom, tilt-shift, out-of-focus, region/iris blur, ascii, inpaint-lite). That sentence is retired. rectblur (영역 흐리게) is already in EFFECTS and is not this item.",
+      "accept": [
+        "bloom, chroma key, color curves, tilt-shift, inpaint",
+        "each in EFFECTS",
+        "strength slider",
         "live preview",
-        "test"
+        "smoke test"
+      ]
+    },
+    {
+      "id": "watermark",
+      "priority": 7,
+      "status": "todo",
+      "title": "Watermark on save",
+      "accept": [
+        "text/image",
+        "position",
+        "opacity"
       ]
     },
     {
       "id": "rec-grid-finder",
-      "priority": 6,
+      "priority": 8,
       "status": "todo",
       "title": "Recording grid + window finder",
       "accept": [
@@ -254,30 +367,41 @@
     },
     {
       "id": "shortcuts",
-      "priority": 7,
+      "priority": 9,
       "status": "todo",
       "title": "Custom shortcuts",
       "accept": [
         "editable",
         "persisted via prefs",
         "conflict check"
-      ]
+      ],
+      "today": "Settings 단축키 table is read-only (QAbstractItemView.NoEditTriggers)."
     },
     {
-      "id": "watermark",
-      "priority": 8,
+      "id": "export-advanced",
+      "priority": 10,
       "status": "todo",
-      "title": "Watermark on save",
+      "title": "Advanced export options (WebM alpha/codec, APNG color modes, preserve colors)",
       "accept": [
-        "text/image",
-        "position",
-        "opacity"
-      ]
+        "WebM alpha plane actually encoded",
+        "WebM codec choice kept and available from settings",
+        "APNG color modes beyond palette on/off and color count",
+        "preserve-colors option"
+      ],
+      "today": "Save dialog already has WebM VP8/VP9 (panels.QualityBox.cb_wcodec). export_once passes webm_codec and does not pass alpha. write_webm alpha=True is a no-op (`pass`). Settings WebM page stores quality only. APNG save/settings have palette on/off and a color count; apngenc writes PLTE or RGBA. No preserve-colors option."
     }
   ],
   "invariants": [
     "No third-party proprietary code/assets/names; no license-bypass content",
-    "UI and user communication in Korean",
+    "UI and user communication in Korean; reply in Korean, short",
+    "Merge only after an explicit yes from the owner; do not delete branches without an explicit yes",
+    "Releases are a pushed v* tag; release.yml builds the zip; do not rewrite release.yml",
+    "No CHANGELOG.md; human release notes are README ## X.Y.Z; GitHub Release body is the generated PR list",
+    "text-anim (intro/outro fade, slide, typewriter) was removed in PR #18 and must never be re-added",
+    "Owner has the vendor's permission to analyze the reference app; analysis artifacts stay in a Desktop folder on the owner's PC and are never committed",
+    "Never write the reference app's name; do not copy its assets or code",
+    "The shipping exe was not unpacked; license, trial, and signature checks were never analyzed",
+    "PR #19 move/resize UX was only smoke-launched on Windows and is not owner-confirmed",
     "Long work in Task/QThread with ctx.step progress + cancel; never freeze GUI",
     "Wall-clock playback (QElapsedTimer + cumulative delays)",
     "All QSettings reads via bonggif/prefs.py; one key one type",
@@ -299,12 +423,45 @@
     "python smoke_test_webpclip.py"
   ],
   "test_runners": {
-    "run_tests.bat": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py", "smoke_test_export.py", "smoke_test_masks.py", "smoke_test_webpclip.py"],
-    "bootstrap_agent.sh": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py"],
-    "bootstrap_agent.ps1": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py"],
-    "release.yml": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_export.py", "smoke_test_masks.py", "smoke_test_webpclip.py"],
+    "run_tests.bat": [
+      "smoke_test.py",
+      "smoke_test_converter.py",
+      "smoke_test_updater.py",
+      "smoke_test_crash.py",
+      "smoke_test_export.py",
+      "smoke_test_masks.py",
+      "smoke_test_webpclip.py"
+    ],
+    "bootstrap_agent.sh": [
+      "smoke_test.py",
+      "smoke_test_converter.py",
+      "smoke_test_updater.py",
+      "smoke_test_crash.py"
+    ],
+    "bootstrap_agent.ps1": [
+      "smoke_test.py",
+      "smoke_test_converter.py",
+      "smoke_test_updater.py",
+      "smoke_test_crash.py"
+    ],
+    "release.yml": [
+      "smoke_test.py",
+      "smoke_test_converter.py",
+      "smoke_test_updater.py",
+      "smoke_test_export.py",
+      "smoke_test_masks.py",
+      "smoke_test_webpclip.py"
+    ],
     "release_blocks_on_failure": true,
-    "ci.yml": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py", "smoke_test_export.py", "smoke_test_masks.py", "smoke_test_webpclip.py"],
+    "ci.yml": [
+      "smoke_test.py",
+      "smoke_test_converter.py",
+      "smoke_test_updater.py",
+      "smoke_test_crash.py",
+      "smoke_test_export.py",
+      "smoke_test_masks.py",
+      "smoke_test_webpclip.py"
+    ],
     "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 동작은 그대로. ci.yml은 pull_request(main)와 push(main), ubuntu-latest, 7개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 33/33. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
   },
   "expected_test_counts": {
@@ -334,16 +491,30 @@
     "install": "%LOCALAPPDATA%\\Programs\\BongGIF",
     "staging": "%LOCALAPPDATA%\\BongGIF\\update\\staging"
   },
-  "excluded_from_repo": ["qa_shots/"],
-  "not_in_tree_and_not_gitignored": ["PARITY.md", "DONE*", "PROGRESS.json"],
+  "excluded_from_repo": [
+    "qa_shots/"
+  ],
+  "not_in_tree_and_not_gitignored": [
+    "PARITY.md",
+    "DONE*",
+    "PROGRESS.json"
+  ],
   "ci": {
     "workflow": ".github/workflows/ci.yml",
-    "on": ["pull_request into main", "push to main", "workflow_dispatch"],
+    "on": [
+      "pull_request into main",
+      "push to main",
+      "workflow_dispatch"
+    ],
     "runner": "ubuntu-latest",
     "python": "3.12",
     "pip_cache": "actions/setup-python cache: pip, cache-dependency-path: requirements.txt",
     "pin": "PySide6>=6.5,<6.9 (install from requirements.txt; job rejects anything outside that range)",
-    "env": ["QT_QPA_PLATFORM=offscreen", "BONGGIF_REPORT_URL=", "CI=true"],
+    "env": [
+      "QT_QPA_PLATFORM=offscreen",
+      "BONGGIF_REPORT_URL=",
+      "CI=true"
+    ],
     "expected": {
       "smoke_test.py": "120/120",
       "smoke_test_converter.py": "62/62",
@@ -355,7 +526,15 @@
     },
     "stdin": "/dev/null on every suite so ffmpeg cannot SIGTTIN on an inherited tty or block on an open stdin",
     "ffmpeg": "imageio-ffmpeg binary; if libaom-av1, libx264, libvpx, or libvpx-vp9 is missing, apt install ffmpeg and set IMAGEIO_FFMPEG_EXE. The export skip path is a failed check, so 40 is not a pass.",
-    "qt_packages": ["libegl1", "libgl1", "libxkbcommon0", "libfontconfig1", "libdbus-1-3", "libxcb-cursor0", "libnss3"],
+    "qt_packages": [
+      "libegl1",
+      "libgl1",
+      "libxkbcommon0",
+      "libfontconfig1",
+      "libdbus-1-3",
+      "libxcb-cursor0",
+      "libnss3"
+    ],
     "why_not_windows": "ubuntu-latest already passes all 7 offscreen and is the fast path. windows-latest remains release.yml only so PRs do not repeat the PySide6+OpenCV install.",
     "result_grep": "grep -a. smoke_test_export prints a NUL inside an APNG tEXt extra, so plain grep treats the log as binary and hides the 결과 line.",
     "release_yml": "unchanged",
@@ -385,6 +564,8 @@
     }
   },
   "owner_questions": [
+    "#19 녹화 프레임 이동/크기 UX 확인. Windows 스모크 실행만 됨. 주인 확인 없음.",
+    "머지된 cursor/* 다섯 브랜치 삭제 승낙. 승낙 전에는 지우지 않음.",
     "PySide6>=6.5,<6.9. 2026-11-02 Linux venv는 6.8.3. 주인 PC 6.12 주장은 이 저장소에서 재확인하지 못함.",
     "webpclip 서면 허락 원문이 저장소에 없음. NOTICE.md.",
     "4K HEVC/AV1 구간 미리보기 실측 없음. bonggif.log의 미리보기 캐시 줄을 주인이 알려 줘야 함."
@@ -411,8 +592,69 @@
       "cursor/note-v130-retag-9cb0"
     ],
     "failed": [],
-    "remaining_remote_heads": ["main"],
+    "remaining_remote_heads": [
+      "main"
+    ],
+    "remaining_remote_heads_note": "이 배열은 14개를 지운 직후다. 그 다음 #16–#20이 머지되어 헤드 다섯이 남았다. 현재 목록은 remote_branches.",
     "open_prs_before_delete": 0
+  },
+  "remote_branches": {
+    "fetched_at": "2026-11-02",
+    "delete_branch_on_merge": false,
+    "pending_deletion_until_owner_says_yes": true,
+    "note": "Fetched before this docs branch was pushed. After the push, origin also has the unmerged PR head. That head is not in the pending-deletion list.",
+    "heads": [
+      {
+        "name": "main",
+        "sha": "c44f5c9fa63a28354c357412d67d0ebaee5e4fd9"
+      },
+      {
+        "name": "cursor/docs-handoff-refresh-0b5d",
+        "sha": "019d0301e549195a464fff76dc7749c61f351271",
+        "pr": 16,
+        "state": "MERGED"
+      },
+      {
+        "name": "cursor/pr-smoke-ci-edf6",
+        "sha": "483f41f134afc1b09b946d9a6b6f5e412d18fb5d",
+        "pr": 17,
+        "state": "MERGED"
+      },
+      {
+        "name": "cursor/recorder-frame-move-resize-134c",
+        "sha": "2a07888934040c7104f4c97549cfcd86143f415a",
+        "pr": 19,
+        "state": "MERGED"
+      },
+      {
+        "name": "cursor/drop-text-anim-b03d",
+        "sha": "249ba9fa4f9b08d1055ac0650399865f09f8ab0c",
+        "pr": 18,
+        "state": "MERGED"
+      },
+      {
+        "name": "cursor/v170-release-9fb2",
+        "sha": "3ea479bb0815f4e18e3794fc22daea9518044784",
+        "pr": 20,
+        "state": "MERGED"
+      }
+    ]
+  },
+  "release_notes": {
+    "changelog_md": false,
+    "human": "README.md sections ## X.Y.Z (newest first)",
+    "github_release_body": "Generated What's Changed list of PRs merged between tags. v1.7.0 lists #15 #16 #17 #19 #18 #20. It is not a copy of the README section.",
+    "agent_summary": "docs/HANDOFF.md Version history (SHAs, runs, zip bytes)"
+  },
+  "owner_rules": {
+    "language": "Korean, short replies",
+    "merge": "only after an explicit yes from the owner",
+    "delete_branches": "only after an explicit yes from the owner",
+    "release": "push a v* tag; .github/workflows/release.yml; do not rewrite that file",
+    "text_anim": "removed in PR #18; never re-add",
+    "reference_analysis": "vendor permission exists; artifacts only in a Desktop folder on the owner's PC; never commit them; never write the reference app's name; no copied assets or code",
+    "exe": "shipping exe was not unpacked; license, trial, and signature checks were never analyzed",
+    "pr19_ux": "smoke-launched on Windows only; owner has not confirmed"
   },
   "linux_offscreen_2026_11_02": {
     "python": "3.12.3",
@@ -426,8 +668,12 @@
       "smoke_test_masks.py": "10/10",
       "smoke_test_webpclip.py": "33/33"
     },
+    "note": "This object is that day's run, before PR #19. smoke_test.py was 88/88 then. After #19 the suite is 120. Current counts are in tests.",
     "first_attempt": "SIGTTIN stop: ffmpeg WebM subprocess inherited the tty inside the bootstrap pipeline. Rerun with no controlling terminal passed.",
-    "box_packages_installed_for_the_run": ["libegl1", "python3.12-venv"]
+    "box_packages_installed_for_the_run": [
+      "libegl1",
+      "python3.12-venv"
+    ]
   },
   "requirements_observed_linux_2026_11_02": {
     "python": "3.12.3",
@@ -436,7 +682,12 @@
     "Pillow": "13.0.0",
     "opencv": "4.12.0",
     "ffmpeg": "imageio-ffmpeg linux x86_64 v7.0.2",
-    "encoders_present": ["libaom-av1", "libx264", "libvpx", "libvpx-vp9"],
+    "encoders_present": [
+      "libaom-av1",
+      "libx264",
+      "libvpx",
+      "libvpx-vp9"
+    ],
     "pin": "PySide6>=6.5,<6.9 so 6.9+ is not installed"
   },
   "agent_setup": {
@@ -452,11 +703,30 @@
     "edge_px": 16,
     "handle_len_px": 48,
     "min_hit_px": 10,
-    "move": ["title bar", "toolbar", "border", "grip icon drawn in code", "arrow 1px", "shift+arrow 10px"],
-    "resize": ["corners and edge midpoints", "live WxH", "typed width and height", "presets 320x240 through 1920x1080"],
+    "move": [
+      "title bar",
+      "toolbar",
+      "border",
+      "grip icon drawn in code",
+      "arrow 1px",
+      "shift+arrow 10px"
+    ],
+    "resize": [
+      "corners and edge midpoints",
+      "live WxH",
+      "typed width and height",
+      "presets 320x240 through 1920x1080"
+    ],
     "snap_px": 12,
-    "snap_targets": ["screen edges", "other top-level window edges"],
-    "locked_states": ["countdown", "rec", "pause"],
+    "snap_targets": [
+      "screen edges",
+      "other top-level window edges"
+    ],
+    "locked_states": [
+      "countdown",
+      "rec",
+      "pause"
+    ],
     "lock_indicator": "위치 고정",
     "lock_reason": "Frames in one take must share a size. Moving during the take also shifts the picture. Stop returns to idle, which can move and resize again.",
     "windows_hit_test": "WM_NCHITTEST. Move is HTCAPTION, resize is HTLEFT and the other HT codes, the capture hole is HTTRANSPARENT. Physical pixels convert with each monitor's native origin and devicePixelRatio.",
@@ -464,6 +734,8 @@
     "capture_api": "capture_rect() is still the transparent hole. Chrome sits outside it.",
     "preset_index": "Recorder PRESETS order is unchanged, so the record-page combo index still matches through 1280x720. 1920x1080 is index 6 on the capture window only.",
     "version_bumped": true,
-    "smoke_test_py": 120
+    "smoke_test_py": 120,
+    "owner_confirmed": false,
+    "windows_status": "Smoke-launched on Windows only. The owner has not confirmed the UX. PR #19 body records Linux offscreen 120/120 62/62 40/40 15/15 42/42 10/10 33/33."
   }
 }

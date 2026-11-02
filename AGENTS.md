@@ -6,16 +6,20 @@
 ## Start here — step 0 (fresh agent, only the repo URL)
 1. `git clone https://github.com/Baegovda/BongGIF && cd BongGIF && bash scripts/bootstrap_agent.sh` (Windows: `scripts\bootstrap_agent.ps1`). Must print `OVERALL PASS`. That script runs four smoke tests, not the seven in `run_tests.bat`.
 2. If your host supports MCP: install servers listed in `docs/agent-env.json` → `mcp_servers` (template `docs/mcp.example.json`). GitHub = useful, REA = optional/clean-room.
-3. Read `docs/SETUP_AGENT.md` (box vs user PC), then `docs/HANDOFF.md` (what's done/next) and `docs/STATE.json` (version, backlog, tests).
-4. Continue the first STATE.json backlog item whose `status` is `todo` (skip `done`). As of the 2026-11-02 handoff that is `bubbles` (speech-bubble stickers). Update HANDOFF.md + STATE.json at the end of every session.
+3. Read `docs/SETUP_AGENT.md` (box vs user PC), then `docs/HANDOFF.md` (what's done/next), `docs/STATE.json` (version, backlog, tests), `README.md` (release notes), and `docs/NEXT_BOT_PROMPT.md`.
+4. Continue the first STATE.json backlog item whose `status` is `todo` (skip `done`). As of the 2026-11-02 docs alignment that is `bubbles` (speech-bubble stickers, priority 1). In the same session, ask the owner to confirm the PR **#19** recording-frame move/resize UX. It was only smoke-launched on Windows and is not confirmed. Do not mark it confirmed yourself, and do not start priority 2 until `bubbles` is done. Update HANDOFF.md + STATE.json at the end of every session.
 
 ## 1. Purpose
 BongGIF = Windows desktop GIF recorder/editor (Python 3.12 + PySide6 + ffmpeg via imageio-ffmpeg). Workflow/UX modeled on popular GIF tools (record → edit frames → save GIF/WebP/MP4/WebM/APNG), **clean-room implementation**.
 
 ## 2. Hard rules (never break)
-- No third-party proprietary code, decompiled logic, skins, bitmaps, icons, logos, or product/company names of the reference app (never name it in code, UI, docs, or commits). Icons are drawn in code (`bonggif/theme.py`, QPainter).
-- No license-bypass, keygen, or license-algorithm docs. Ever.
+- No third-party proprietary code, decompiled logic, skins, bitmaps, icons, logos, or product/company names of the reference app (never name it in code, UI, docs, commits, or PR text). Icons are drawn in code (`bonggif/theme.py`, QPainter). The owner has the vendor's permission to analyze that app. Analysis artifacts stay only on the owner's PC, in a folder on the Desktop, and are never committed.
+- The shipping exe was not unpacked. License, trial, and signature checks were never analyzed. Do not unpack the exe to study them. No license-bypass, keygen, or license-algorithm docs. Ever.
 - UI text is **Korean**. The owner talks in **Korean**; reply in Korean, short.
+- Merge a pull request only after an explicit yes from the owner. Opening a PR is not that yes. Do not delete branches unless the owner explicitly says to delete them. `deleteBranchOnMerge` is false; five merged `cursor/*` branches are still on origin and are waiting for that yes (see `docs/HANDOFF.md`).
+- A release is a pushed `v*` tag. `.github/workflows/release.yml` builds and uploads the zip. Do not rewrite that workflow. There is no `CHANGELOG.md`. Human release notes are the `## X.Y.Z` sections in `README.md`. The GitHub Release body is the generated "What's Changed" PR list, not a copy of those sections.
+- Text intro/outro animation (backlog id `text-anim`: fade, slide, typewriter) was removed in PR **#18**. Never re-add it. It is not in the code.
+- PR **#19** (recording-frame move and resize) was only smoke-launched on Windows. The owner has not confirmed that UX. The automated result recorded on the PR is the Linux offscreen suites.
 - Never freeze the GUI: anything >50 ms runs in a worker with progress (step message + %) and cancel.
 - Do not touch the user's installed app (`%LOCALAPPDATA%\Programs\BongGIF`) unless asked; they test self-update themselves.
 
@@ -78,7 +82,7 @@ Who runs what (do not treat these as the same list):
 - `run_tests.bat` — all 7.
 - `scripts/bootstrap_agent.sh` and `scripts/bootstrap_agent.ps1` — only `smoke_test`, `smoke_test_converter`, `smoke_test_updater`, `smoke_test_crash`. They do not run export/masks/webpclip. `OVERALL PASS` does not mean the other three ran.
 - `.github/workflows/release.yml` — the seven except `smoke_test_crash.py`. A failing test sets `exit $fail` and **blocks** the build. The step also prints `::warning::`; that is not a non-blocking mode.
-- `.github/workflows/ci.yml` — all 7, on `pull_request` (into `main`) and `push` to `main`. `ubuntu-latest`, Python 3.12, pip cache from `requirements.txt` (`PySide6>=6.5,<6.9` stays). `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. The job fails unless the lines are `120/120`, `62/62`, `40/40`, `15/15`, `42/42`, `10/10`, `33/33`. Each suite's stdin is `/dev/null` so ffmpeg cannot inherit a terminal (`SIGTTIN`) or block on an open stdin (WebM `subprocess.run` does not pass `stdin=DEVNULL`). The result check uses `grep -a` because `smoke_test_export.py` prints a NUL inside an APNG tEXt extra and plain grep then hides the `결과` line. If the imageio-ffmpeg build lacks `libaom-av1` / `libx264` / `libvpx` / `libvpx-vp9`, the job installs distro `ffmpeg` and sets `IMAGEIO_FFMPEG_EXE` — the export skip path records a failed check, so 40/42 is not a pass. This workflow does not build or upload a release. `windows-latest` stays in `release.yml`.
+- `.github/workflows/ci.yml` — all 7, on `pull_request` (into `main`), `push` to `main`, and `workflow_dispatch`. The check name is `ci / smoke (ubuntu)`. `ubuntu-latest`, Python 3.12, pip cache from `requirements.txt` (`PySide6>=6.5,<6.9` stays). `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. The job fails unless the lines are `120/120`, `62/62`, `40/40`, `15/15`, `42/42`, `10/10`, `33/33`. Each suite's stdin is `/dev/null` so ffmpeg cannot inherit a terminal (`SIGTTIN`) or block on an open stdin (WebM `subprocess.run` does not pass `stdin=DEVNULL`). The result check uses `grep -a` because `smoke_test_export.py` prints a NUL inside an APNG tEXt extra and plain grep then hides the `결과` line. If the imageio-ffmpeg build lacks `libaom-av1` / `libx264` / `libvpx` / `libvpx-vp9`, the job installs distro `ffmpeg` and sets `IMAGEIO_FFMPEG_EXE` — the export skip path records a failed check, so 40/42 is not a pass. This workflow does not build or upload a release. `windows-latest` stays in `release.yml`.
 
 ## 6. Build
 Python **3.12** (3.10.0 breaks PySide6/PyInstaller). `build_exe.bat` creates `.venv`, installs `requirements.txt` plus PyInstaller, then runs `python scripts\build_frozen.py`. That script writes `bonggif.ico`, calls PyInstaller onedir (`--windowed --name BongGIF`, `--collect-all imageio_ffmpeg`, `--collect-submodules imageio`, hidden imports `mss`, `keyboard`, `cv2`, `--additional-hooks-dir hooks`, `--exclude-module` lines from `packaging/pyinstaller-excludes.txt`), then `scripts/slim_dist.py` unless `BONGGIF_SKIP_SLIM=1`. Output: `dist\BongGIF\BongGIF.exe`. The release workflow calls `scripts/build_frozen.py` directly, not the old one-liner that omitted cv2, the hook dir, excludes, and slim.
@@ -87,7 +91,7 @@ Python **3.12** (3.10.0 breaks PySide6/PyInstaller). `build_exe.bat` creates `.v
 1. Bump `bonggif/version.py` (`__version__ = "X.Y.Z"`).
 2. Run all tests. Commit (`git -c user.name=Baegovda -c user.email=Baegovda@users.noreply.github.com commit`).
 3. `git tag vX.Y.Z && git push origin HEAD vX.Y.Z`.
-4. `.github/workflows/release.yml` (windows-latest, Py 3.12, tag push `v*` only): verifies tag == version.py (reads file as UTF-8), runs six smoke tests and **fails the job if any fail**, PyInstaller via `scripts/build_frozen.py`, frozen `BongGIF.exe --selftest` must print `selftest ok`, uploads `BongGIF-vX.Y.Z-win64.zip` + `.zip.sha256`. **Keep this workflow; don't rewrite it.** Pull requests and pushes to `main` run `.github/workflows/ci.yml` (ubuntu-latest, all seven smoke tests, offscreen). That workflow does not build or release.
+4. `.github/workflows/release.yml` (windows-latest, Py 3.12, tag push `v*` only): verifies tag == version.py (reads file as UTF-8), runs six smoke tests and **fails the job if any fail**, PyInstaller via `scripts/build_frozen.py`, frozen `BongGIF.exe --selftest` must print `selftest ok`, uploads `BongGIF-vX.Y.Z-win64.zip` + `.zip.sha256`. **Keep this workflow; don't rewrite it.** Pull requests into `main`, pushes to `main`, and `workflow_dispatch` run `.github/workflows/ci.yml` (ubuntu-latest, check `ci / smoke (ubuntu)`, all seven smoke tests, offscreen). That workflow does not build or release.
 5. `gh run watch <id> --exit-status`; confirm both assets on the release.
 `.gitignore` includes `qa_shots/`. `PARITY.md`, `DONE*`, and `PROGRESS.json` are not in the tree and are **not** gitignored.
 
@@ -113,7 +117,7 @@ Python **3.12** (3.10.0 breaks PySide6/PyInstaller). `build_exe.bat` creates `.v
 2. Create venv (Py 3.12), install requirements, run `run_tests.bat` (seven files) offscreen; all green. Bootstrap's `OVERALL PASS` only covers four of them.
 3. Pick the top `backlog` item in STATE.json (or the user's request). Keep the hard rules.
 4. Implement + tests; regenerate screenshots with `python qa_screens.py` and look at them.
-5. Release via §7 if user wants it.
+5. Release via §7 only when the owner wants a release. That means bumping `bonggif/version.py`, then pushing a matching `v*` tag so `release.yml` runs. Do not merge the PR until the owner explicitly says yes.
 6. **Update `docs/HANDOFF.md` + `docs/STATE.json`, commit.** Report to the user in short Korean.
 
 ## Auto-update & crash reporting (v1.1.5)
