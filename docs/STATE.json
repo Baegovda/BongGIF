@@ -3,15 +3,24 @@
   "repo": "https://github.com/Baegovda/BongGIF",
   "version": "1.7.0",
   "main": {
-    "sha": "c44f5c9fa63a28354c357412d67d0ebaee5e4fd9",
-    "short": "c44f5c9",
-    "date": "2026-11-01T19:35:47Z",
-    "date_kst": "2026-11-02T04:35:47+09:00",
-    "subject": "docs: record the released v1.7.0 tag and assets.",
-    "note": "이 문서 PR의 부모. origin/main 팁(브랜치를 만들기 전). version.py는 1.7.0. 태그 v1.7.0은 f1a6d9097817ae92c6039a1d824fafd15186acb7 (#20). 이 PR은 버전과 태그를 움직이지 않는다."
+    "sha": "77cbb9054e9d997bddd614f2123d6d22d68c7c61",
+    "short": "77cbb90",
+    "date": "2026-11-02T03:03:30Z",
+    "date_kst": "2026-11-02T12:03:30+09:00",
+    "subject": "docs: align handoff docs with v1.7.0 and add NEXT_BOT_PROMPT (#21)",
+    "note": "이 문서 수정의 부모. origin/main 팁(브랜치를 만들기 전). version.py는 1.7.0. 태그 v1.7.0은 f1a6d9097817ae92c6039a1d824fafd15186acb7 (#20). 이 수정은 버전과 태그를 움직이지 않는다."
   },
   "pull_requests": {
     "merged_on_main": [
+      {
+        "number": 21,
+        "title": "문서: v1.7.0 핸드오프, 백로그 순서, 남은 브랜치",
+        "state": "MERGED",
+        "merged_at": "2026-11-02T03:03:30Z",
+        "merge_sha": "77cbb9054e9d997bddd614f2123d6d22d68c7c61",
+        "head": "cursor/docs-v170-align-dcba",
+        "head_sha": "496a645fa7db1ea0ce87a7e3a18339a2743c728c"
+      },
       {
         "number": 20,
         "title": "Release 1.7.0: 녹화 프레임과 문서 정리",
@@ -95,7 +104,7 @@
         "state": "CLOSED"
       }
     ],
-    "note": "#20은 1.7.0 버전 범프이자 태그 v1.7.0. #18은 text-anim 제거(다시 넣지 않음). #19는 녹화 프레임 이동/크기(Windows 스모크 실행만, 주인 미확인). #17은 ci.yml. #16은 문서. #15는 v1.4–v1.6 기록. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #19가 #18보다 먼저 머지됐다."
+    "note": "#21은 문서 정렬. #20은 1.7.0 버전 범프이자 태그 v1.7.0. #18은 text-anim 제거(다시 넣지 않음). 주인이 뺀 다른 항목은 AGENTS.md never-re-add 규칙에만 있고 다시 넣지 않는다. #19는 녹화 프레임 이동/크기(Windows 스모크 실행만, 주인 미확인). #17은 ci.yml. #16은 문서. #15는 v1.4–v1.6 기록. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #19가 #18보다 먼저 머지됐다."
   },
   "pending_release": {
     "tag": null,
@@ -241,20 +250,19 @@
     "smoke_test_webpclip.py": 33
   },
   "parity_estimate_pct": 88,
-  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 text-anim 1건을 빼 그때 todo는 8개였다. 이번 문서에서 순서를 맞추고 frame-catalog와 export-advanced를 넣어 status=todo 는 10개다.",
+  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 text-anim 1건을 빼 그때 todo는 8개였다. 그 다음 문서에서 순서를 맞추고 항목을 더해 todo는 10개였다. 같은 날 주인이 4건을 영구 제외해 status=todo 는 6개다. 뺀 항목 이름은 AGENTS.md never-re-add 규칙에만 있다.",
   "recommended_next": {
-    "id": "bubbles",
+    "id": "transitions",
     "priority": 1,
     "status": "todo",
-    "title": "Speech bubble stickers",
+    "title": "Transitions",
     "why": "status=todo 인 백로그 중 priority가 가장 높다. export-rebirth(priority 0)는 done.",
     "accept": [
-      "3+ shapes drawn in code",
-      "text inside",
-      "draggable",
-      "color and outline"
+      "fade/slide/wipe",
+      "insert N frames",
+      "undo"
     ],
-    "also": "Ask the owner to confirm PR #19 move/resize UX. Do not mark it confirmed. Do not start priority 2 until bubbles is done."
+    "also": "Ask the owner to confirm PR #19 move/resize UX. Do not mark it confirmed. Do not start priority 2 until transitions is done."
   },
   "backlog": [
     {
@@ -273,20 +281,8 @@
       ]
     },
     {
-      "id": "bubbles",
-      "priority": 1,
-      "status": "todo",
-      "title": "Speech bubble stickers",
-      "accept": [
-        "3+ shapes drawn in code",
-        "text inside",
-        "draggable",
-        "color and outline"
-      ]
-    },
-    {
       "id": "transitions",
-      "priority": 2,
+      "priority": 1,
       "status": "todo",
       "title": "Transitions",
       "accept": [
@@ -297,7 +293,7 @@
     },
     {
       "id": "zoom-camera",
-      "priority": 3,
+      "priority": 2,
       "status": "todo",
       "title": "Zoom/pan camera",
       "accept": [
@@ -307,46 +303,8 @@
       ]
     },
     {
-      "id": "collage",
-      "priority": 4,
-      "status": "todo",
-      "title": "Collage 2-4 clips",
-      "accept": [
-        "layout picker",
-        "per-cell source",
-        "synced length"
-      ]
-    },
-    {
-      "id": "frame-catalog",
-      "priority": 5,
-      "status": "todo",
-      "title": "Richer frame catalog",
-      "accept": [
-        "several frame styles drawn in code",
-        "picker in the 액자 panel",
-        "undo"
-      ],
-      "today": "op_border is one border: margin, color, rounded corner, shadow. No style catalog."
-    },
-    {
-      "id": "effects-more",
-      "priority": 6,
-      "status": "todo",
-      "title": "More effects (bloom, chroma key, color curves, tilt-shift, inpaint)",
-      "replaces": "effects-9",
-      "replaces_note": "The old effects-9 entry said 9 effects and then named 8 (chroma key, color curve, bloom, tilt-shift, out-of-focus, region/iris blur, ascii, inpaint-lite). That sentence is retired. rectblur (영역 흐리게) is already in EFFECTS and is not this item.",
-      "accept": [
-        "bloom, chroma key, color curves, tilt-shift, inpaint",
-        "each in EFFECTS",
-        "strength slider",
-        "live preview",
-        "smoke test"
-      ]
-    },
-    {
       "id": "watermark",
-      "priority": 7,
+      "priority": 3,
       "status": "todo",
       "title": "Watermark on save",
       "accept": [
@@ -357,7 +315,7 @@
     },
     {
       "id": "rec-grid-finder",
-      "priority": 8,
+      "priority": 4,
       "status": "todo",
       "title": "Recording grid + window finder",
       "accept": [
@@ -367,9 +325,9 @@
     },
     {
       "id": "shortcuts",
-      "priority": 9,
+      "priority": 5,
       "status": "todo",
-      "title": "Custom shortcuts",
+      "title": "Custom hotkeys",
       "accept": [
         "editable",
         "persisted via prefs",
@@ -379,7 +337,7 @@
     },
     {
       "id": "export-advanced",
-      "priority": 10,
+      "priority": 6,
       "status": "todo",
       "title": "Advanced export options (WebM alpha/codec, APNG color modes, preserve colors)",
       "accept": [
@@ -398,6 +356,7 @@
     "Releases are a pushed v* tag; release.yml builds the zip; do not rewrite release.yml",
     "No CHANGELOG.md; human release notes are README ## X.Y.Z; GitHub Release body is the generated PR list",
     "text-anim (intro/outro fade, slide, typewriter) was removed in PR #18 and must never be re-added",
+    "Items dropped by the owner are listed in the never-re-add rule in AGENTS.md and must never be re-added",
     "Owner has the vendor's permission to analyze the reference app; analysis artifacts stay in a Desktop folder on the owner's PC and are never committed",
     "Never write the reference app's name; do not copy its assets or code",
     "The shipping exe was not unpacked; license, trial, and signature checks were never analyzed",
@@ -565,7 +524,6 @@
   },
   "owner_questions": [
     "#19 녹화 프레임 이동/크기 UX 확인. Windows 스모크 실행만 됨. 주인 확인 없음.",
-    "머지된 cursor/* 다섯 브랜치 삭제 승낙. 승낙 전에는 지우지 않음.",
     "PySide6>=6.5,<6.9. 2026-11-02 Linux venv는 6.8.3. 주인 PC 6.12 주장은 이 저장소에서 재확인하지 못함.",
     "webpclip 서면 허락 원문이 저장소에 없음. NOTICE.md.",
     "4K HEVC/AV1 구간 미리보기 실측 없음. bonggif.log의 미리보기 캐시 줄을 주인이 알려 줘야 함."
@@ -595,48 +553,26 @@
     "remaining_remote_heads": [
       "main"
     ],
-    "remaining_remote_heads_note": "이 배열은 14개를 지운 직후다. 그 다음 #16–#20이 머지되어 헤드 다섯이 남았다. 현재 목록은 remote_branches.",
+    "remaining_remote_heads_note": "이 배열은 14개를 지운 직후다. 이 수정 시작 때 origin 헤드는 remote_branches를 본다. 이전에 적힌 다섯 헤드는 그 조회에 없었다.",
     "open_prs_before_delete": 0
   },
   "remote_branches": {
     "fetched_at": "2026-11-02",
     "delete_branch_on_merge": false,
-    "pending_deletion_until_owner_says_yes": true,
-    "note": "Fetched before this docs branch was pushed. After the push, origin also has the unmerged PR head. That head is not in the pending-deletion list.",
+    "note": "git ls-remote --heads origin at the start of this docs edit, before the branch push. After the push, origin also has this PR head. The owner ordered that head and cursor/docs-v170-align-dcba deleted after ci / smoke (ubuntu) is green.",
     "heads": [
       {
         "name": "main",
-        "sha": "c44f5c9fa63a28354c357412d67d0ebaee5e4fd9"
-      },
-      {
-        "name": "cursor/docs-handoff-refresh-0b5d",
-        "sha": "019d0301e549195a464fff76dc7749c61f351271",
-        "pr": 16,
+        "sha": "77cbb9054e9d997bddd614f2123d6d22d68c7c61",
+        "pr": 21,
         "state": "MERGED"
       },
       {
-        "name": "cursor/pr-smoke-ci-edf6",
-        "sha": "483f41f134afc1b09b946d9a6b6f5e412d18fb5d",
-        "pr": 17,
-        "state": "MERGED"
-      },
-      {
-        "name": "cursor/recorder-frame-move-resize-134c",
-        "sha": "2a07888934040c7104f4c97549cfcd86143f415a",
-        "pr": 19,
-        "state": "MERGED"
-      },
-      {
-        "name": "cursor/drop-text-anim-b03d",
-        "sha": "249ba9fa4f9b08d1055ac0650399865f09f8ab0c",
-        "pr": 18,
-        "state": "MERGED"
-      },
-      {
-        "name": "cursor/v170-release-9fb2",
-        "sha": "3ea479bb0815f4e18e3794fc22daea9518044784",
-        "pr": 20,
-        "state": "MERGED"
+        "name": "cursor/docs-v170-align-dcba",
+        "sha": "496a645fa7db1ea0ce87a7e3a18339a2743c728c",
+        "pr": 21,
+        "state": "MERGED",
+        "owner_ordered_delete_after_green_ci": true
       }
     ]
   },
@@ -652,6 +588,7 @@
     "delete_branches": "only after an explicit yes from the owner",
     "release": "push a v* tag; .github/workflows/release.yml; do not rewrite that file",
     "text_anim": "removed in PR #18; never re-add",
+    "dropped_by_owner": "listed in the never-re-add rule in AGENTS.md; must never be re-added",
     "reference_analysis": "vendor permission exists; artifacts only in a Desktop folder on the owner's PC; never commit them; never write the reference app's name; no copied assets or code",
     "exe": "shipping exe was not unpacked; license, trial, and signature checks were never analyzed",
     "pr19_ux": "smoke-launched on Windows only; owner has not confirmed"

@@ -10,14 +10,15 @@ You are working in https://github.com/Baegovda/BongGIF (Windows desktop GIF reco
 
 - `bonggif/version.py` is `1.7.0`. Do not bump it unless the owner asks for a release.
 - Tag `v1.7.0` is `f1a6d9097817ae92c6039a1d824fafd15186acb7` (`f1a6d90`), the squash merge of PR #20 (2026-11-01T19:31:40Z). No tag is waiting.
-- The commit on `main` that recorded that release is `c44f5c9fa63a28354c357412d67d0ebaee5e4fd9` (`c44f5c9`, 2026-11-01T19:35:47Z, `docs: record the released v1.7.0 tag and assets.`). Later docs commits may sit on top of `c44f5c9`. Run `git rev-parse HEAD` and `git rev-parse v1.7.0^{commit}` before you trust a SHA copied from a sentence.
+- The commit on `main` that recorded that release is `c44f5c9fa63a28354c357412d67d0ebaee5e4fd9` (`c44f5c9`, 2026-11-01T19:35:47Z, `docs: record the released v1.7.0 tag and assets.`). Docs PR #21 is `77cbb9054e9d997bddd614f2123d6d22d68c7c61` (`77cbb90`, merged 2026-11-02T03:03:30Z). This prompt's parent is that commit. Run `git rev-parse HEAD` and `git rev-parse v1.7.0^{commit}` before you trust a SHA copied from a sentence.
 - Public release: https://github.com/Baegovda/BongGIF/releases/tag/v1.7.0 published 2026-11-01T19:34:46Z. Workflow run https://github.com/Baegovda/BongGIF/actions/runs/41342191814 succeeded (2026-11-01T19:31:51Z–19:34:55Z). Job `build-windows` 19:31:53Z–19:34:54Z. Assets: `BongGIF-v1.7.0-win64.zip` 136,832,273 bytes and `BongGIF-v1.7.0-win64.zip.sha256` 90 bytes.
 - There is no `CHANGELOG.md`. Human release notes are the `## X.Y.Z` sections in `README.md` (newest first). The GitHub Release body is GitHub's generated "What's Changed" PR list between tags. The v1.7.0 body lists PRs #15, #16, #17, #19, #18, #20. It is not a copy of the README section. `docs/HANDOFF.md` "Version history" is the agent summary (SHAs, runs, zip sizes).
 
-PRs #15–#20 (all MERGED), newest commit on `main` first. #19's merge time (19:20:26Z) is earlier than #18's (19:26:26Z), so #18 sits above #19 on `main`.
+PRs #15–#21 (all MERGED), newest commit on `main` first. #19's merge time (19:20:26Z) is earlier than #18's (19:26:26Z), so #18 sits above #19 on `main`.
 
 | PR | merged (UTC) | merge commit | head branch | head SHA |
 |---|---|---|---|---|
+| #21 docs alignment and this prompt | 2026-11-02T03:03:30Z | `77cbb9054e9d997bddd614f2123d6d22d68c7c61` | `cursor/docs-v170-align-dcba` | `496a645fa7db1ea0ce87a7e3a18339a2743c728c` |
 | #20 Release 1.7.0 | 2026-11-01T19:31:40Z | `f1a6d9097817ae92c6039a1d824fafd15186acb7` | `cursor/v170-release-9fb2` | `3ea479bb0815f4e18e3794fc22daea9518044784` |
 | #18 drop text intro/outro from the backlog | 2026-11-01T19:26:26Z | `32d86565cf473693151fa9576940b7c475c30350` | `cursor/drop-text-anim-b03d` | `249ba9fa4f9b08d1055ac0650399865f09f8ab0c` |
 | #19 recording-frame move/resize | 2026-11-01T19:20:26Z | `59c23309d4cba7909b1f0e45765826ff4dd81715` | `cursor/recorder-frame-move-resize-134c` | `2a07888934040c7104f4c97549cfcd86143f415a` |
@@ -27,7 +28,7 @@ PRs #15–#20 (all MERGED), newest commit on `main` first. #19's merge time (19:
 
 PRs #6, #8, #10, #12, and #14 were closed on 2026-10-31 without merging (superseded; #15 says so).
 
-`deleteBranchOnMerge` is false. On 2026-11-02, fourteen stale `cursor/*` branches with no open PR were deleted, and at that moment only `main` remained. After #16–#20 merged, these five heads were still on origin: `cursor/docs-handoff-refresh-0b5d`, `cursor/pr-smoke-ci-edf6`, `cursor/drop-text-anim-b03d`, `cursor/recorder-frame-move-resize-134c`, `cursor/v170-release-9fb2`. They are pending deletion when the owner says yes. Do not delete them. A later unmerged docs branch is not part of that five.
+`deleteBranchOnMerge` is false. On 2026-11-02, fourteen stale `cursor/*` branches with no open PR were deleted, and at that moment only `main` remained. At the start of the drop-backlog edit, `git ls-remote --heads origin` showed only `main` (`77cbb90`) and `cursor/docs-v170-align-dcba` (`496a645`). The five heads named in the previous handoff were already absent. The owner ordered that session to squash-merge its PR after `ci / smoke (ubuntu)` is green, then delete that head and `cursor/docs-v170-align-dcba`. Do not delete any other branch unless the owner says so.
 
 ## 2. Read in this order
 
@@ -48,6 +49,7 @@ Start of a fresh clone: `bash scripts/bootstrap_agent.sh` (Windows: `scripts\boo
 - The owner has the vendor's permission to analyze the reference app. Analysis artifacts live only on the owner's PC, in a folder on the Desktop. Never commit that folder, never copy it into the repo, and never ask for it to be uploaded.
 - The shipping exe was not unpacked. License, trial, and signature checks were never analyzed. Do not unpack the exe to study them. No license-bypass, keygen, or license-algorithm material.
 - Text intro/outro animation (old backlog id `text-anim`: fade, slide, typewriter) was removed in PR #18. Never re-add it. It is not in the code.
+- Items dropped by the owner are listed in the never-re-add rule in `AGENTS.md` and must never be re-added.
 - UI text is Korean. Reply to the owner in Korean, short.
 - Merge a pull request only after an explicit yes from the owner. Opening a PR is not that yes. Do not delete branches unless the owner explicitly says to.
 - A release is a pushed tag `vX.Y.Z` that matches `bonggif/version.py`. That push runs `.github/workflows/release.yml` (windows-latest). Do not rewrite `release.yml`. Do not create the GitHub Release by hand.
@@ -60,23 +62,19 @@ Start of a fresh clone: `bash scripts/bootstrap_agent.sh` (Windows: `scripts\boo
 
 Do both of these. Do not start backlog item 2 until item 1 is done.
 
-1. Backlog item 1, id `bubbles`, priority 1, status `todo`: speech-bubble stickers. Acceptance: 3 or more bubble shapes drawn in code, text inside, draggable, color and outline. Korean UI. Undo. A smoke test. Use a worker if applying the sticker can take longer than 50 ms. `export-rebirth` (priority 0) is done.
+1. Backlog item 1, id `transitions`, priority 1, status `todo`: transitions between two clips or frame ranges. Acceptance: fade, slide, and wipe; N transition frames inserted; undo works. Korean UI. A smoke test. Use a worker if building the frames can take longer than 50 ms. `export-rebirth` (priority 0) is done.
 2. Ask the owner to confirm the PR #19 move/resize UX. Record the answer in `docs/HANDOFF.md` and `docs/STATE.json`. Until they answer, leave `recorder_frame.owner_confirmed` false.
 
-Backlog order in `docs/STATE.json` and `docs/HANDOFF.md` (do not reorder, do not revive `text-anim` or the old `effects-9` "9 effects / 8 names" sentence):
+Backlog order in `docs/STATE.json` and `docs/HANDOFF.md` (do not reorder, do not revive `text-anim`, and do not re-add items listed in the never-re-add rule):
 
 | # | id | item |
 |---|---|---|
-| 1 | `bubbles` | Speech bubble stickers |
-| 2 | `transitions` | Transitions (fade/slide/wipe) |
-| 3 | `zoom-camera` | Zoom/pan camera |
-| 4 | `collage` | Collage of 2–4 clips |
-| 5 | `frame-catalog` | Richer frame catalog. Today `op_border` is one border (margin, color, rounded corner, shadow) |
-| 6 | `effects-more` | bloom, chroma key, color curves, tilt-shift, inpaint. `rectblur` (영역 흐리게) is already in `EFFECTS` (18 entries: `none` + 17 filters) and is not this item |
-| 7 | `watermark` | Watermark on save |
-| 8 | `rec-grid-finder` | Recording grid (not captured) + window finder |
-| 9 | `shortcuts` | Custom hotkeys. The 설정 > 단축키 table is read-only today |
-| 10 | `export-advanced` | WebM alpha actually encoded (`write_webm` `alpha=True` is a no-op today), WebM codec (VP8/VP9 already in the save dialog; the settings WebM page stores quality only), APNG color modes beyond palette on/off and color count, preserve colors (no such option today) |
+| 1 | `transitions` | Transitions (fade/slide/wipe) |
+| 2 | `zoom-camera` | Zoom/pan camera |
+| 3 | `watermark` | Watermark on save |
+| 4 | `rec-grid-finder` | Recording grid (not captured) + window finder |
+| 5 | `shortcuts` | Custom hotkeys. The 설정 > 단축키 table is read-only today |
+| 6 | `export-advanced` | WebM alpha actually encoded (`write_webm` `alpha=True` is a no-op today), WebM codec (VP8/VP9 already in the save dialog; the settings WebM page stores quality only), APNG color modes beyond palette on/off and color count, preserve colors (no such option today) |
 
 `parity_estimate_pct` is 88. That number was not remeasured. Do not invent a new percentage.
 
