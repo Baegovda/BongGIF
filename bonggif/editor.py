@@ -56,7 +56,7 @@ class Preview(QLabel):
     rectChanged = Signal(QRect); pointChanged = Signal(QPoint); zoomChanged = Signal(float)
     def __init__(self):
         super().__init__(); self.setAlignment(Qt.AlignCenter); self.setMinimumSize(320, 240)
-        self.setStyleSheet("background:#16181c"); self.mode = None; self.img_size = (1, 1); self.zoom = None
+        self.setObjectName("canvas"); self.mode = None; self.img_size = (1, 1); self.zoom = None
         self.sel = None; self._p0 = None; self.overlay = None; self.overlay_pos = QPoint(10, 10); self._base = None
         self.ratio = None; self.darken = True; self.draw_layer = None; self.pen = QPen(QColor(255, 60, 60), 6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
         self.mask_overlays = []; self.export_crop_rect = None; self.hide_chrome = False; self._pan = QPointF(0, 0)
@@ -194,7 +194,8 @@ class Timeline(QListWidget):
     def __init__(self):
         super().__init__(); self.setUniformItemSizes(True)
         self.setViewMode(QListView.IconMode); self.setFlow(QListView.LeftToRight); self.setWrapping(False)
-        self.setIconSize(QSize(96, 72)); self.setFixedHeight(130); self.setMovement(QListView.Snap)
+        self.setObjectName("timeline")
+        self.setIconSize(QSize(96, 72)); self.setFixedHeight(148); self.setMovement(QListView.Snap)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.setDragDropMode(QAbstractItemView.InternalMove); self.setDefaultDropAction(Qt.MoveAction)
         self.setSpacing(4)
@@ -488,7 +489,7 @@ class EditorWindow(QMainWindow):
         flows = QHBoxLayout(); flows.setSpacing(12)
         for text, name, slot in (("녹화", "flowHomeRec", self.open_recorder), ("편집", "flowHomeEdit", lambda: self.show_tab("edit")),
                                  ("내보내기", "flowHomeExport", self.save_file)):
-            b = FlowButton(text); b.setObjectName(name); b.setMinimumSize(160, 72)
+            b = FlowButton(text); b.setObjectName(name); b.setMinimumSize(140, 52); b.setMaximumHeight(56)
             b.clicked.connect(lambda _=False, s=slot: s()); flows.addWidget(b); self._home_buttons.append(b)
         g.addLayout(flows)
         grid = QGridLayout()
@@ -528,7 +529,7 @@ class EditorWindow(QMainWindow):
             v.addLayout(h)
         sc = QScrollArea(); sc.setWidgetResizable(True); sc.setWidget(w); sc.setFrameShape(QFrame.NoFrame); return sc
     def _build_ui(self):
-        side = QStackedWidget(); side.setFixedWidth(300); side.setObjectName("sidepanel"); self.tool_tabs = side
+        side = QStackedWidget(); side.setFixedWidth(280); side.setObjectName("sidepanel"); self.tool_tabs = side
         # 0 프레임
         v = QVBoxLayout()
         h = QHBoxLayout(); self.sp_delay = QSpinBox(); self.sp_delay.setRange(10, 10000); self.sp_delay.setValue(100); self.sp_delay.setSuffix(" ms")
@@ -745,10 +746,10 @@ class EditorWindow(QMainWindow):
             wdg.valueChanged.connect(self._on_cam_controls)
         self.preview.rectFinished.connect(self._cam_rect_finished)
         # 명령 막대
-        cmd = QWidget(); cmd.setObjectName("cmdbar"); ch = QHBoxLayout(cmd); ch.setContentsMargins(6, 4, 6, 4); ch.setSpacing(2); self.mode_btns = {}
+        cmd = QWidget(); cmd.setObjectName("cmdbar"); cmd.setFixedHeight(44); ch = QHBoxLayout(cmd); ch.setContentsMargins(8, 4, 8, 4); ch.setSpacing(4); self.mode_btns = {}
         def tb(text, ic, slot, checkable=False):
-            b = QToolButton(); b.setText(text); b.setIcon(icon(ic)); b.setIconSize(QSize(24, 24)); b.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
-            b.setCheckable(checkable); b.setAutoRaise(True); b.clicked.connect(lambda _=False: slot()); ch.addWidget(b); return b
+            b = QToolButton(); b.setText(text); b.setIcon(icon(ic)); b.setIconSize(QSize(18, 18)); b.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+            b.setToolTip(text); b.setCheckable(checkable); b.setAutoRaise(True); b.clicked.connect(lambda _=False: slot()); ch.addWidget(b); return b
         for k, t, ic in (("crop", "자르기", "crop"), ("resize", "크기", "resize"), ("draw", "그리기", "draw"), ("effect", "효과", "effect"),
                          ("insert", "삽입", "text"), ("border", "액자", "frame"), ("mask", "마스크", "effect"), ("transition", "전환", "transition"),
                          ("camera", "줌", "camera"), ("webpclip", "WebP 클립", "save")):
@@ -756,8 +757,14 @@ class EditorWindow(QMainWindow):
         ch.addSpacing(12)
         for k, t in (("delete", "삭제"), ("cut", "구간 자르기"), ("reduce", "프레임 줄이기"), ("time", "시간 설정"), ("faster", "10% 빠르게"),
                      ("slower", "10% 느리게"), ("reverse", "역재생"), ("yoyo", "요요"), ("add_last", "끝에 추가"), ("import_img", "이미지")):
-            b = tb(t, "frame", lambda: None); b.clicked.disconnect(); b.setDefaultAction(self.actions_[k]); b.setText(t)
+            b = tb(t, "frame", lambda: None); b.clicked.disconnect(); b.setDefaultAction(self.actions_[k]); b.setText(t); b.setToolTip(t)
         ch.addStretch()
+        self.lbl_edit_meta = QLabel("프레임 없음"); self.lbl_edit_meta.setObjectName("editMeta")
+        ch.addWidget(self.lbl_edit_meta)
+        self.btn_save_main = QPushButton("저장"); self.btn_save_main.setObjectName("primary")
+        self.btn_save_main.setToolTip("오른쪽 위 저장. 형식과 품질, 예상 크기를 고릅니다.")
+        self.btn_save_main.clicked.connect(lambda _=False: self.save_file())
+        ch.addWidget(self.btn_save_main)
         center = QWidget(); cv_ = QVBoxLayout(center); cv_.setContentsMargins(0, 0, 0, 0)
         self.banner = QWidget(); self.banner.setObjectName("banner"); self.banner.setAttribute(Qt.WA_StyledBackground, True); bl = QHBoxLayout(self.banner); bl.setContentsMargins(8, 4, 8, 4)
         self.banner.setStyleSheet("#banner{background:#3a3220;border:1px solid #806a2a;border-radius:4px} #banner QLabel{color:#ffe7a8}")
@@ -856,6 +863,18 @@ class EditorWindow(QMainWindow):
         self.status.addWidget(self.lbl_status, 1); self.status.addPermanentWidget(self.lbl_info)
         self.status.addPermanentWidget(self.prog); self.status.addPermanentWidget(self.btn_cancel)
     def set_status(self, text): self.lbl_status.setText(text)
+    def _refresh_edit_meta(self):
+        label = getattr(self, "lbl_edit_meta", None)
+        if label is None:
+            return
+        frames = self.project.frames
+        if not frames:
+            label.setText("프레임 없음")
+            return
+        w, h = self.project.size
+        total = max(1, self.project.total_ms())
+        fps = 1000.0 * len(frames) / total
+        label.setText(f"{w}×{h} · {len(frames)}장 · {total / 1000:.2f}초 · {fps:.1f} fps")
 
     # ================= 작업(백그라운드) =================
     def is_busy(self): return self.task is not None
@@ -901,7 +920,8 @@ class EditorWindow(QMainWindow):
         box = QMessageBox(QMessageBox.Warning, APP_NAME, text, QMessageBox.Ok, self); box.setModal(False); box.show(); self._last_warn = box
     def _set_busy(self, busy):
         for a in self._busy_actions: a.setEnabled(not busy)
-        for wdg in (self.tool_tabs, self.btn_full, self.btn_opts, self.clip_list, *self._home_buttons):
+        extra = (self.btn_save_main,) if getattr(self, "btn_save_main", None) is not None else ()
+        for wdg in (self.tool_tabs, self.btn_full, self.btn_opts, self.clip_list, *self._home_buttons, *extra):
             wdg.setEnabled(not busy)
         if not busy: self._update_enabled()
     def cancel_task(self):
@@ -927,6 +947,7 @@ class EditorWindow(QMainWindow):
         self.project.clamp_clips(); self._refresh_clips(); self._refresh_mask_list(); self._update_mask_summary()
         self._update_meta(keep)
         if hasattr(self, "webp_panel"): self.webp_panel.sync()
+        self._refresh_edit_meta()
         self._start_thumbs()
     PLACEHOLDER = "영상(MP4·MOV 등)·GIF·WebP 파일을 여기로 끌어다 놓으세요\n또는 Ctrl+O 열기 · Ctrl+R 화면 녹화"
     def _empty_hint(self):

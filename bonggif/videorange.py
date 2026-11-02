@@ -251,18 +251,20 @@ class RangeBar(QWidget):
     def set_pos(self, t): self.pos = max(0.0, min(t, self.dur)); self.update()
     def paintEvent(self, e):
         p = QPainter(self); p.setRenderHint(QPainter.Antialiasing); y = self.height() - self.H - 6
-        p.setPen(Qt.NoPen); p.setBrush(QColor("#3a3f48")); p.drawRoundedRect(QRectF(self.M, y, self.width() - 2 * self.M, self.H), 4, 4)
+        from .tokens import current
+        t = current()
+        p.setPen(Qt.NoPen); p.setBrush(QColor(t.line)); p.drawRoundedRect(QRectF(self.M, y, self.width() - 2 * self.M, self.H), 4, 4)
         bins = getattr(self, "bins", None)
         if bins:   # 미리보기 캐시 로딩 범위 (얇은 선, 구간별)
             p.setBrush(QColor(170, 175, 185, 170)); W = self.width() - 2 * self.M; n = len(bins)
             for i, v in enumerate(bins):
                 if v: p.drawRect(QRectF(self.M + W * i / n, y + self.H + 3, W / n + 0.5, 2))
         xa, xb = self._x(self.a), self._x(self.b)
-        p.setBrush(QColor(61, 139, 253, 170)); p.drawRect(QRectF(xa, y, xb - xa, self.H))
+        sel = QColor(t.accent); sel.setAlpha(170); p.setBrush(sel); p.drawRect(QRectF(xa, y, xb - xa, self.H))
         for x in (xa, xb):
-            p.setBrush(QColor("#ffffff")); p.setPen(QPen(QColor("#3d8bfd"), 2)); p.drawRoundedRect(QRectF(x - 5, y - 4, 10, self.H + 8), 3, 3)
-        xp = self._x(self.pos); p.setPen(QPen(QColor("#ffcc33"), 2)); p.drawLine(QPointF(xp, y - 6), QPointF(xp, y + self.H + 2))
-        p.setPen(Qt.NoPen); p.setBrush(QColor("#ffcc33")); p.drawPolygon(QPolygonF([QPointF(xp - 6, y - 14), QPointF(xp + 6, y - 14), QPointF(xp, y - 5)]))
+            p.setBrush(QColor(t.on_accent)); p.setPen(QPen(QColor(t.accent), 2)); p.drawRoundedRect(QRectF(x - 5, y - 4, 10, self.H + 8), 3, 3)
+        xp = self._x(self.pos); p.setPen(QPen(QColor(t.fg), 2)); p.drawLine(QPointF(xp, y - 6), QPointF(xp, y + self.H + 2))
+        p.setPen(Qt.NoPen); p.setBrush(QColor(t.fg)); p.drawPolygon(QPolygonF([QPointF(xp - 6, y - 14), QPointF(xp + 6, y - 14), QPointF(xp, y - 5)]))
     def mousePressEvent(self, e):
         x = e.position().x(); xa, xb = self._x(self.a), self._x(self.b)
         if abs(x - xa) <= 8 and abs(x - xa) <= abs(x - xb): self._drag = "a"
@@ -282,22 +284,22 @@ class VideoRangeDialog(QDialog):
     def __init__(self, parent, path, info, fps_cap=30, max_w=1280, start=0.0, end=None):
         super().__init__(parent); self.path, self.info = path, info; self.fps_cap, self.max_w = fps_cap, max_w
         self.setWindowTitle("동영상에서 읽어들일 구간 선택하기"); self.setModal(True); self.resize(860, 640); self.setObjectName("rangedlg")
-        self.setStyleSheet("#rangedlg{background:#24272d} #card{background:#2c3038;border:1px solid #3a3f48;border-radius:8px}"
-                           " #card QLabel, #rangedlg QLabel{background:transparent} #infokey{color:#9aa0a6} #infoval{color:#e6e6e6;font-weight:600}")
+        from .theme import range_dialog_qss
+        self.setStyleSheet(range_dialog_qss())
         v = QVBoxLayout(self); v.setContentsMargins(14, 14, 14, 12)
-        self.view = QLabel(); self.view.setAlignment(Qt.AlignCenter); self.view.setMinimumSize(560, 315); self.view.setStyleSheet("background:#000;border-radius:6px")
+        self.view = QLabel(); self.view.setObjectName("rangePreview"); self.view.setAlignment(Qt.AlignCenter); self.view.setMinimumSize(560, 315)
         v.addWidget(self.view, 1)
         self.bar = RangeBar(info.duration); h = QHBoxLayout()
         self.btn_play = QToolButton(); self.btn_play.setIcon(icon("play")); self.btn_play.setIconSize(QSize(22, 22)); self.btn_play.setAutoRaise(True)
         self.btn_play.setToolTip("재생/정지 (Space)"); self.btn_play.clicked.connect(self.toggle_play); h.addWidget(self.btn_play); h.addWidget(self.bar, 1); v.addLayout(h)
-        self.lbl_time = QLabel(); self.lbl_time.setStyleSheet("color:#e6e6e6;font-size:13px"); self.lbl_time.setAlignment(Qt.AlignCenter); v.addWidget(self.lbl_time)
+        self.lbl_time = QLabel(); self.lbl_time.setObjectName("rangeTime"); self.lbl_time.setAlignment(Qt.AlignCenter); v.addWidget(self.lbl_time)
         card = QFrame(); card.setObjectName("card"); g = QGridLayout(card); g.setContentsMargins(14, 8, 14, 8); self.vals = {}
         for c, k in enumerate(("시작", "끝", "선택된 구간 재생 시간(초)", "이미지 크기")):
             a = QLabel(k); a.setObjectName("infokey"); b = QLabel(); b.setObjectName("infoval"); g.addWidget(a, 0, c); g.addWidget(b, 1, c); self.vals[k] = b
         v.addWidget(card)
-        hb = QHBoxLayout(); self.btn_opts = QPushButton("불러오기 옵션…"); self.btn_opts.setFlat(True); self.btn_opts.setStyleSheet("color:#7fb0ff;text-decoration:underline")
+        hb = QHBoxLayout(); self.btn_opts = QPushButton("불러오기 옵션…"); self.btn_opts.setObjectName("rangeLink"); self.btn_opts.setFlat(True)
         self.btn_opts.clicked.connect(self.open_options); hb.addWidget(self.btn_opts)
-        self.lbl_hint = QLabel("Space 재생 · I/O 시작/끝 · ←/→ 이동"); self.lbl_hint.setStyleSheet("color:#7d838c"); hb.addWidget(self.lbl_hint); hb.addStretch()
+        self.lbl_hint = QLabel("Space 재생 · I/O 시작/끝 · ←/→ 이동"); self.lbl_hint.setObjectName("rangeHint"); hb.addWidget(self.lbl_hint); hb.addStretch()
         self.btn_cancel = QPushButton("취소"); self.btn_ok = QPushButton("확인"); self.btn_ok.setObjectName("primary"); self.btn_ok.setDefault(True)
         for b in (self.btn_ok, self.btn_cancel): b.setMinimumWidth(96)
         self.btn_cancel.clicked.connect(self.reject); self.btn_ok.clicked.connect(self.accept); hb.addWidget(self.btn_cancel); hb.addWidget(self.btn_ok); v.addLayout(hb)

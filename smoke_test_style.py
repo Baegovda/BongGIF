@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QApplication
 QSettings.setDefaultFormat(QSettings.IniFormat)
 QSettings.setPath(QSettings.IniFormat, QSettings.UserScope, os.path.join(out, "cfg"))
 
+from PIL import Image
 from bonggif.backdrop import try_apply_backdrop
 from bonggif.controls import InsetGroup, InsetList, Segmented, Switch, fade
 from bonggif.hidpi import blank_pixmap, scaled_pixmap
@@ -54,6 +55,15 @@ dark_window = app.palette().color(QPalette.Window).name()
 apply_light(app)
 light_window = app.palette().color(QPalette.Window).name()
 ok("어두운/밝은 팔레트", dark_window.lower() != light_window.lower(), f"{dark_window} {light_window}")
+from bonggif.theme import range_dialog_qss
+from bonggif.dialogs import RangeDialog
+from bonggif.core import Frame
+light_qss = range_dialog_qss()
+ok("구간 창 스타일은 밝은 배경", LIGHT.bg.lower() in light_qss.lower() and "#24272d" not in light_qss.lower() and "#111" not in light_qss.lower())
+trim = RangeDialog(None, [Frame(Image.new("RGB", (16, 16), (20, 40, 80)), 80) for _i in range(3)], 0, 2)
+ok("프레임 구간 창이 밝은 테마", trim.objectName() == "rangedlg" and "#111" not in trim.styleSheet().lower()
+   and LIGHT.bg.lower() in trim.styleSheet().lower() and trim.view.objectName() == "rangePreview")
+trim.close()
 sheet = app.styleSheet()
 ok("둥근 모서리 스타일", f"border-radius:{RADIUS}px" in sheet and "insetList" in sheet)
 
@@ -135,6 +145,19 @@ ok("화면 선택이 저장됨", read_ui_theme(st) == "light" and int(st.value("
 edit = EditorWindow()
 edit.show()
 app.processEvents()
+edit.set_frames([Frame(Image.new("RGB", (40, 24), (10, 20, 30)), 100) for _i in range(4)])
+app.processEvents()
+meta = edit.lbl_edit_meta.text()
+ok("편집은 가운데 미리보기·아래 썸네일·오른쪽 도구·위 저장",
+   edit.preview.objectName() == "canvas" and edit.timeline.objectName() == "timeline"
+   and edit.timeline.y() > edit.preview.y() and edit.tool_tabs.x() > edit.preview.x()
+   and edit.btn_save_main.objectName() == "primary" and "40×24" in meta and "4장" in meta)
+from bonggif.dialogs import SaveDialog
+save = SaveDialog(edit, "gif", edit.project.frames, out, "fixture")
+ok("저장 창에 크기 미리보기", save.lbl_save_size.text() == "40×24" and "fps" in save.lbl_save_fps.text()
+   and save.lbl_save_est.text().startswith("약") and save.q.cb_fmt.count() == 6
+   and "#111" not in save.styleSheet().lower())
+save.close()
 before = motion_allowed()
 edit.run_task("대기", lambda ctx: None)
 held = not motion_allowed()

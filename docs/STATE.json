@@ -389,7 +389,7 @@
     "smoke_test_shortcuts.py": 40,
     "smoke_test_export_adv.py": 35,
     "smoke_test_services.py": 23,
-    "smoke_test_style.py": 28,
+    "smoke_test_style.py": 32,
     "smoke_test_settings_shell.py": 11,
     "smoke_test_flow.py": 10
   },
@@ -613,7 +613,7 @@
       "smoke_test_settings_shell.py",
       "smoke_test_flow.py"
     ],
-    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py, smoke_test_camera.py, smoke_test_watermark.py, smoke_test_recguide.py, smoke_test_shortcuts.py, smoke_test_export_adv.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 17개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 72/72 62/62 62/62 43/43 55/55 40/40 35/35 23/23 28/28 11/11 10/10. 마지막 10은 smoke_test_flow.py. 8번째 62는 smoke_test_transitions.py, 9번째 62는 smoke_test_camera.py, 43은 smoke_test_watermark.py, 55는 smoke_test_recguide.py, 40은 smoke_test_shortcuts.py, 마지막 35는 smoke_test_export_adv.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
+    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py, smoke_test_camera.py, smoke_test_watermark.py, smoke_test_recguide.py, smoke_test_shortcuts.py, smoke_test_export_adv.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 17개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 72/72 62/62 62/62 43/43 55/55 40/40 35/35 23/23 32/32 11/11 10/10. 마지막 10은 smoke_test_flow.py. 8번째 62는 smoke_test_transitions.py, 9번째 62는 smoke_test_camera.py, 43은 smoke_test_watermark.py, 55는 smoke_test_recguide.py, 40은 smoke_test_shortcuts.py, 마지막 35는 smoke_test_export_adv.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
   },
   "expected_test_counts": {
     "smoke_test.py": 120,
@@ -630,7 +630,7 @@
     "smoke_test_shortcuts.py": 40,
     "smoke_test_export_adv.py": 35,
     "smoke_test_services.py": 23,
-    "smoke_test_style.py": 28,
+    "smoke_test_style.py": 32,
     "smoke_test_settings_shell.py": 11,
     "smoke_test_flow.py": 10
   },
@@ -691,7 +691,7 @@
       "smoke_test_shortcuts.py": "40/40",
       "smoke_test_export_adv.py": "35/35",
       "smoke_test_services.py": "23/23",
-      "smoke_test_style.py": "28/28",
+      "smoke_test_style.py": "32/32",
       "smoke_test_settings_shell.py": "11/11",
       "smoke_test_flow.py": "10/10"
     },
