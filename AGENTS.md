@@ -4,7 +4,7 @@
 > **Rule: before ending ANY session, update `docs/HANDOFF.md` and `docs/STATE.json` (version, what changed, backlog status) and commit them.**
 
 ## Start here — step 0 (fresh agent, only the repo URL)
-1. `git clone https://github.com/Baegovda/BongGIF && cd BongGIF && bash scripts/bootstrap_agent.sh` (Windows: `scripts\bootstrap_agent.ps1`). Must print `OVERALL PASS`. That script runs four smoke tests, not the seven in `run_tests.bat`.
+1. `git clone https://github.com/Baegovda/BongGIF && cd BongGIF && bash scripts/bootstrap_agent.sh` (Windows: `scripts\bootstrap_agent.ps1`). Must print `OVERALL PASS`. That script runs four smoke tests, not the eight in `run_tests.bat`.
 2. If your host supports MCP: install servers listed in `docs/agent-env.json` → `mcp_servers` (template `docs/mcp.example.json`). GitHub = useful, REA = optional/clean-room.
 3. Read `docs/SETUP_AGENT.md` (box vs user PC), then `docs/HANDOFF.md` (what's done/next), `docs/STATE.json` (version, backlog, tests), `README.md` (release notes), and `docs/NEXT_BOT_PROMPT.md`.
 4. Continue the first STATE.json backlog item whose `status` is `todo` (skip `done`). As of the 2026-11-02 drop, that is `transitions` (priority 1). In the same session, ask the owner to confirm the PR **#19** recording-frame move/resize UX. It was only smoke-launched on Windows and is not confirmed. Do not mark it confirmed yourself, and do not start priority 2 until `transitions` is done. Update HANDOFF.md + STATE.json at the end of every session.
@@ -49,6 +49,7 @@ BongGIF = Windows desktop GIF recorder/editor (Python 3.12 + PySide6 + ffmpeg vi
 | `crashreport.py` | anonymized report client. `ENDPOINT` is the deployed worker; empty endpoint disables it |
 | `masks.py` | solid/mosaic/blur masks, OpenCV CSRT (also kcf/mosse if present) |
 | `timeline_fx.py` | slow-mo, freeze, keyframe interpolation (no GUI) |
+| `transitions.py` | Fade, slide, and wipe between two clips or a frame-range cut. Bakes N frames (direction, duration in ms). The editor previews one frame on the canvas; applying runs in a worker. Undo shifts clips, masks, slow-mo, and freezes with the insert |
 | `selftest.py` | `BongGIF.exe --selftest` checks CSRT; release workflow requires `selftest ok` |
 | `icon.py` | writes `bonggif.ico` at build time |
 | `encoders/` | `gifenc` `webpenc` `apngenc` `mp4enc` `webmenc` `avifenc` `common` |
@@ -75,15 +76,16 @@ python smoke_test_crash.py      # 15 checks (mock report endpoint; set BONGGIF_R
 python smoke_test_export.py     # 42 checks (40 if ffmpeg has no libaom-av1)
 python smoke_test_masks.py      # 10 checks
 python smoke_test_webpclip.py   # 33 checks
-run_tests.bat                   # all seven, in that order
+python smoke_test_transitions.py # 62 checks
+run_tests.bat                   # all eight, in that order
 ```
-Counts are success-path `ok()` calls after loops (the `결과: N/M` denominator). `smoke_test_updater.py` has three try/except pairs that record one check each. All seven must pass before a release. Add tests for every fix. In CI (`CI` or `GITHUB_ACTIONS`) the converter save-timer gap is 750 ms; otherwise 150 ms.
+Counts are success-path `ok()` calls after loops (the `결과: N/M` denominator). `smoke_test_updater.py` has three try/except pairs that record one check each. The eight in `run_tests.bat` must pass before a release. `release.yml` is not rewritten, so it still runs the previous six (no crash report suite, no transitions suite). Add tests for every fix. In CI (`CI` or `GITHUB_ACTIONS`) the converter save-timer gap is 750 ms; otherwise 150 ms.
 
 Who runs what (do not treat these as the same list):
-- `run_tests.bat` — all 7.
-- `scripts/bootstrap_agent.sh` and `scripts/bootstrap_agent.ps1` — only `smoke_test`, `smoke_test_converter`, `smoke_test_updater`, `smoke_test_crash`. They do not run export/masks/webpclip. `OVERALL PASS` does not mean the other three ran.
-- `.github/workflows/release.yml` — the seven except `smoke_test_crash.py`. A failing test sets `exit $fail` and **blocks** the build. The step also prints `::warning::`; that is not a non-blocking mode.
-- `.github/workflows/ci.yml` — all 7, on `pull_request` (into `main`), `push` to `main`, and `workflow_dispatch`. The check name is `ci / smoke (ubuntu)`. `ubuntu-latest`, Python 3.12, pip cache from `requirements.txt` (`PySide6>=6.5,<6.9` stays). `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. The job fails unless the lines are `120/120`, `62/62`, `40/40`, `15/15`, `42/42`, `10/10`, `33/33`. Each suite's stdin is `/dev/null` so ffmpeg cannot inherit a terminal (`SIGTTIN`) or block on an open stdin (WebM `subprocess.run` does not pass `stdin=DEVNULL`). The result check uses `grep -a` because `smoke_test_export.py` prints a NUL inside an APNG tEXt extra and plain grep then hides the `결과` line. If the imageio-ffmpeg build lacks `libaom-av1` / `libx264` / `libvpx` / `libvpx-vp9`, the job installs distro `ffmpeg` and sets `IMAGEIO_FFMPEG_EXE` — the export skip path records a failed check, so 40/42 is not a pass. This workflow does not build or upload a release. `windows-latest` stays in `release.yml`.
+- `run_tests.bat` — all 8, including `smoke_test_transitions.py`.
+- `scripts/bootstrap_agent.sh` and `scripts/bootstrap_agent.ps1` — only `smoke_test`, `smoke_test_converter`, `smoke_test_updater`, `smoke_test_crash`. They do not run export, masks, webpclip, or transitions. `OVERALL PASS` does not mean the other four ran.
+- `.github/workflows/release.yml` — the six it already ran (`smoke_test.py` through `smoke_test_webpclip.py`, no `smoke_test_crash.py` and no `smoke_test_transitions.py`). A failing test sets `exit $fail` and **blocks** the build. The step also prints `::warning::`; that is not a non-blocking mode. Do not rewrite this file.
+- `.github/workflows/ci.yml` — all 8, on `pull_request` (into `main`), `push` to `main`, and `workflow_dispatch`. The check name is `ci / smoke (ubuntu)`. `ubuntu-latest`, Python 3.12, pip cache from `requirements.txt` (`PySide6>=6.5,<6.9` stays). `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. The job fails unless the lines are `120/120`, `62/62`, `40/40`, `15/15`, `42/42`, `10/10`, `33/33`, `62/62` (`smoke_test.py`, converter, updater, crash, export, masks, webpclip, transitions). Each suite's stdin is `/dev/null` so ffmpeg cannot inherit a terminal (`SIGTTIN`) or block on an open stdin (WebM `subprocess.run` does not pass `stdin=DEVNULL`). The result check uses `grep -a` because `smoke_test_export.py` prints a NUL inside an APNG tEXt extra and plain grep then hides the `결과` line. If the imageio-ffmpeg build lacks `libaom-av1` / `libx264` / `libvpx` / `libvpx-vp9`, the job installs distro `ffmpeg` and sets `IMAGEIO_FFMPEG_EXE` — the export skip path records a failed check, so 40/42 is not a pass. This workflow does not build or upload a release. `windows-latest` stays in `release.yml`.
 
 ## 6. Build
 Python **3.12** (3.10.0 breaks PySide6/PyInstaller). `build_exe.bat` creates `.venv`, installs `requirements.txt` plus PyInstaller, then runs `python scripts\build_frozen.py`. That script writes `bonggif.ico`, calls PyInstaller onedir (`--windowed --name BongGIF`, `--collect-all imageio_ffmpeg`, `--collect-submodules imageio`, hidden imports `mss`, `keyboard`, `cv2`, `--additional-hooks-dir hooks`, `--exclude-module` lines from `packaging/pyinstaller-excludes.txt`), then `scripts/slim_dist.py` unless `BONGGIF_SKIP_SLIM=1`. Output: `dist\BongGIF\BongGIF.exe`. The release workflow calls `scripts/build_frozen.py` directly, not the old one-liner that omitted cv2, the hook dir, excludes, and slim.
@@ -92,7 +94,7 @@ Python **3.12** (3.10.0 breaks PySide6/PyInstaller). `build_exe.bat` creates `.v
 1. Bump `bonggif/version.py` (`__version__ = "X.Y.Z"`).
 2. Run all tests. Commit (`git -c user.name=Baegovda -c user.email=Baegovda@users.noreply.github.com commit`).
 3. `git tag vX.Y.Z && git push origin HEAD vX.Y.Z`.
-4. `.github/workflows/release.yml` (windows-latest, Py 3.12, tag push `v*` only): verifies tag == version.py (reads file as UTF-8), runs six smoke tests and **fails the job if any fail**, PyInstaller via `scripts/build_frozen.py`, frozen `BongGIF.exe --selftest` must print `selftest ok`, uploads `BongGIF-vX.Y.Z-win64.zip` + `.zip.sha256`. **Keep this workflow; don't rewrite it.** Pull requests into `main`, pushes to `main`, and `workflow_dispatch` run `.github/workflows/ci.yml` (ubuntu-latest, check `ci / smoke (ubuntu)`, all seven smoke tests, offscreen). That workflow does not build or release.
+4. `.github/workflows/release.yml` (windows-latest, Py 3.12, tag push `v*` only): verifies tag == version.py (reads file as UTF-8), runs six smoke tests and **fails the job if any fail**, PyInstaller via `scripts/build_frozen.py`, frozen `BongGIF.exe --selftest` must print `selftest ok`, uploads `BongGIF-vX.Y.Z-win64.zip` + `.zip.sha256`. **Keep this workflow; don't rewrite it.** It does not run `smoke_test_transitions.py`. Pull requests into `main`, pushes to `main`, and `workflow_dispatch` run `.github/workflows/ci.yml` (ubuntu-latest, check `ci / smoke (ubuntu)`, all eight smoke tests, offscreen). That workflow does not build or release.
 5. `gh run watch <id> --exit-status`; confirm both assets on the release.
 `.gitignore` includes `qa_shots/`. `PARITY.md`, `DONE*`, and `PROGRESS.json` are not in the tree and are **not** gitignored.
 
@@ -115,7 +117,7 @@ Python **3.12** (3.10.0 breaks PySide6/PyInstaller). `build_exe.bat` creates `.v
 
 ## 11. Start here (new agent checklist)
 1. Read this file, then `docs/HANDOFF.md`, then `docs/STATE.json`.
-2. Create venv (Py 3.12), install requirements, run `run_tests.bat` (seven files) offscreen; all green. Bootstrap's `OVERALL PASS` only covers four of them.
+2. Create venv (Py 3.12), install requirements, run `run_tests.bat` (eight files) offscreen; all green. Bootstrap's `OVERALL PASS` only covers four of them.
 3. Pick the top `backlog` item in STATE.json (or the user's request). Keep the hard rules.
 4. Implement + tests; regenerate screenshots with `python qa_screens.py` and look at them.
 5. Release via §7 only when the owner wants a release. That means bumping `bonggif/version.py`, then pushing a matching `v*` tag so `release.yml` runs. Do not merge the PR until the owner explicitly says yes.

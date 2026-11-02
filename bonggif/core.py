@@ -194,6 +194,46 @@ class Project:
         apply_freeze(self.frames, int(index), int(ms))
         self.freezes.append((int(index), int(ms)))
 
+    def insert_transition(self, index, new_frames) -> bool:
+        """index 앞에 전환 프레임을 넣는다. 그 위치 이후의 클립·마스크·슬로모·멈춤을 민다.
+        바로 앞 프레임에서 끝나는 클립은 전환 프레임을 포함한다."""
+        frames = [Frame(f.image, int(f.delay)) for f in (new_frames or [])]
+        n = len(frames)
+        at = int(index)
+        if n <= 0 or at < 0 or at > len(self.frames):
+            return False
+        self.checkpoint()
+        self.frames[at:at] = frames
+        for c in self.clips:
+            if c.start >= at:
+                c.start += n
+                c.end += n
+            elif c.end >= at or c.end == at - 1:
+                c.end += n
+        for m in self.masks:
+            open_end = m.end >= 10 ** 8
+            if m.start >= at:
+                m.start += n
+                if not open_end:
+                    m.end += n
+            elif not open_end and m.end >= at:
+                m.end += n
+            boxes = {}
+            for k, v in (m.boxes or {}).items():
+                ik = int(k)
+                boxes[ik + n if ik >= at else ik] = tuple(int(x) for x in v)
+            m.boxes = boxes
+        shifted = []
+        for a, b, factor in self.slowmos:
+            if a >= at:
+                a, b = a + n, b + n
+            elif b >= at:
+                b = b + n
+            shifted.append((a, b, factor))
+        self.slowmos = shifted
+        self.freezes = [(i + n, ms) if i >= at else (i, ms) for i, ms in self.freezes]
+        return True
+
     @property
     def size(self) -> Tuple[int, int]:
         return self.frames[0].image.size if self.frames else (0, 0)
