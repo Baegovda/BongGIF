@@ -7,7 +7,7 @@
 1. `git clone https://github.com/Baegovda/BongGIF && cd BongGIF && bash scripts/bootstrap_agent.sh` (Windows: `scripts\bootstrap_agent.ps1`). Must print `OVERALL PASS`. That script runs four smoke tests, not the seven in `run_tests.bat`.
 2. If your host supports MCP: install servers listed in `docs/agent-env.json` → `mcp_servers` (template `docs/mcp.example.json`). GitHub = useful, REA = optional/clean-room.
 3. Read `docs/SETUP_AGENT.md` (box vs user PC), then `docs/HANDOFF.md` (what's done/next), `docs/STATE.json` (version, backlog, tests), `README.md` (release notes), and `docs/NEXT_BOT_PROMPT.md`.
-4. Continue the first STATE.json backlog item whose `status` is `todo` (skip `done`). As of the 2026-11-02 docs alignment that is `bubbles` (speech-bubble stickers, priority 1). In the same session, ask the owner to confirm the PR **#19** recording-frame move/resize UX. It was only smoke-launched on Windows and is not confirmed. Do not mark it confirmed yourself, and do not start priority 2 until `bubbles` is done. Update HANDOFF.md + STATE.json at the end of every session.
+4. Continue the first STATE.json backlog item whose `status` is `todo` (skip `done`). As of the 2026-11-02 drop, that is `transitions` (priority 1). In the same session, ask the owner to confirm the PR **#19** recording-frame move/resize UX. It was only smoke-launched on Windows and is not confirmed. Do not mark it confirmed yourself, and do not start priority 2 until `transitions` is done. Update HANDOFF.md + STATE.json at the end of every session.
 
 ## 1. Purpose
 BongGIF = Windows desktop GIF recorder/editor (Python 3.12 + PySide6 + ffmpeg via imageio-ffmpeg). Workflow/UX modeled on popular GIF tools (record → edit frames → save GIF/WebP/MP4/WebM/APNG), **clean-room implementation**.
@@ -19,6 +19,7 @@ BongGIF = Windows desktop GIF recorder/editor (Python 3.12 + PySide6 + ffmpeg vi
 - Merge a pull request only after an explicit yes from the owner. Opening a PR is not that yes. Do not delete branches unless the owner explicitly says to delete them. `deleteBranchOnMerge` is false; five merged `cursor/*` branches are still on origin and are waiting for that yes (see `docs/HANDOFF.md`).
 - A release is a pushed `v*` tag. `.github/workflows/release.yml` builds and uploads the zip. Do not rewrite that workflow. There is no `CHANGELOG.md`. Human release notes are the `## X.Y.Z` sections in `README.md`. The GitHub Release body is the generated "What's Changed" PR list, not a copy of those sections.
 - Text intro/outro animation (backlog id `text-anim`: fade, slide, typewriter) was removed in PR **#18**. Never re-add it. It is not in the code.
+- Never-re-add rule: the owner dropped these backlog items and they must never be re-added. This is the only list: `bubbles` (speech-bubble stickers, 말풍선), `collage` (콜라주), `frame-catalog` (richer frame catalog, 액자 카탈로그), `effects-more` (bloom, chroma key, color curves, tilt-shift, inpaint).
 - PR **#19** (recording-frame move and resize) was only smoke-launched on Windows. The owner has not confirmed that UX. The automated result recorded on the PR is the Linux offscreen suites.
 - Never freeze the GUI: anything >50 ms runs in a worker with progress (step message + %) and cancel.
 - Do not touch the user's installed app (`%LOCALAPPDATA%\Programs\BongGIF`) unless asked; they test self-update themselves.
