@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, Q
                                QSpinBox, QDoubleSpinBox, QComboBox, QCheckBox, QLineEdit, QGroupBox, QDialogButtonBox,
                                QFileDialog, QListWidget, QListWidgetItem, QRadioButton, QTabWidget, QWidget, QColorDialog, QStackedWidget,
                                QAbstractItemView, QScrollArea, QButtonGroup, QFrame)
-from .panels import QualityBox, pil_to_qimage
+from .panels import DITHERS, QualityBox, pil_to_qimage
 
 def settings() -> QSettings:
     return QSettings(QSettings.defaultFormat(), QSettings.UserScope, "BongGIF", "BongGIF")
@@ -49,7 +49,7 @@ class SaveDialog(QDialog):
         self.q.cb_fmt.blockSignals(True); self.q.cb_fmt.clear()
         for t, v, _ in SAVE_FORMATS: self.q.cb_fmt.addItem(t, v)
         self.q.cb_fmt.blockSignals(False)
-        self.q.set_fmt(fmt); self.q._sync(); rv.addWidget(self.q)
+        self.q.set_fmt(fmt); self.q.load_prefs(settings()); self.q._sync(); rv.addWidget(self.q)
         g = QGroupBox("호환 · 반복"); f = QFormLayout(g)
         self.chk_comment = QCheckBox("파일에 앱 이름·저장 시각 주석 넣기"); self.chk_comment.setChecked(True)
         self.chk_simpix = QCheckBox("GIF·APNG: 같은 픽셀은 투명(변경 영역만)"); self.chk_simpix.setChecked(get_bool(settings(), "gif_remove_similar", True))
@@ -109,14 +109,11 @@ class SaveDialog(QDialog):
     def path(self): return os.path.join(self.cb_folder.currentText().strip() or os.path.expanduser("~"), self.filename())
     def options(self) -> dict:
         q = self.q; fmt = q.fmt(); o = {"target_mb": q.target(), "max_attempts": q.sp_attempts.value()}
-        if fmt == "gif": o.update(colors=q.sp_colors.value(), dither=q.cb_dither.currentData(), palette=q.cb_pal.currentData(),
-                                  encoder=q.cb_enc.currentData(), stats_mode=q.cb_stats.currentData(),
-                                  gif_quality=get_int(settings(), "gif_quality", 80, 1, 100))
-        elif fmt == "webp": o.update(quality=q.sp_q.value(), lossless=q.chk_lossless.isChecked(), webp_iphone=self.chk_iphone.isChecked())
-        elif fmt == "mp4": o.update(quality=q.sp_mq.value())
-        elif fmt == "webm": o.update(quality=q.sp_wq.value(), webm_codec=q.cb_wcodec.currentData())
-        elif fmt == "apng": o.update(apng_palette=q.chk_pal.isChecked(), colors=q.sp_ac.value(), apng_colors=q.sp_ac.value())
-        elif fmt == "avif": o.update(quality=q.sp_aq.value(), avif_quality=q.sp_aq.value())
+        o.update(q.export_options())
+        if fmt == "gif":
+            o["gif_quality"] = get_int(settings(), "gif_quality", 80, 1, 100)
+        elif fmt == "webp":
+            o["webp_iphone"] = self.chk_iphone.isChecked()
         o["comment"] = self.chk_comment.isChecked()
         o["remove_similar"] = self.chk_simpix.isChecked()
         o["loop"] = self.sp_loop.value() if self.chk_finite.isChecked() else 0
@@ -278,6 +275,10 @@ class SettingsDialog(QDialog):
         f.addRow(row)
         f = page("GIF"); f.addRow("기본 색상 수", spin("gif_colors", 2, 256, 256)); f.addRow("품질(주석 q=)", spin("gif_quality", 1, 100, 80))
         f.addRow("기본 인코더", combo("gif_encoder", [("기본(적응 팔레트)", "pil"), ("HQ(ffmpeg)", "ffmpeg")], "pil"))
+        f.addRow("팔레트", combo("gif_palette", [("전역 적응형 팔레트", "global"), ("프레임별 팔레트", "perframe")], "global"))
+        f.addRow("디더링", combo("gif_dither", list(DITHERS), "fs"))
+        f.addRow(chk("preserve_colors", "색 유지 (원본 색에 가깝게)", False))
+        f.addRow(QLabel("색 유지는 고른 팔레트·디더를 색 수 축소 없이 씁니다. WebP·APNG는 무손실, WebM·MP4·AVIF는 무손실에 가깝게 저장합니다. 저장 창의 색 유지와 같은 값입니다."))
         f.addRow(chk("gif_remove_similar", "같은 픽셀은 투명하게 저장", True))
         f.addRow(chk("gif_finite_loop", "유한 반복", False)); f.addRow("반복 횟수", spin("gif_loop_count", 1, 65535, 1))
         f.addRow(chk("gif_comment", "주석 확장 넣기", True))
@@ -285,11 +286,18 @@ class SettingsDialog(QDialog):
         f.addRow(chk("webp_iphone", "아이폰에서도 재생 (전체 프레임)", True))
         f.addRow(chk("webp_finite_loop", "유한 반복", False)); f.addRow("반복 횟수", spin("webp_loop_count", 1, 65535, 1))
         f.addRow(chk("webp_comment", "EXIF 주석 넣기", True))
-        f = page("WebM"); f.addRow("기본 품질(1-100)", self._q100("webm_quality", 80))
-        f.addRow(QLabel("VP8, 타임코드 1ms, 홀수 크기는 잘라 짝수로 맞춥니다. 소리 없음."))
+        f = page("WebM"); f.addRow("기본 코덱", combo("webm_codec", [("VP8", "vp8"), ("VP9", "vp9")], "vp8"))
+        f.addRow("기본 품질(1-100)", self._q100("webm_quality", 80))
+        f.addRow(chk("webm_alpha", "알파 채널 저장 (투명)", False))
+        f.addRow(QLabel("VP8 또는 VP9. 타임코드 1ms. 홀수 크기는 잘라 짝수로 맞춥니다. 알파를 켜면 투명 평면을 넣고, 끄면 검정 위에 합성합니다. 저장 창의 코덱·알파와 같습니다. 소리 없음."))
         f = page("MP4"); f.addRow("기본 품질(1-100)", self._q100("mp4_quality", 80))
         f.addRow(QLabel("H.264 High, 소리 없음. 홀수 너비·높이는 패딩 없이 자릅니다."))
-        f = page("APNG·AVIF"); f.addRow(chk("apng_palette", "APNG 팔레트 모드", True)); f.addRow("APNG 색 수", spin("apng_colors", 2, 256, 256))
+        f = page("APNG·AVIF")
+        f.addRow("색 모드", combo("apng_color", [("팔레트", "palette"), ("RGBA", "rgba"), ("RGB", "rgb")], self._apng_color_default()))
+        f.addRow("APNG 색 수", spin("apng_colors", 2, 256, 256))
+        f.addRow(QLabel("팔레트는 색 종류 3이고 색 수를 씁니다. RGBA는 원본 알파를 유지합니다. RGB는 알파 없이 검정 위에 합성합니다."))
+        self.w["apng_color"].currentIndexChanged.connect(self._sync_apng_colors)
+        self._sync_apng_colors()
         f.addRow(chk("apng_finite_loop", "APNG 유한 반복", False)); f.addRow("APNG 반복", spin("apng_loop_count", 1, 65535, 1))
         f.addRow(chk("apng_comment", "APNG Software 텍스트", True))
         f.addRow("AVIF 품질", spin("avif_quality", 1, 100, 80))
@@ -331,6 +339,17 @@ class SettingsDialog(QDialog):
         f = page("언어"); c = QComboBox(); c.addItem("한국어"); c.setEnabled(False); f.addRow("언어", c)
         self.nav.currentRowChanged.connect(self.pages.setCurrentIndex); self.nav.setCurrentRow(0)
         right.addWidget(_ok_cancel(self, "저장")); root.addLayout(right, 1)
+    def _apng_color_default(self) -> str:
+        saved = get_str(self.st, "apng_color", "")
+        if saved in ("palette", "rgba", "rgb"):
+            return saved
+        return "rgba" if not get_bool(self.st, "apng_palette", True) else "palette"
+    def _sync_apng_colors(self, *_a):
+        box = self.w.get("apng_colors")
+        mode = self.w.get("apng_color")
+        if box is None or mode is None:
+            return
+        box.setEnabled(mode.currentData() == "palette")
     def _q100(self, key, default):
         v = get_int(self.st, key, default, 1, 100)
         if v <= 10:
@@ -358,6 +377,9 @@ class SettingsDialog(QDialog):
             elif isinstance(w, QLineEdit): self.st.setValue(k, w.text())
         if hasattr(self, "sl_wm_opacity"):
             self.st.setValue("wm_opacity", int(self.sl_wm_opacity.value()))
+        color = self.w.get("apng_color")
+        if isinstance(color, QComboBox):
+            self.st.setValue("apng_palette", color.currentData() == "palette")
         saved = {}
         if getattr(self, "shortcut_table", None) is not None:
             saved = self.shortcut_table.mapping()

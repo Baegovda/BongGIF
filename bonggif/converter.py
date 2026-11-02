@@ -84,8 +84,12 @@ class ConvertSettings:
     comment: bool = True
     webp_iphone: bool = True
     webm_quality: int = 80
+    webm_codec: str = "vp8"
+    webm_alpha: bool = False
     mp4_quality: int = 80
     apng_palette: bool = True
+    apng_color: str = ""
+    preserve_colors: bool = False
     avif_quality: int = 80
 
 def clip_range(info: VideoInfo, s: ConvertSettings):
@@ -329,11 +333,14 @@ def convert_once(path_in, path_out, s: ConvertSettings, info=None, cancel=None, 
             export_mp4(frames, path_out, quality=s.mp4_quality, fps=out_fps(info, s))
         elif s.fmt == "webm":
             from .encoders.webmenc import write_webm
-            write_webm(frames, path_out, quality=s.webm_quality)
+            write_webm(frames, path_out, quality=100 if s.preserve_colors else s.webm_quality,
+                       codec=s.webm_codec, alpha=s.webm_alpha, lossless=s.preserve_colors)
         elif s.fmt in ("png", "apng"):
             from .encoders.apngenc import write_apng
-            write_apng(frames, path_out, loop=s.loop, palette=s.apng_palette, colors=s.colors, dither=s.dither,
-                       remove_similar=s.remove_similar, comment=s.comment, quality=s.gif_quality)
+            mode = "rgba" if s.preserve_colors else (s.apng_color or None)
+            write_apng(frames, path_out, loop=s.loop, palette=False if s.preserve_colors else s.apng_palette,
+                       colors=s.colors, dither=s.dither, remove_similar=s.remove_similar, comment=s.comment,
+                       quality=100 if s.preserve_colors else s.gif_quality, color_mode=mode)
         elif s.fmt == "avif":
             from .encoders.avifenc import write_avif
             write_avif(frames, path_out, quality=s.avif_quality, fps=out_fps(info, s))

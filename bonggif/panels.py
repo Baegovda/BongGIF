@@ -46,14 +46,22 @@ class QualityBox(QGroupBox):
         m = QWidget(); mf = QFormLayout(m); mf.setContentsMargins(0, 0, 0, 0)
         self.sp_mq = QSpinBox(); self.sp_mq.setRange(1, 100); self.sp_mq.setValue(80); mf.addRow("MP4 품질(1-100)", self.sp_mq); self.stack.addWidget(m)
         wm = QWidget(); wmf = QFormLayout(wm); wmf.setContentsMargins(0, 0, 0, 0)
-        self.sp_wq = QSpinBox(); self.sp_wq.setRange(1, 100); self.sp_wq.setValue(80); wmf.addRow("WebM 품질(VP8)", self.sp_wq)
-        self.cb_wcodec = _combo([("VP8", "vp8"), ("VP9", "vp9")]); wmf.addRow("코덱", self.cb_wcodec); self.stack.addWidget(wm)
+        self.sp_wq = QSpinBox(); self.sp_wq.setRange(1, 100); self.sp_wq.setValue(80); wmf.addRow("WebM 품질", self.sp_wq)
+        self.cb_wcodec = _combo([("VP8", "vp8"), ("VP9", "vp9")]); wmf.addRow("코덱", self.cb_wcodec)
+        self.chk_walpha = QCheckBox("알파 채널")
+        self.chk_walpha.setToolTip("투명한 픽셀을 WebM 알파 평면에 넣습니다. 끄면 검정 위에 합성합니다.")
+        wmf.addRow(self.chk_walpha); self.stack.addWidget(wm)
         ap = QWidget(); apf = QFormLayout(ap); apf.setContentsMargins(0, 0, 0, 0)
-        self.chk_pal = QCheckBox("팔레트 모드"); self.chk_pal.setChecked(True); apf.addRow(self.chk_pal)
+        self.cb_acolor = _combo([("팔레트", "palette"), ("RGBA", "rgba"), ("RGB", "rgb")])
+        apf.addRow("색 모드", self.cb_acolor)
         self.sp_ac = QSpinBox(); self.sp_ac.setRange(2, 256); self.sp_ac.setValue(256); apf.addRow("색 수", self.sp_ac); self.stack.addWidget(ap)
         av = QWidget(); avf = QFormLayout(av); avf.setContentsMargins(0, 0, 0, 0)
         self.sp_aq = QSpinBox(); self.sp_aq.setRange(1, 100); self.sp_aq.setValue(80); avf.addRow("AVIF 품질", self.sp_aq)
         avf.addRow(QLabel("70 이상이면 YUV 4:4:4, 짝수 크기로 자릅니다.")); self.stack.addWidget(av)
+        self.chk_preserve = QCheckBox("색 유지")
+        self.chk_preserve.setToolTip("GIF는 고른 팔레트와 디더를 색 수 축소 없이 쓰고, WebP·APNG는 무손실, WebM·MP4·AVIF는 무손실에 가깝게 저장합니다.")
+        f.addRow(self.chk_preserve)
+        self.chk_preserve.toggled.connect(self._on_preserve)
         self.chk_target = QCheckBox("목표 용량"); self.sp_target = QDoubleSpinBox(); self.sp_target.setRange(0.05, 500); self.sp_target.setValue(5); self.sp_target.setSuffix(" MB 이하")
         h = QHBoxLayout(); h.addWidget(self.chk_target); h.addWidget(self.sp_target); f.addRow(h)
         h = QHBoxLayout()
@@ -61,12 +69,78 @@ class QualityBox(QGroupBox):
             b = QPushButton(label); b.setProperty("targetMb", mb); b.clicked.connect(lambda _=False, m=mb: self.apply_preset(m)); h.addWidget(b)
         f.addRow("프리셋", h)
         self.sp_attempts = QSpinBox(); self.sp_attempts.setRange(3, 12); self.sp_attempts.setValue(7); f.addRow("최대 시도 횟수", self.sp_attempts)
-        for x in (self.cb_fmt, self.cb_enc, self.cb_pal, self.cb_dither): x.currentIndexChanged.connect(self.changed)
+        for x in (self.cb_fmt, self.cb_enc, self.cb_pal, self.cb_dither, self.cb_wcodec, self.cb_acolor):
+            x.currentIndexChanged.connect(self.changed)
+        self.chk_walpha.toggled.connect(self.changed)
         self.chk_target.toggled.connect(self.changed); self.changed.connect(self._sync); self._sync()
+    def _on_preserve(self, on):
+        if not on:
+            return
+        self.sp_colors.setValue(256)
+        i = self.cb_dither.findData("none")
+        if i >= 0:
+            self.cb_dither.setCurrentIndex(i)
+        self.chk_lossless.setChecked(True)
+        i = self.cb_acolor.findData("rgba")
+        if i >= 0:
+            self.cb_acolor.setCurrentIndex(i)
+        self.sp_wq.setValue(100); self.sp_mq.setValue(100); self.sp_aq.setValue(100)
     def _sync(self):
         self.stack.setCurrentIndex(self.cb_fmt.currentIndex())
         self.cb_stats.setEnabled(self.cb_enc.currentData() == "ffmpeg")
+        self.sp_ac.setEnabled(self.cb_acolor.currentData() == "palette")
         self.sp_target.setEnabled(self.chk_target.isChecked()); self.sp_attempts.setEnabled(self.chk_target.isChecked())
+    def _set_data(self, combo, value, fallback):
+        i = combo.findData(value)
+        if i < 0:
+            i = combo.findData(fallback)
+        if i >= 0:
+            combo.setCurrentIndex(i)
+    def load_prefs(self, st):
+        """환경 설정의 WebM 코덱·알파, APNG 색 모드, GIF 팔레트·디더, 색 유지를 이 상자에 맞춘다."""
+        from .prefs import get_bool, get_int, get_str
+        self.sp_colors.setValue(get_int(st, "gif_colors", 256, 2, 256))
+        enc = get_str(st, "gif_encoder", "pil")
+        self._set_data(self.cb_enc, enc if enc in ("pil", "ffmpeg") else "pil", "pil")
+        pal = get_str(st, "gif_palette", "global")
+        self._set_data(self.cb_pal, pal if pal in ("global", "perframe") else "global", "global")
+        dith = get_str(st, "gif_dither", "fs")
+        self._set_data(self.cb_dither, dith if dith in ("fs", "ordered", "none") else "fs", "fs")
+        wq = get_int(st, "webm_quality", 80, 1, 100)
+        if 0 < wq <= 10:
+            wq *= 10
+        self.sp_wq.setValue(min(100, max(1, wq)))
+        codec = get_str(st, "webm_codec", "vp8")
+        self._set_data(self.cb_wcodec, codec if codec in ("vp8", "vp9") else "vp8", "vp8")
+        self.chk_walpha.setChecked(get_bool(st, "webm_alpha", False))
+        mode = get_str(st, "apng_color", "")
+        if mode not in ("palette", "rgba", "rgb"):
+            mode = "rgba" if not get_bool(st, "apng_palette", True) else "palette"
+        self._set_data(self.cb_acolor, mode, "palette")
+        self.sp_ac.setValue(get_int(st, "apng_colors", 256, 2, 256))
+        self.chk_preserve.blockSignals(True)
+        self.chk_preserve.setChecked(get_bool(st, "preserve_colors", False))
+        self.chk_preserve.blockSignals(False)
+        self._sync()
+    def export_options(self) -> dict:
+        fmt = self.fmt()
+        o = {"preserve_colors": self.chk_preserve.isChecked()}
+        if fmt == "gif":
+            o.update(colors=self.sp_colors.value(), dither=self.cb_dither.currentData(), palette=self.cb_pal.currentData(),
+                     encoder=self.cb_enc.currentData(), stats_mode=self.cb_stats.currentData())
+        elif fmt == "webp":
+            o.update(quality=self.sp_q.value(), lossless=self.chk_lossless.isChecked())
+        elif fmt == "mp4":
+            o.update(quality=self.sp_mq.value())
+        elif fmt == "webm":
+            o.update(quality=self.sp_wq.value(), webm_codec=self.cb_wcodec.currentData() or "vp8",
+                     webm_alpha=self.chk_walpha.isChecked())
+        elif fmt == "apng":
+            mode = self.cb_acolor.currentData() or "palette"
+            o.update(apng_color=mode, apng_palette=(mode == "palette"), colors=self.sp_ac.value(), apng_colors=self.sp_ac.value())
+        elif fmt == "avif":
+            o.update(quality=self.sp_aq.value(), avif_quality=self.sp_aq.value())
+        return o
     def fmt(self): return self.cb_fmt.currentData()
     def set_fmt(self, fmt):
         i = self.cb_fmt.findData(fmt)
@@ -87,14 +161,8 @@ class ExportDialog(QDialog):
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel); bb.button(QDialogButtonBox.Ok).setText("다음…"); bb.button(QDialogButtonBox.Cancel).setText("취소"); bb.accepted.connect(self.accept); bb.rejected.connect(self.reject); v.addWidget(bb)
     def fmt(self): return self.q.fmt()
     def options(self) -> dict:
-        q = self.q; fmt = q.fmt(); o = {"target_mb": q.target(), "max_attempts": q.sp_attempts.value()}
-        if fmt == "gif": o.update(colors=q.sp_colors.value(), dither=q.cb_dither.currentData(), palette=q.cb_pal.currentData(),
-                                  encoder=q.cb_enc.currentData(), stats_mode=q.cb_stats.currentData())
-        elif fmt == "webp": o.update(quality=q.sp_q.value(), lossless=q.chk_lossless.isChecked())
-        elif fmt == "webm": o.update(quality=q.sp_wq.value(), webm_codec=q.cb_wcodec.currentData())
-        elif fmt == "apng": o.update(apng_palette=q.chk_pal.isChecked(), colors=q.sp_ac.value())
-        elif fmt == "avif": o.update(quality=q.sp_aq.value(), avif_quality=q.sp_aq.value())
-        else: o.update(quality=q.sp_mq.value())
+        o = {"target_mb": self.q.target(), "max_attempts": self.q.sp_attempts.value()}
+        o.update(self.q.export_options())
         return o
 
 FPS_CHOICES = [("원본", 0), ("60", 60), ("30", 30), ("24", 24), ("15", 15), ("10", 10)]

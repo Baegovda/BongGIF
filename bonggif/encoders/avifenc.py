@@ -20,7 +20,7 @@ def avif_available() -> bool:
     except Exception:
         return False
 
-def write_avif(frames, path, quality=80, fps=None, ctx=None):
+def write_avif(frames, path, quality=80, fps=None, ctx=None, lossless=False):
     from ..converter import ffmpeg_exe, _NOWIN
     from ..core import NULL, Cancelled
     if not avif_available():
@@ -33,17 +33,22 @@ def write_avif(frames, path, quality=80, fps=None, ctx=None):
     rate = float(fps) if fps else cfr_fps(delays)
     im0 = frames[0].image if hasattr(frames[0], "image") else frames[0]
     W, H = even_size(*im0.size)
-    pix = "yuv444p" if q >= 70 else "yuv420p"
+    if lossless:
+        pix = "yuvj444p"
+    else:
+        pix = "yuv444p" if q >= 70 else "yuv420p"
     crf = avif_crf(q)
     args = [
-        ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-y",
+        ffmpeg_exe(), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", f"{rate:g}", "-i", "-",
         "-an", "-c:v", "libaom-av1", "-still-picture", "0",
         "-pix_fmt", pix, "-crf", str(crf), "-b:v", "0", "-cpu-used", "6",
         "-g", "9999",
         "-loop", "0",
-        "-f", "avif", path,
     ]
+    if lossless:
+        args += ["-aom-params", "lossless=1"]
+    args += ["-f", "avif", path]
     errf = tempfile.TemporaryFile()
     proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=errf, creationflags=_NOWIN)
     try:
