@@ -51,11 +51,12 @@
       "smoke_test_export.py": 42,
       "smoke_test_masks.py": 10,
       "smoke_test_webpclip.py": 33,
-      "smoke_test_transitions.py": 62
+      "smoke_test_transitions.py": 62,
+      "smoke_test_camera.py": 62
     },
-    "run_tests.bat": "all eight",
+    "run_tests.bat": "all nine",
     "bootstrap": ["smoke_test.py", "smoke_test_converter.py", "smoke_test_updater.py", "smoke_test_crash.py"],
-    "release_yml": "all except smoke_test_crash.py; a failure fails the job",
+    "release_yml": "the original six (no crash, transitions, or camera suite); a failure fails the job",
     "import_check_omits": ["cv2", "keyboard"]
   }
 }

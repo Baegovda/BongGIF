@@ -181,6 +181,10 @@ def _draw(name, p: QPainter, s: float, col: QColor):
         p.drawRect(QRectF(u(.10), u(.28), u(.28), u(.44))); p.drawRect(QRectF(u(.62), u(.28), u(.28), u(.44)))
         p.drawLine(QPointF(u(.40), u(.50)), QPointF(u(.58), u(.50)))
         p.setPen(Qt.NoPen); fill(); _poly(p, [(u(.60), u(.50)), (u(.48), u(.40)), (u(.48), u(.60))])
+    elif name == "camera":
+        p.drawRoundedRect(QRectF(u(.10), u(.20), u(.50), u(.40)), u(.04), u(.04))
+        p.drawEllipse(QRectF(u(.44), u(.40), u(.30), u(.30)))
+        p.drawLine(QPointF(u(.66), u(.62)), QPointF(u(.84), u(.80)))
     else:
         p.drawEllipse(QRectF(u(.3), u(.3), u(.4), u(.4)))
 
