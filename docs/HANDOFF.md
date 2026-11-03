@@ -1,9 +1,57 @@
 # HANDOFF — BongGIF
 
-_Last updated: 2026-11-02 (KST) · `bonggif/version.py` **1.8.0** · 태그 **v1.8.0** = `23205fd` · 릴리스 성공 · 대기 중인 태그 없음_
+_Last updated: 2026-11-03 (KST) · `bonggif/version.py` **1.8.0** · 공개 태그 **v1.8.0** = `23205fd` · main **`6a34ced`** (#37) · v1.8.0 다음 태그 없음_
+
+## 지금
+main은 `6a34ced9394c34266b0f34a1add075051c30eb2d`(`6a34ced`)이다. 제목은 `Match the editor layout to a large preview, thumbnail strip, and simple save summary. (#37)`. 공개 릴리스는 여전히 **v1.8.0** = `23205fd`(#30)이다. v1.8.0 뒤에 태그를 더 달지 않았다.
+
+UI 재설계는 main에 머지됐다.
+
+| PR | merge | 내용 |
+|---|---|---|
+| #32 | `d62a456` | 캡처·파일 쓰기·전역 단축키 경계(`bonggif/services.py`)와 가짜, 기준 벤치 |
+| #33 | `f937b1f` | 테마·대비·HiDPI·`bonggif/tokens.py` |
+| #34 | `c63766c` | 설정 한 창, 왼쪽 목록 |
+| #35 | `602ed75` | 메인에서 녹화·편집·내보내기 |
+| #36 | `54bfa18` | 벤치 비교와 문서 |
+| #37 | `6a34ced` | 가운데 미리보기, 아래 썸네일, 오른쪽 도구, 저장 요약, 밝은 구간 창 |
+
+배치는 공개된 Honeycam 화면을 보고 우리 위젯으로 다시 짰다. 참조 앱의 코드·아이콘·이미지는 복사하지 않았다. 녹화 창은 테두리와 도구 막대, 편집은 가운데 미리보기와 아래 썸네일 띠와 오른쪽 도구, 저장 창은 품질과 크기·길이·속도·예상 크기를 보여 준다. 색·반지름·여백·240ms OutCubic은 `bonggif/tokens.py`이다. Baegovda/BongHub는 `GET /repos/Baegovda/BongHub` 404, `git ls-remote`는 Repository not found라 그 저장소 색에 맞추지 못했다.
+
+벤치 스크립트는 `tools/bench_ui.py`이다. 픽스처는 16프레임 320×240 GIF(pil, 색 64)이다. 기준 `tools/bench_baseline.json`은 대기 RSS 99.30 MB, 인코드 0.0368초이다. #37 직전에 다시 잰 값은 대기 RSS 101.48 MB, 인코드 0.0356초이다. 회귀로 보지 않는다. 트리의 `tools/bench_after.json`은 #36 때의 표본(99.63 MB, 0.0354초)이다.
+
+빌드와 검사는 아래와 같다. GUI 검사는 `QT_QPA_PLATFORM=offscreen`만 쓴다. 캡처·단축키·파일 경계 검사는 가짜를 넣고 실제 호출이 0인지 본다(`smoke_test_services.py`).
+
+```
+set QT_QPA_PLATFORM=offscreen
+set BONGGIF_REPORT_URL=
+python smoke_test.py
+python smoke_test_converter.py
+python smoke_test_updater.py
+python smoke_test_crash.py
+python smoke_test_export.py
+python smoke_test_masks.py
+python smoke_test_webpclip.py
+python smoke_test_transitions.py
+python smoke_test_camera.py
+python smoke_test_watermark.py
+python smoke_test_recguide.py
+python smoke_test_shortcuts.py
+python smoke_test_export_adv.py
+python smoke_test_services.py
+python smoke_test_style.py
+python smoke_test_settings_shell.py
+python smoke_test_flow.py
+```
+
+`run_tests.bat`가 위 17개를 순서대로 돌린다. 부트스트랩은 앞 4개만이다. 릴리스는 `bonggif/version.py`와 같은 `v*` 태그를 푸시하면 `.github/workflows/release.yml`이 zip을 만든다. 그 워크플로는 고치지 않는다. `CHANGELOG.md`는 없다. 사람이 읽는 노트는 README `## X.Y.Z`이다.
+
+열린 일: BongHub 스타일은 맞추지 못했다. #19 녹화 프레임 이동·크기 UX는 주인 확인이 없다. v1.8.0 다음 릴리스는 없다.
+
+영구 규칙: 텍스트 인트로/아웃트로를 다시 넣지 않는다. 말풍선, 콜라주, 액자 카탈로그, 추가 효과(bloom, chroma key, curves, tilt-shift, inpaint)는 다시 넣지 않는다. 참조 앱의 코드와 에셋은 복사하지 않는다. 배치는 공개 자료만 참고한다. 라이선스·체험·서명 모듈은 분석하지 않는다. 참조 앱 분석 산출물은 커밋하지 않는다.
 
 ## Current state
-main의 릴리스 커밋은 PR **#30** 스쿼시 `23205fda44da51a258f21367fe62ea83b9206e2a`(`23205fd`, 2026-11-02T05:21:30Z, KST 14:21)이다. 태그 **v1.8.0**이 그 커밋을 가리킨다. 이 문서 커밋은 그 태그 다음이다. #30은 버전을 1.7.0에서 1.8.0으로 올렸고 README `## 미공개`를 `## 1.8.0`으로 옮겼다. 노트는 전환(#23), 줌(#24), WebP 클립(#25), 워터마크(#26), 녹화 격자·창 찾기(#27), 단축키(#28), 저장 고급 옵션(#29)이다. 그 아래 PR **#29** 스쿼시 `7f02510d9aca5382f23323a53ab5fb9cbb6535ab`(`7f02510`, 2026-11-02T05:14:10Z, KST 14:14)이 저장 고급 옵션이다. 최신 공개 릴리스는 v1.8.0이다. 대기 중인 태그는 없다.
+공개 릴리스 커밋은 PR **#30** 스쿼시 `23205fda44da51a258f21367fe62ea83b9206e2a`(`23205fd`, 2026-11-02T05:21:30Z, KST 14:21)이다. 태그 **v1.8.0**이 그 커밋을 가리킨다. 지금 main은 그 뒤에 #32–#37이 더 있다. 아래 문장은 그 릴리스를 적던 때의 기록이다. #30은 버전을 1.7.0에서 1.8.0으로 올렸고 README `## 미공개`를 `## 1.8.0`으로 옮겼다. 노트는 전환(#23), 줌(#24), WebP 클립(#25), 워터마크(#26), 녹화 격자·창 찾기(#27), 단축키(#28), 저장 고급 옵션(#29)이다. 그 아래 PR **#29** 스쿼시 `7f02510d9aca5382f23323a53ab5fb9cbb6535ab`(`7f02510`, 2026-11-02T05:14:10Z, KST 14:14)이 저장 고급 옵션이다. 최신 공개 릴리스는 v1.8.0이다. 대기 중인 태그는 없다.
 
 `bonggif/version.py`는 **1.8.0**이다. 태그 **v1.7.0**은 `f1a6d9097817ae92c6039a1d824fafd15186acb7`(`f1a6d90`, 2026-11-01T19:31:40Z, KST 2026-11-02 04:31)을 가리킨다. 그 커밋은 PR **#20** 스쿼시이고 버전을 1.6.0에서 1.7.0으로 올렸다. 그 다음 main 커밋 `c44f5c9fa63a28354c357412d67d0ebaee5e4fd9`(`c44f5c9`, 2026-11-01T19:35:47Z, KST 2026-11-02 04:35, `docs: record the released v1.7.0 tag and assets.`)가 그 릴리스 결과를 문서에 적었다. 그 위는 #21 `77cbb90`, #22 `aeef3ec`, #23 `50f4137`, #24 `05e8856`, #25 `9870479`, #26 `4bf112c`, #27 `291f74a`, #28 `8641fd5`, #29 `7f02510`이다.
 
@@ -63,7 +111,7 @@ main 순서(새 것부터, v1.7.0 태그까지): `23205fd` #30 → `7f02510` #29
 
 합계 730. 예전에 적힌 70/64/40/15는 v1.1.x 기준이라 현재 파일과 맞지 않는다. 돌리는 집합도 셋이다.
 
-- `run_tests.bat`: 13개 전부. 마지막이 `smoke_test_export_adv.py`다.
+- `run_tests.bat`: 17개 전부. 마지막이 `smoke_test_flow.py`다.
 - `scripts/bootstrap_agent.sh`, `scripts/bootstrap_agent.ps1`: 앞 4개만. `OVERALL PASS`는 export/masks/webpclip/transitions/camera/watermark/recguide/shortcuts/export-adv를 포함하지 않는다. import 검사도 `cv2`와 `keyboard`를 보지 않는다.
 - `.github/workflows/release.yml`: 예전 6개(`smoke_test_crash.py`, `smoke_test_transitions.py`, `smoke_test_camera.py`, `smoke_test_watermark.py`, `smoke_test_recguide.py`, `smoke_test_shortcuts.py`, `smoke_test_export_adv.py`는 없음). 실패하면 `exit $fail`로 빌드를 막는다. `::warning::`를 찍지만 비차단이 아니다. 태그 push `v*`만. 이 파일은 고치지 않았다.
 - `.github/workflows/ci.yml`: `pull_request`(대상 `main`)와 `push`(main)와 `workflow_dispatch`. 러너 **ubuntu-latest**, Python 3.12, `requirements.txt` 그대로(`PySide6>=6.5,<6.9`), pip 캐시. `QT_QPA_PLATFORM=offscreen`, `BONGGIF_REPORT_URL=""`, `CI=true`. 17개 전부, 기대 줄은 `120/120` `62/62` `40/40` `15/15` `42/42` `10/10` `72/72` `62/62` `62/62` `43/43` `55/55` `40/40` `35/35` `23/23` `32/32` `11/11` `10/10`(8번째는 `smoke_test_transitions.py`, 9번째는 `smoke_test_camera.py`, 10번째는 `smoke_test_watermark.py`, 11번째는 `smoke_test_recguide.py`, 12번째는 `smoke_test_shortcuts.py`, 13번째는 `smoke_test_export_adv.py`, 14번째는 `smoke_test_services.py`, 15번째는 `smoke_test_style.py`, 16번째는 `smoke_test_settings_shell.py`, 17번째는 `smoke_test_flow.py`). 개수가 다르거나 종료 코드가 0이 아니면 잡이 실패한다. 각 스위트 stdin은 `/dev/null`이다. WebM `subprocess.run`이 stdin을 닫지 않아, 터미널을 물려받으면 `SIGTTIN`으로 멈추고 열린 stdin이면 읽다 멈춘다. imageio-ffmpeg에 `libaom-av1`·`libx264`·`libvpx`·`libvpx-vp9`가 없으면 distro `ffmpeg`를 설치하고 `IMAGEIO_FFMPEG_EXE`를 둔다. export의 "인코더 없음" 분기는 실패 체크라 40으로 통과시키지 않는다. 빌드·릴리스 업로드는 하지 않는다. windows-latest는 release.yml에만 둔다. PR마다 PySide6+OpenCV를 윈도우에서 한 번 더 받지 않기 위해서다. 7개 오프스크린은 리눅스에서 이미 통과한 기록이 있다. 결과 줄 검사는 `grep -a`다. export 로그에 APNG tEXt NUL이 있어, `-a` 없이는 grep이 바이너리로 보고 `42/42` 줄을 숨긴다. 첫 녹색 런은 [41332687797](https://github.com/Baegovda/BongGIF/actions/runs/41332687797) (success). 런 시각 2026-11-01T17:40:38Z–17:41:45Z (67초). 잡 `smoke (ubuntu)` 17:40:41Z–17:41:44Z (1분 3초). 스모크 단계 36초. PySide6 6.8.3. 번들 ffmpeg에 libaom-av1이 있어 distro ffmpeg는 쓰지 않았다. 바로 앞 [41332512818](https://github.com/Baegovda/BongGIF/actions/runs/41332512818)은 7개 결과가 모두 N/N이었는데 그 NUL 때문에 실패했다.
@@ -75,7 +123,7 @@ Linux 오프스크린 결과(2026-11-02, Python 3.12.3, `QT_QPA_PLATFORM=offscre
 - 첫 실행은 파이프 안에서 ffmpeg가 터미널을 물려받아 `SIGTTIN`으로 멈췄다(WebM `subprocess.run`이 stdin을 닫지 않음). 제어 터미널 없이 다시 돌리니 위 결과가 나왔다. 제품 실패는 아니다. 이 88/88은 녹화 프레임 변경 전이다. 변경 후 수는 표의 120이다.
 
 ## 다음 작업
-`export-advanced`는 done이다. 백로그에 `status=todo`인 항목은 없다. 새 백로그 항목은 만들지 않는다. 주인이 요청한 UI 재설계는 백로그가 아니라 단계 PR이다. 기준 벤치(대기 RSS 99.30 MB, 인코드 0.0368초)와 이후(99.63 MB, 0.0354초)는 회귀가 아니다. 같은 스크립트는 `tools/bench_ui.py`, 숫자는 `tools/bench_baseline.json`과 `tools/bench_after.json`. Baegovda/BongHub `next/`는 404라 토큰을 복사하지 못했다. never-re-add 목록도 다시 넣지 않는다. #19 녹화 프레임 UX는 아직 주인 확인이 없다. 확인됐다고 적지 않는다. `export-rebirth`, `transitions`, `zoom-camera`, `watermark`, `rec-grid-finder`, `shortcuts`, `export-advanced`는 done이다. v1.8.0은 이미 릴리스됐다. 추가 태그는 만들지 않는다.
+백로그에 `status=todo`인 항목은 없다. 새 백로그 항목을 만들지 않는다. UI 재설계 #32–#37은 main에 머지됐다. 남은 일은 BongHub 스타일(저장소를 읽지 못함), #19 녹화 프레임 UX 주인 확인, v1.8.0 다음 릴리스 여부이다. 확인됐다고 적지 않는다. 태그는 주인이 달라고 하기 전에는 만들지 않는다.
 
 ## Version history
 | ver | summary |
@@ -156,6 +204,7 @@ GitHub 저장소 설정에서 **Automatically delete head branches** (`deleteBra
 | MP4/MKV 헤더로 FPS | ffmpeg probe | 그대로 |
 
 ## Session log (append newest first)
+- 2026-11-03 (KST): 핸드오프. main `6a34ced`(#37). v1.8.0 태그는 `23205fd`. UI #32–#37 머지. 오프스크린 17개 통과(120/62/40/15/42/10/72/62/62/43/55/40/35/23/32/11/10). 프로젝트 린트 설정은 없다. `python -m compileall bonggif` 통과. ruff 기본 규칙은 저장소 설정이 아니라 371건을 보고했고 CI 기준이 아니다. 벤치는 99.30 MB / 0.0368초에서 #37 직전 101.48 MB / 0.0356초. BongHub는 404. #19는 미확인. `CHANGELOG.md`는 만들지 않았다.
 - 2026-11-02 (KST): 편집 배치는 공개 Honeycam 화면(bandisoft.com/honeycam/screenshots)을 보고 맞췄다. 코드·아이콘·이미지는 복사하지 않았다. 가운데 미리보기, 아래 썸네일 띠, 오른쪽 도구, 위쪽 저장, 저장 창의 크기·길이·속도·예상 크기. 녹화 테두리는 테마 색. Baegovda/BongHub 는 GET /repos/Baegovda/BongHub 404, git ls-remote Repository not found. 토큰 숫자는 그대로다. 구간 창은 테마를 따른다. `smoke_test_style.py` 32. #19 주인 확인은 아직 없다.
 - 2026-11-02 (KST): 오프스크린 2배 배율로 어두운/밝은 화면 56장을 `/opt/cursor/artifacts/screenshots/`에 찍었다. 픽스처는 임시 폴더에서만 만들었다. 스크립트는 `tools/render_theme_shots.py`.
 - 2026-11-02 (KST): UI 재설계 5단계. 같은 `tools/bench_ui.py`로 다시 쟀다. 대기 RSS 99.30 → 99.63 MB. GIF 인코드 중앙값 0.0368 → 0.0354초(16프레임 320×240, pil, 색 64). 회귀 아님. README `## 미공개`. 버전은 1.8.0. 태그 없음. #19 주인 확인은 아직 없다. Baegovda/BongHub는 접근하지 못했다.
