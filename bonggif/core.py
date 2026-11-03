@@ -1,4 +1,4 @@
-"""BongGIF 코어: 프레임 모델, 편집 연산, 실행취소, 불러오기/내보내기 (클린룸 구현)."""
+"""BongGIF 코어: 프레임 모델, 편집 연산, 실행취소, 불러오기/내보내기."""
 from __future__ import annotations
 import os
 from dataclasses import dataclass, field
