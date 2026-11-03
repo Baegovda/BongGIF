@@ -7,7 +7,7 @@
 1. `git clone https://github.com/Baegovda/BongGIF && cd BongGIF && bash scripts/bootstrap_agent.sh` (Windows: `scripts\bootstrap_agent.ps1`). Must print `OVERALL PASS`. That script runs four smoke tests, not the seventeen in `run_tests.bat`.
 2. If your host supports MCP: install servers listed in `docs/agent-env.json` → `mcp_servers` (template `docs/mcp.example.json`). GitHub = useful, REA = optional.
 3. Read `docs/SETUP_AGENT.md` (box vs user PC), then `docs/HANDOFF.md` (what's done/next), `docs/STATE.json` (version, backlog, tests), `README.md` (release notes), and `docs/NEXT_BOT_PROMPT.md`.
-4. Continue the first STATE.json backlog item whose `status` is `todo` (skip `done`). As of the export-advanced work, the backlog has no `todo` item. Do not invent one, and do not re-add anything on the never-re-add list. In the same session, ask the owner to confirm the PR **#19** recording-frame move/resize UX. It was only smoke-launched on Windows and is not confirmed. Do not mark it confirmed yourself. Update HANDOFF.md + STATE.json at the end of every session.
+4. Continue the first STATE.json backlog item whose `status` is `todo` (skip `done`). As of the export-advanced work, the backlog has no `todo` item. Do not invent one, and do not re-add anything on the never-re-add list. PR **#19** recording-frame move/resize was only smoke-launched on Windows and is not confirmed. Do not mark it confirmed. Do routine work without waiting on that question. Update HANDOFF.md + STATE.json at the end of every session.
 
 ## 1. Purpose
 BongGIF = Windows desktop GIF recorder/editor (Python 3.12 + PySide6 + ffmpeg via imageio-ffmpeg). Workflow/UX modeled on popular GIF tools (record → edit frames → save GIF/WebP/MP4/WebM/APNG).
@@ -15,8 +15,8 @@ BongGIF = Windows desktop GIF recorder/editor (Python 3.12 + PySide6 + ffmpeg vi
 ## 2. Hard rules (never break)
 - No third-party reference-app code or assets are copied. Icons are drawn in code (`bonggif/theme.py`, QPainter). Analysis artifacts stay only on the owner's PC, in a folder on the Desktop, and are never committed.
 - The shipping exe was not unpacked. License, trial, and signature checks were never analyzed. Do not unpack the exe to study them. No license-bypass, keygen, or license-algorithm docs. Ever.
-- UI text is **Korean**. The owner talks in **Korean**; reply in Korean, short.
-- Merge a pull request only after an explicit yes from the owner. Opening a PR is not that yes. Do not delete branches unless the owner explicitly says to delete them. `deleteBranchOnMerge` is false; five merged `cursor/*` branches are still on origin and are waiting for that yes (see `docs/HANDOFF.md`).
+- UI text is **Korean**. Reports to the owner lead with the conclusion and stay concise.
+- Do routine work without asking. Open a pull request, merge it once `ci / smoke (ubuntu)` is green, delete branches that are no longer useful, then report what you did. A release tag is not routine. `deleteBranchOnMerge` may still be false; deleting a useless branch is part of finishing the work.
 - A release is a pushed `v*` tag. `.github/workflows/release.yml` builds and uploads the zip. Do not rewrite that workflow. There is no `CHANGELOG.md`. Human release notes are the `## X.Y.Z` sections in `README.md`. The GitHub Release body is the generated "What's Changed" PR list, not a copy of those sections.
 - Text intro/outro animation (backlog id `text-anim`: fade, slide, typewriter) was removed in PR **#18**. Never re-add it. It is not in the code.
 - Never-re-add rule: the owner dropped these backlog items and they must never be re-added. This is the only list: `bubbles` (speech-bubble stickers, 말풍선), `collage` (콜라주), `frame-catalog` (richer frame catalog, 액자 카탈로그), `effects-more` (bloom, chroma key, color curves, tilt-shift, inpaint).
@@ -132,8 +132,8 @@ Python **3.12** (3.10.0 breaks PySide6/PyInstaller). `build_exe.bat` creates `.v
 2. Create venv (Py 3.12), install requirements, run `run_tests.bat` (seventeen files) offscreen; all green. Bootstrap's `OVERALL PASS` only covers four of them.
 3. Pick the top `backlog` item in STATE.json (or the user's request). Keep the hard rules.
 4. Implement + tests; regenerate screenshots with `python qa_screens.py` and look at them.
-5. Release via §7 only when the owner wants a release. That means bumping `bonggif/version.py`, then pushing a matching `v*` tag so `release.yml` runs. Do not merge the PR until the owner explicitly says yes.
-6. **Update `docs/HANDOFF.md` + `docs/STATE.json`, commit.** Report to the user in short Korean.
+5. Release via §7 only when the owner wants a release. That means bumping `bonggif/version.py`, then pushing a matching `v*` tag so `release.yml` runs. Other pull requests merge once `ci / smoke (ubuntu)` is green.
+6. **Update `docs/HANDOFF.md` + `docs/STATE.json`, commit.** Report to the owner with the conclusion first, then the short facts.
 
 ## Auto-update & crash reporting (v1.1.5)
 - Update check: 5 s after start, every 30 min, and on window activation if >30 min old. ETag/If-None-Match (settings keys update_etag/update_cache/update_last_check). Network errors silent. Same version notified once (update_notified, update_skip). Toggle `update_auto`.

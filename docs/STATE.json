@@ -23,11 +23,11 @@
     "note": "Owner request. Not a backlog id. never-re-add items stay out. #19 owner_confirmed stays false."
   },
   "main": {
-    "sha": "6a34ced9394c34266b0f34a1add075051c30eb2d",
-    "short": "6a34ced",
-    "date": "2026-11-02",
-    "subject": "Match the editor layout to a large preview, thumbnail strip, and simple save summary. (#37)",
-    "note": "공개 릴리스 태그는 여전히 v1.8.0 = 23205fda44da51a258f21367fe62ea83b9206e2a (#30). v1.8.0 다음 태그는 없다. UI #32 d62a456, #33 f937b1f, #34 c63766c, #35 602ed75, #36 54bfa18, #37 6a34ced."
+    "sha": "3ed1690c3c52cd15f5665e8ed0516ad4bf57065c",
+    "short": "3ed1690",
+    "date": "2026-11-03",
+    "subject": "docs: handoff update and next-bot prompt (#38)",
+    "note": "Public release tag is still v1.8.0 = 23205fda44da51a258f21367fe62ea83b9206e2a (#30). No tag after v1.8.0. UI #32 d62a456, #33 f937b1f, #34 c63766c, #35 602ed75, #36 54bfa18, #37 6a34ced. This handoff commit is #38."
   },
   "pull_requests": {
     "merged_on_main": [
@@ -40,7 +40,7 @@
         "head": "cursor/v180-release-87e0",
         "head_sha": "60cd9b5a8b3466900410af0a9b96450ca6be8b66",
         "head_deleted": false,
-        "note": "태그 v1.8.0. 이 문서 PR이 녹색이면 헤드를 지운다."
+        "note": "Tag v1.8.0. Historical note from when that docs PR was open."
       },
       {
         "number": 29,
@@ -183,7 +183,7 @@
         "merge_sha": "c4a45115d74055b5afdc7648a82fe8bfe1cbcf6c",
         "head": "cursor/sync-handoff-v160-bead",
         "head_sha": null,
-        "note": "헤드 브랜치는 2026-11-02 14개 삭제에 포함됐다."
+        "note": "The head branch was in the 2026-11-02 deletion of 14 branches."
       }
     ],
     "closed_superseded_on_2026_10_31": [
@@ -213,13 +213,13 @@
         "state": "CLOSED"
       }
     ],
-    "note": "#30은 1.8.0 버전 범프이자 태그 v1.8.0. #29는 저장 고급 옵션. #28은 단축키 표. #27은 녹화 격자와 창 찾기. #26은 저장 워터마크. #25는 WebP 클립 패리티. #24는 줌. #23은 전환. #21은 문서 정렬. #20은 1.7.0 버전 범프이자 태그 v1.7.0. #18은 text-anim 제거(다시 넣지 않음). 주인이 뺀 다른 항목은 AGENTS.md never-re-add 규칙에만 있고 다시 넣지 않는다. #19는 녹화 프레임 이동/크기(Windows 스모크 실행만, 주인 미확인). #17은 ci.yml. #16은 문서. #15는 v1.4–v1.6 기록. #6 #8 #10 #12 #14는 머지되지 않고 닫혔다. #19가 #18보다 먼저 머지됐다."
+    "note": "#30 is the 1.8.0 bump and tag v1.8.0. #29 advanced export. #28 shortcut table. #27 record grid and window finder. #26 watermark. #25 WebP clip. #24 zoom. #23 transitions. #21 docs. #20 is the 1.7.0 bump and tag v1.7.0. #18 removed text-anim (never re-add). Other dropped items are only in the AGENTS.md never-re-add rule. #19 recording-frame move/resize was smoke-launched on Windows only and is not owner-confirmed. #17 is ci.yml. #16 is docs. #15 records v1.4-v1.6. #6 #8 #10 #12 #14 were closed without merge. #19 merged before #18."
   },
   "pending_release": {
     "tag": null,
     "sha": null,
     "run": null,
-    "note": "대기 중인 태그 없음. 최신 공개 릴리스는 v1.8.0."
+    "note": "No tag is waiting. The latest public release is v1.8.0."
   },
   "last_release": {
     "tag": "v1.8.0",
@@ -329,7 +329,7 @@
       "date": "2026-10-30",
       "conclusion": "success",
       "retag": {
-        "note": "공개 릴리스가 없는 실패 태그를 두 번 지우고 main 083b82f에 다시 달았다.",
+        "note": "Failed tags with no public release were deleted twice and the tag was put on main 083b82f.",
         "attempts": [
           {
             "sha": "bd38d61a8865e88f43321acb01f3d0a6c980f0ea",
@@ -342,7 +342,7 @@
             "run": "https://github.com/Baegovda/BongGIF/actions/runs/41115607903",
             "conclusion": "failure",
             "release": false,
-            "note": "converter 타이머 틱 최대 387ms, 한도 150ms, 57/58"
+            "note": "converter timer tick max 387ms, limit 150ms, 57/58"
           }
         ]
       }
@@ -394,15 +394,15 @@
     "smoke_test_flow.py": 10
   },
   "parity_estimate_pct": 88,
-  "parity_note": "v1.1.4 HANDOFF/STATE는 84. v1.2.0 커밋 1b767a5가 STATE만 88로 바꿨다. PARITY.md는 트리에 없고 .gitignore에도 없다. 그때 남은 UX 백로그는 9개로 같았다. 88은 재측정이 아니다. 문서는 88로 통일. 2026-11-02에 주인이 text-anim 1건을 빼 그때 todo는 8개였다. 그 다음 문서에서 순서를 맞추고 항목을 더해 todo는 10개였다. 같은 날 주인이 4건을 영구 제외했다. 그 뒤 transitions를 구현해 todo는 5개였고, zoom-camera를 구현해 4개였다. watermark를 구현해 3개였다. rec-grid-finder를 구현해 2개였다. shortcuts를 구현해 1개였다. export-advanced를 구현해 status=todo 는 0개다. 뺀 항목 이름은 AGENTS.md never-re-add 규칙에만 있다. 88은 이번에도 재측정이 아니다.",
+  "parity_note": "v1.1.4 HANDOFF/STATE said 84. v1.2.0 commit 1b767a5 changed STATE only, to 88. PARITY.md is not in the tree and is not in .gitignore. The remaining UX backlog was still 9 items then. 88 was not remeasured. Docs stay at 88. On 2026-11-02 the owner removed text-anim, so todo was 8. The next docs pass reordered and added items, so todo was 10. The same day the owner permanently dropped 4 items. After that, transitions left 5, zoom-camera left 4, watermark left 3, rec-grid-finder left 2, shortcuts left 1, and export-advanced left status=todo at 0. Dropped names live only in the AGENTS.md never-re-add rule. 88 was not remeasured this time either.",
   "recommended_next": {
     "id": null,
     "priority": null,
     "status": "none",
-    "title": "백로그 todo 없음",
-    "why": "export-advanced까지 done이다. status=todo 인 항목이 없다. 새 항목을 만들지 않는다.",
+    "title": "No backlog todo",
+    "why": "export-advanced is done. No item has status=todo. Do not invent a new one.",
     "accept": [],
-    "also": "Ask the owner to confirm PR #19 move/resize UX. Do not mark it confirmed. recorder_frame.owner_confirmed stays false."
+    "also": "PR #19 move/resize UX is still unconfirmed. Do not mark it confirmed. recorder_frame.owner_confirmed stays false. Do not block routine work on that question."
   },
   "backlog": [
     {
@@ -513,8 +513,8 @@
   ],
   "invariants": [
     "No third-party reference-app code or assets are copied; no license-bypass content",
-    "UI and user communication in Korean; reply in Korean, short",
-    "Merge only after an explicit yes from the owner; do not delete branches without an explicit yes",
+    "UI text is Korean. Reports to the owner lead with the conclusion and stay concise.",
+    "Routine work: open a PR, merge when ci / smoke (ubuntu) is green, delete useless branches, then report. A release tag is not routine.",
     "Releases are a pushed v* tag; release.yml builds the zip; do not rewrite release.yml",
     "No CHANGELOG.md; human release notes are README ## X.Y.Z; GitHub Release body is the generated PR list",
     "text-anim (intro/outro fade, slide, typewriter) was removed in PR #18 and must never be re-added",
@@ -613,7 +613,7 @@
       "smoke_test_settings_shell.py",
       "smoke_test_flow.py"
     ],
-    "note": "release.yml은 ::warning::을 찍은 뒤 exit $fail 한다. 비차단이 아니다. 태그 v* 만, windows-latest, 파일은 고치지 않았다. smoke_test_transitions.py, smoke_test_camera.py, smoke_test_watermark.py, smoke_test_recguide.py, smoke_test_shortcuts.py, smoke_test_export_adv.py는 release.yml에 없다. ci.yml은 pull_request(main), push(main), workflow_dispatch, ubuntu-latest, 17개 전부. 기대 120/120 62/62 40/40 15/15 42/42 10/10 72/72 62/62 62/62 43/43 55/55 40/40 35/35 23/23 32/32 11/11 10/10. 마지막 10은 smoke_test_flow.py. 8번째 62는 smoke_test_transitions.py, 9번째 62는 smoke_test_camera.py, 43은 smoke_test_watermark.py, 55는 smoke_test_recguide.py, 40은 smoke_test_shortcuts.py, 마지막 35는 smoke_test_export_adv.py. stdin은 /dev/null. 인코더가 없으면 distro ffmpeg와 IMAGEIO_FFMPEG_EXE."
+    "note": "release.yml prints ::warning:: then exit $fail. That blocks the build. Tag v* only, windows-latest. The file was not rewritten. transitions, camera, watermark, recguide, shortcuts, and export-adv are not in release.yml. ci.yml is pull_request (main), push (main), workflow_dispatch, ubuntu-latest, all 17. Expected 120/120 62/62 40/40 15/15 42/42 10/10 72/72 62/62 62/62 43/43 55/55 40/40 35/35 23/23 32/32 11/11 10/10. The last 10 is smoke_test_flow.py. stdin is /dev/null. Missing encoders install distro ffmpeg and set IMAGEIO_FFMPEG_EXE."
   },
   "expected_test_counts": {
     "smoke_test.py": 120,
@@ -707,7 +707,7 @@
       "libnss3"
     ],
     "why_not_windows": "ubuntu-latest already passes all 7 offscreen and is the fast path. windows-latest remains release.yml only so PRs do not repeat the PySide6+OpenCV install.",
-    "result_grep": "grep -a. smoke_test_export prints a NUL inside an APNG tEXt extra, so plain grep treats the log as binary and hides the 결과 line.",
+    "result_grep": "grep -a. smoke_test_export prints a NUL inside an APNG tEXt extra, so plain grep treats the log as binary and hides the result line (the suites print it as 결과).",
     "release_yml": "unchanged",
     "first_green": {
       "run": "https://github.com/Baegovda/BongGIF/actions/runs/41332687797",
@@ -735,10 +735,10 @@
     }
   },
   "owner_questions": [
-    "#19 녹화 프레임 이동/크기 UX 확인. Windows 스모크 실행만 됨. 주인 확인 없음.",
-    "PySide6>=6.5,<6.9. 2026-11-02 Linux venv는 6.8.3. 주인 PC 6.12 주장은 이 저장소에서 재확인하지 못함.",
-    "webpclip 서면 허락 원문이 저장소에 없음. NOTICE.md.",
-    "4K HEVC/AV1 구간 미리보기 실측 없음. bonggif.log의 미리보기 캐시 줄을 주인이 알려 줘야 함."
+    "PR #19 recording-frame move/resize UX. Smoke-launched on Windows only. The owner has not confirmed it.",
+    "PySide6>=6.5,<6.9. The 2026-11-02 Linux venv was 6.8.3. A claim of 6.12 on the owner's PC was not rechecked in this repo.",
+    "The written WebP clip permission is not in the repo. See NOTICE.md.",
+    "No measured 4K HEVC/AV1 range-preview numbers. The owner would need to share the preview-cache lines from bonggif.log."
   ],
   "recommend_delete_branch_on_merge": true,
   "delete_branch_on_merge": false,
@@ -765,13 +765,13 @@
     "remaining_remote_heads": [
       "main"
     ],
-    "remaining_remote_heads_note": "이 배열은 14개를 지운 직후다. 이 수정 시작 때 origin 헤드는 remote_branches를 본다. 이전에 적힌 다섯 헤드는 그 조회에 없었다.",
+    "remaining_remote_heads_note": "This array is the snapshot right after those 14 branches were deleted. At the start of that edit, origin heads are in remote_branches. The five heads written earlier were not in that listing.",
     "open_prs_before_delete": 0
   },
   "remote_branches": {
     "fetched_at": "2026-11-02",
     "delete_branch_on_merge": false,
-    "note": "v1.8.0 문서를 적을 때 origin은 main(23205fd)과 머지된 cursor/v180-release-87e0(#30, 60cd9b5)뿐이었다. #29 헤드 cursor/export-advanced-841a는 그 조회에 없었다. ci / smoke (ubuntu)가 녹색이면 이 문서 PR을 스쿼시 머지하고 cursor/v180-release-87e0과 이 헤드를 지운다.",
+    "note": "Historical snapshot from the v1.8.0 docs edit: origin was main (23205fd) and merged cursor/v180-release-87e0 (#30, 60cd9b5). Current main is newer. See HANDOFF.md.",
     "deleted_this_session": [],
     "heads_at_docs_start": [
       {
@@ -795,9 +795,9 @@
     "agent_summary": "docs/HANDOFF.md Version history (SHAs, runs, zip bytes)"
   },
   "owner_rules": {
-    "language": "Korean, short replies",
-    "merge": "only after an explicit yes from the owner",
-    "delete_branches": "only after an explicit yes from the owner",
+    "language": "UI text is Korean. Reports to the owner: conclusion first, concise.",
+    "merge": "Routine PRs merge once ci / smoke (ubuntu) is green. A release tag is not routine.",
+    "delete_branches": "Delete branches that are no longer useful after the PR is merged.",
     "release": "push a v* tag; .github/workflows/release.yml; do not rewrite that file",
     "text_anim": "removed in PR #18; never re-add",
     "dropped_by_owner": "listed in the never-re-add rule in AGENTS.md; must never be re-added",
