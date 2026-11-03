@@ -121,7 +121,7 @@ build_exe.bat          :: venv 생성 → 의존성+PyInstaller 설치 → dist\
 ## 릴리스 (GitHub Actions)
 `v*` 태그를 푸시하면 `.github/workflows/release.yml`이 windows-latest + Python 3.12에서 PyInstaller(onedir)로 빌드하고
 `BongGIF-<태그>-win64.zip`과 `.sha256`을 GitHub Release에 올립니다. 릴리스는 이 태그 푸시로 만들어집니다. 태그는 `bonggif/version.py`의 버전과 같아야 합니다(다르면 실패). 라이선스: MIT (`LICENSE`).
-PR은 주인이 명시적으로 승낙한 뒤에만 머지합니다. 주인과의 대화는 한국어입니다. 참조 앱을 분석해도 된다는 제작사 허락이 있습니다. 그 앱의 이름은 저장소에 쓰지 않고, 에셋과 코드는 복사하지 않습니다. 분석 산출물은 주인 PC의 Desktop 폴더에만 두고 커밋하지 않습니다. 배포 exe는 언팩하지 않았고, 라이선스·체험판·서명 검사는 분석하지 않았습니다.
+Routine pull requests merge once `ci / smoke (ubuntu)` is green. A release still needs a `v*` tag that matches `bonggif/version.py`. UI text is Korean. Reference-app code and assets are not copied. Analysis artifacts stay off the repo. The shipping exe was not unpacked. License, trial, and signature checks were not analyzed.
 
 ## 재생
 - 재생(Space): 실제 시간(QElapsedTimer) 기준으로 누적 지연에 맞춰 프레임을 고르고, 늦으면 건너뜁니다. 뷰 크기로 미리 축소한 미리보기를 백그라운드에서 캐시합니다.
