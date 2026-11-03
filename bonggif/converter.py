@@ -1,4 +1,4 @@
-"""영상 → GIF 변환 엔진 (Qt 비의존, 클린룸 구현).
+"""영상 → GIF 변환 엔진 (Qt 비의존).
 
 ffmpeg는 imageio_ffmpeg.get_ffmpeg_exe()로 얻은 실행 파일을 subprocess 인자 리스트로 호출합니다
 (shell=True 미사용 → Windows 경로 공백/한글 안전). 시킹은 -ss를 -i 앞에 두어 빠르게 하고,

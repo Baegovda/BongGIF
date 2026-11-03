@@ -12,7 +12,7 @@
       "headers": { "Authorization": "Bearer <PAT>" }
     },
     "rea": {
-      "_comment": "OPTIONAL. Reverse-engineering MCP (github.com/morluto/rea). Reference analysis only; clean-room rule applies. Only set env vars for providers you installed.",
+      "_comment": "OPTIONAL. Reverse-engineering MCP (github.com/morluto/rea). Reference analysis only. Do not copy reference-app code or assets. Only set env vars for providers you installed.",
       "command": "npx",
       "args": ["-y", "rea-agents@6.7.0", "mcp"],
       "env": {

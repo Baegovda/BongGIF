@@ -4,12 +4,13 @@
   "version": "1.8.0",
   "ui_redesign": {
     "status": "done",
-    "bonghub": "Baegovda/BongHub was not accessible (GitHub API 404, git ls-remote repository not found). Design follows the iOS-style spec, not a copied BongHub token file.",
+    "bonghub": "GET /repos/Baegovda/BongHub returned 404. git ls-remote said Repository not found. Tokens were not taken from that repo.",
     "benchmark": {
       "script": "tools/bench_ui.py",
       "fixture": "16 frames 320x240 rgb, gif pil colors=64 delay=80 comment=off",
       "before": {"idle_rss_mb": 99.3, "encode_seconds": 0.0368, "file": "tools/bench_baseline.json"},
-      "after": {"idle_rss_mb": 99.63, "encode_seconds": 0.0354, "file": "tools/bench_after.json"},
+      "after_stage5_file": {"idle_rss_mb": 99.63, "encode_seconds": 0.0354, "file": "tools/bench_after.json"},
+      "after_layout_pr37": {"idle_rss_mb": 101.48, "encode_seconds": 0.0356, "note": "Measured just before #37. Not stored as a new json."},
       "regression": false
     },
     "stages": [
@@ -22,12 +23,11 @@
     "note": "Owner request. Not a backlog id. never-re-add items stay out. #19 owner_confirmed stays false."
   },
   "main": {
-    "sha": "23205fda44da51a258f21367fe62ea83b9206e2a",
-    "short": "23205fd",
-    "date": "2026-11-02T05:21:30Z",
-    "date_kst": "2026-11-02T14:21:30+09:00",
-    "subject": "Release 1.8.0: transitions through advanced export. (#30)",
-    "note": "태그 v1.8.0이 이 SHA를 가리킨다. 이 문서 커밋은 태그 다음이다. version.py는 1.8.0. #29 머지는 7f02510d9aca5382f23323a53ab5fb9cbb6535ab."
+    "sha": "6a34ced9394c34266b0f34a1add075051c30eb2d",
+    "short": "6a34ced",
+    "date": "2026-11-02",
+    "subject": "Match the editor layout to a large preview, thumbnail strip, and simple save summary. (#37)",
+    "note": "공개 릴리스 태그는 여전히 v1.8.0 = 23205fda44da51a258f21367fe62ea83b9206e2a (#30). v1.8.0 다음 태그는 없다. UI #32 d62a456, #33 f937b1f, #34 c63766c, #35 602ed75, #36 54bfa18, #37 6a34ced."
   },
   "pull_requests": {
     "merged_on_main": [
