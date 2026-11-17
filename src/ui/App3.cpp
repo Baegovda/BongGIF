@@ -11,6 +11,7 @@
 #include "platform/Webp.h"
 #include "ui/Dialogs.h"
 #include "ui/Lang.h"
+#include "ui/ClipPage.h"
 
 #include <algorithm>
 #include <commdlg.h>
@@ -115,7 +116,8 @@ void App::drawSidebar(float H) {
     Nav nav[] = {{"nav.home", ic::Home, th::accent, th::purple, L"홈", P_HOME},
                  {"nav.edit", ic::Edit, th::cyan, th::accent, L"편집", P_EDIT},
                  {"nav.manage", ic::Folder, th::orange, th::yellow, L"파일 관리", P_MANAGE},
-                 {"nav.batch", ic::Sync, th::green, th::cyan, L"일괄 변환", P_BATCH}};
+                 {"nav.batch", ic::Sync, th::green, th::cyan, L"일괄 변환", P_BATCH},
+                 {"nav.clip", ic::Film, th::pink, th::orange, L"WebP 클립", P_CLIP}};
     for (auto& n : nav) {
         int pg = n.page;
         if (gui_.navItem(gid(n.id), {x, y, w, 38}, n.icon, n.c1, n.c2, n.t, page_ == pg)) gui_.later([this, pg] { setPage(pg); });
@@ -157,7 +159,10 @@ void App::drawSidebar(float H) {
 
 void App::setPage(int p) {
     if (p != P_EDIT) { stopPlay(); }
+    if (page_ == P_CLIP && p != P_CLIP && clip_) clip_->leave();
     page_ = p;
+    if (p == P_CLIP && !clip_) clip_ = std::make_unique<ClipPage>(hwnd, gui_, st, [this](const std::wstring& s) { status(s); });
+    clipTimer();
     if (p == P_MANAGE) refreshManage();
     if (p != P_MANAGE) { KillTimer(hwnd, 13); managePreview_.clear(); }
     gui_.redraw();
@@ -876,4 +881,17 @@ std::wstring App::hotkeyName(int hk) {
     return s + name;
 }
 
+} // namespace bg
+
+namespace bg {
+// ------------------------------------------------------------------ WebP clip page
+void App::drawClip(float W, float H) {
+    if (!clip_) clip_ = std::make_unique<ClipPage>(hwnd, gui_, st, [this](const std::wstring& s) { status(s); });
+    clip_->draw({kSidebarW + 16, 8, W - kSidebarW - 32, H - 20});
+    clipTimer();
+}
+void App::clipTimer() {
+    if (clip_ && page_ == P_CLIP && clip_->needsTick()) SetTimer(hwnd, 14, 15, nullptr);
+    else KillTimer(hwnd, 14);
+}
 } // namespace bg

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(BongGIF VERSION 2.0.1 LANGUAGES C CXX RC)
+project(BongGIF VERSION 2.1.0 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,6 +28,7 @@ add_library(bgcore STATIC
   src/core/Gif.cpp
   src/core/Deflate.cpp
   src/core/Apng.cpp
+  src/core/Clip.cpp
 )
 target_include_directories(bgcore PUBLIC src)
 target_link_libraries(bgcore PUBLIC imagequant)
@@ -41,6 +42,9 @@ add_library(bgplatform STATIC
   src/platform/Codecs.cpp
   src/platform/Dxgi.cpp
   src/platform/Ocr.cpp
+  src/platform/Player.cpp
+  src/platform/ClipSource.cpp
+  src/platform/ClipExport.cpp
 )
 # C++/WinRT (Windows.Media.Ocr) needs C++20 coroutines
 set_source_files_properties(src/platform/Ocr.cpp PROPERTIES COMPILE_OPTIONS "/std:c++20")
@@ -55,6 +59,7 @@ add_executable(BongGIF WIN32
   src/ui/App.cpp
   src/ui/App2.cpp
   src/ui/App3.cpp
+  src/ui/ClipPage.cpp
   src/ui/Lang.cpp
   src/ui/Gfx.cpp
   src/ui/Gui.cpp

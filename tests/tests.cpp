@@ -1,6 +1,7 @@
 // Core tests (no window): edit behaviour, formulas, LZW/GIF/APNG round trips,
 // plus a small encode benchmark.  bonggif-tests.exe [--bench]
 #include "core/Apng.h"
+#include "core/Clip.h"
 #include "core/Edit.h"
 #include "core/Effects.h"
 #include "core/Gif.h"
@@ -231,6 +232,345 @@ static void testApng() {
     }
 }
 
+static bool sameMask(const ClipMask& a, const ClipMask& b) {
+    return a.name == b.name && a.effect == b.effect && a.strength == b.strength && a.color == b.color && a.zoom == b.zoom &&
+           a.border == b.border && a.shape == b.shape && a.pad == b.pad && a.start == b.start && a.end == b.end &&
+           a.enabled == b.enabled && a.smooth == b.smooth && a.fixedSize == b.fixedSize && a.keys == b.keys &&
+           a.destKeys == b.destKeys && a.trackScore == b.trackScore && a.lost == b.lost;
+}
+
+static void testClip() {
+    // keyframes
+    std::map<int, Box4> keys{{0, {0, 0, 10, 10}}, {10, {100, 50, 20, 30}}};
+    Box4 b;
+    CHECK(interpBox(keys, 5, b) && b[0] == 50 && b[1] == 25 && b[2] == 15 && b[3] == 20);
+    CHECK(interpBox(keys, -3, b) && b[0] == 0 && interpBox(keys, 99, b) && b[0] == 100);
+    CHECK(!interpBox({}, 0, b));
+    // output plan
+    ClipProject p = newClipProject(60, 30);
+    CHECK(p.outFrame == 59 && p.ex.fps == 30);
+    p.ex.fps = 60;
+    auto of = outputFrames(p, 30);
+    CHECK(of.size() == 120 && of[0] == 0 && of[1] == 0 && of[2] == 1 && of.back() == 59);
+    p.freezes[10] = 0.5;
+    auto ofz = outputFrames(p, 30);
+    CHECK(ofz.size() == 150 && ofz[19] == 9 && ofz[20] == 10 && ofz[49] == 10 && ofz[50] == 10 && ofz[52] == 11);
+    p.freezes.clear();
+    p.slowmos.push_back({20, 29, 0.5});
+    auto ofs = outputFrames(p, 30);
+    CHECK(ofs.size() == 140 && ofs.back() == 59);
+    CHECK(speedAt(p, 25) == 0.5 && speedAt(p, 30) == 1);
+    CHECK(frameDurationMs(0, 60) == 17 && frameDurationMs(1, 60) == 16 && frameDurationMs(2, 60) == 17);
+    CHECK(frameDurationMs(0, 60) + frameDurationMs(1, 60) + frameDurationMs(2, 60) == 50);
+    CHECK(snapFps(29.9701) == 29.97 && snapFps(12.3456) == 12.346 && defaultExportFps(29.97) == 29.97 && defaultExportFps(120) == 60);
+    auto fc = fitCandidates(1920, 60);
+    CHECK(!fc.empty() && fc[0].width == 0 && fc[0].quality == 90 && fc[0].fps == 60);
+    CHECK(fc.size() > 5 && fc[4].width == 1632);
+    CHECK(exportFilename(L"clip", {{3, 40}}) == L"clip_3-40.webp" && exportFilename(L"clip", {{0, 1}, {5, 9}}) == L"clip_2구간.webp");
+    // audio events
+    std::vector<float> db(90, -60.f);
+    for (int i = 60; i < 90; ++i) db[i] = -10.f;
+    auto ev = findEvents(db, 30);
+    CHECK(ev.size() == 1 && ev[0] == 60);
+    // weak runs
+    ClipMask wm = newClipMask(L"w");
+    for (int f : {3, 4, 5, 9, 10}) wm.trackScore[f] = 0.3;
+    wm.trackScore[6] = 0.9;
+    CHECK(weakCount(wm) == 2 && nextWeak(wm, 0, 1) == 3 && nextWeak(wm, 4, 1) == 9 && nextWeak(wm, 10, -1) == 3 && nextWeak(wm, 9, 1) == -1);
+    CHECK(weakCount(wm, 4, 9) == 2 && weakCount(wm, 6, 8) == 0 && nextWeak(wm, 0, 1, 0.2) == -1);
+    // blendTracks: JS rounding (Math.round(-12.5) == -12) and disagreement marking
+    {
+        TrackResult fw, bw;
+        fw.rects[1] = {-0.125, 0, 10, 10};
+        bw.rects[1] = {-0.125, 0, 10, 10};
+        fw.scores[1] = 0.9;
+        bw.scores[1] = 0.7;
+        fw.rects[2] = {0, 0, 10, 10};
+        bw.rects[2] = {50, 0, 10, 10};
+        fw.scores[2] = 0.8;
+        bw.scores[2] = 0.95;
+        fw.scores[3] = 0;   // coasted in one direction, nothing from the other
+        auto bl = blendTracks(fw, bw, 0, 4);
+        CHECK(bl.rects[1][0] == -0.12 && bl.scores[1] == 0.85);   // t = 0.25: 0.9*0.75 + 0.7*0.25
+        CHECK(bl.rects[2][0] == 50 && bl.scores[2] == 0.59 && !bl.rects.count(3) && bl.scores.count(3) && bl.scores[3] == 0);
+    }
+    // geometry by hand from core.js
+    {
+        int zb[4], box[4] = {20, 20, 40, 40}, cr[4];
+        zoomBox(box, 2, 100, 100, zb);   // 40x40, dx = round((20+40-40)/2) = 10
+        CHECK(zb[0] == 10 && zb[1] == 10 && zb[2] == 50 && zb[3] == 50);
+        Box4 dd = defaultDest({10, 10, 20, 20}, 100, 100);   // 10+20+16+40 <= 100 -> dx 46; dy = 10+10-20 = 0
+        CHECK(dd[0] == 46 && dd[1] == 0 && dd[2] == 40 && dd[3] == 40);
+        CHECK(clipRect({-0.5, 2.5, 10, 10}, 0, 100, 100, cr) && cr[0] == 0 && cr[1] == 3 && cr[2] == 10 && cr[3] == 13);
+        CHECK(clipRect({10.5, 10.5, 10, 10}, 2, 100, 100, cr) && cr[0] == 9 && cr[2] == 23);
+        CHECK(clipRect({-3.5, 0, 10, 10}, 0, 100, 100, cr) && cr[2] == 7);   // round(6.5) = 7
+    }
+    // speed 2 halves the frame count
+    {
+        ClipProject sp2 = newClipProject(60, 30);
+        sp2.ex.fps = 30;
+        sp2.ex.speed = 2;
+        auto o2 = outputFrames(sp2, 30);
+        CHECK(o2.size() == 30 && o2[1] == 2 && o2.back() == 58);
+    }
+    // diffBox
+    {
+        Image a(10, 8, rgb(1, 2, 3)), b2 = a;
+        int db[4];
+        CHECK(!diffBox(a, b2, db));
+        b2.row(5)[7] = rgb(1, 2, 6);
+        b2.row(3)[3] = rgb(1, 2, 5);   // within tol 2
+        CHECK(diffBox(a, b2, db) && db[0] == 6 && db[1] == 4 && db[2] == 8 && db[3] == 6);
+    }
+    // rendering: box fills the rect; ellipse leaves the corners
+    Image im(50, 40, rgb(255, 255, 255));
+    ClipMask bm = newClipMask(L"box");
+    bm.effect = CE_BOX;
+    bm.color = rgb(255, 0, 0);
+    bm.keys[0] = {10, 10, 20, 15};
+    renderMasks(im, {bm}, 0);
+    CHECK(im.row(10)[10] == rgb(255, 0, 0) && im.row(24)[29] == rgb(255, 0, 0) && im.row(9)[10] == rgb(255, 255, 255) &&
+          im.row(25)[29] == rgb(255, 255, 255) && im.row(10)[30] == rgb(255, 255, 255));
+    Image im2(50, 40, rgb(255, 255, 255));
+    bm.shape = CS_ELLIPSE;
+    renderMasks(im2, {bm}, 0);
+    CHECK(im2.row(10)[10] == rgb(255, 255, 255) && im2.row(17)[20] == rgb(255, 0, 0));
+    bm.enabled = false;
+    Image im3(50, 40, rgb(255, 255, 255));
+    renderMasks(im3, {bm}, 0);
+    CHECK(im3.row(17)[20] == rgb(255, 255, 255));
+    // mosaic: a 2-colour checker in 4x4 cells averages to grey
+    Image mz(16, 16);
+    for (int y = 0; y < 16; ++y) for (int x = 0; x < 16; ++x) mz.row(y)[x] = ((x + y) & 1) ? rgb(0, 0, 0) : rgb(200, 200, 200);
+    ClipMask mm = newClipMask(L"m");
+    mm.strength = 4;
+    mm.keys[0] = {0, 0, 16, 16};
+    renderMasks(mz, {mm}, 0);
+    CHECK(mz.row(5)[7] == rgb(100, 100, 100));
+    // ellipse edges are anti-aliased (canvas clip): a pixel on the outline is a blend
+    {
+        Image ie(40, 40, rgb(255, 255, 255));
+        ClipMask em = newClipMask(L"e");
+        em.effect = CE_BOX;
+        em.shape = CS_ELLIPSE;
+        em.color = rgb(0, 0, 0);
+        em.keys[0] = {0, 0, 40, 40};
+        renderMasks(ie, {em}, 0);
+        int edge = R(ie.row(20)[0]);   // centre (0.5, 20.5): about 0.5 px inside the circle of radius 20
+        CHECK(edge > 0 && edge < 255 && R(ie.row(20)[20]) == 0 && R(ie.row(0)[0]) == 255);
+    }
+    // portal: nothing without exit keys; with one, the source is drawn there with a border inside
+    {
+        Image ip(60, 40, rgb(255, 255, 255));
+        for (int y = 0; y < 10; ++y) for (int x = 0; x < 10; ++x) ip.row(y)[x] = rgb(0, 0, 255);
+        ClipMask pm = newClipMask(L"p");
+        pm.effect = CE_PORTAL;
+        pm.color = rgb(255, 0, 0);
+        pm.border = 2;
+        pm.keys[0] = {0, 0, 10, 10};
+        Image ip0 = ip;
+        renderMasks(ip0, {pm}, 0);
+        CHECK(ip0.px == ip.px);
+        pm.destKeys[0] = {30.4, 10, 20, 20};
+        renderMasks(ip, {pm}, 0);
+        CHECK(ip.row(10)[30] == rgb(255, 0, 0) && ip.row(11)[31] == rgb(255, 0, 0) && ip.row(12)[32] == rgb(0, 0, 255) &&
+              ip.row(20)[40] == rgb(0, 0, 255) && ip.row(29)[49] == rgb(255, 0, 0) && ip.row(10)[29] == rgb(255, 255, 255) &&
+              ip.row(10)[50] == rgb(255, 255, 255));
+        // zoom 2: box 10..20 -> zoomBox [5,5,25,25], uniform stays uniform, border t = 2 inside
+        Image iz(40, 40, rgb(0, 200, 0));
+        ClipMask zm = newClipMask(L"z");
+        zm.effect = CE_ZOOM;
+        zm.border = 2;
+        zm.color = rgb(9, 9, 9);
+        zm.keys[0] = {10, 10, 10, 10};
+        renderMasks(iz, {zm}, 0);
+        CHECK(iz.row(5)[5] == rgb(9, 9, 9) && iz.row(6)[6] == rgb(9, 9, 9) && iz.row(7)[7] == rgb(0, 200, 0) &&
+              iz.row(4)[4] == rgb(0, 200, 0) && iz.row(24)[24] == rgb(9, 9, 9) && iz.row(25)[25] == rgb(0, 200, 0));
+    }
+    // blur = Gaussian with sigma = strength over the area grown by 3 sigma
+    {
+        Image ib(100, 40);
+        for (int y = 0; y < 40; ++y) for (int x = 0; x < 100; ++x) ib.row(y)[x] = x < 50 ? rgb(0, 0, 0) : rgb(200, 200, 200);
+        Image flat(100, 40, rgb(90, 120, 150));
+        ClipMask gm = newClipMask(L"g");
+        gm.effect = CE_BLUR;
+        gm.strength = 4;
+        gm.keys[0] = {30, 0, 40, 40};
+        renderMasks(ib, {gm}, 0);
+        renderMasks(flat, {gm}, 0);
+        // K0 = 1 / sum(exp(-k^2/32), |k| <= 12) = 0.0997: 200 * (0.5 + K0/2) = 110.0, 200 * (0.5 - K0/2) = 90.0
+        int a = R(ib.row(20)[50]), b = R(ib.row(20)[49]);
+        CHECK(a == 110 && b == 90 && R(ib.row(20)[30]) == 0 && R(ib.row(20)[69]) == 200 && R(ib.row(20)[29]) == 0);
+        // at the frame edge the blurred layer is partly transparent; the frame shows through, so flat stays flat
+        CHECK(flat.row(0)[30] == rgb(90, 120, 150) && flat.row(39)[69] == rgb(90, 120, 150) && R(ib.row(0)[50]) > 110);
+        auto t0 = std::chrono::steady_clock::now();
+        Image hb(1920, 1080, rgb(10, 20, 30));
+        gm.strength = 120;
+        gm.keys[0] = {600, 300, 400, 400};
+        renderMasks(hb, {gm}, 0);
+        double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        gm.strength = 12;
+        gm.keys[0] = {600, 300, 300, 200};
+        t0 = std::chrono::steady_clock::now();
+        renderMasks(hb, {gm}, 0);
+        double ms12 = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        std::printf("clip blur: 400x400 sigma 120 %.0f ms, 300x200 sigma 12 %.1f ms\n", ms, ms12);
+        CHECK(hb.row(500)[800] == rgb(10, 20, 30));
+    }
+    // tracker: textured square moving 3 px/frame
+    {
+        std::mt19937 rng(7);
+        Image tex(40, 40);
+        for (auto& c : tex.px) { int v = rng() & 255; c = rgb(v, (v * 3) & 255, 255 - v); }
+        auto frameAt = [&](int k, bool show = true) {
+            Image f(320, 240);
+            for (int y = 0; y < 240; ++y) for (int x = 0; x < 320; ++x) f.row(y)[x] = rgb(60 + x / 8, 80, 90 + y / 8);
+            int ox = 40 + 3 * k, oy = 70 + k;
+            if (show)
+                for (int y = 0; y < 40; ++y) for (int x = 0; x < 40; ++x) f.row(oy + y)[ox + x] = tex.row(y)[x];
+            return f;
+        };
+        for (bool fixed : {true, false}) {
+            TemplateTracker tr(frameAt(0), {40, 70, 40, 40}, fixed);
+            double worst = 0;
+            bool okAll = true;
+            Box4 o{};
+            double sc = 0;
+            for (int k = 1; k <= 20; ++k) {
+                okAll = okAll && tr.track(frameAt(k), o, sc) == TS_OK;
+                worst = std::max({worst, std::abs(o[0] + o[2] / 2 - (60 + 3 * k)), std::abs(o[1] + o[3] / 2 - (90 + k))});
+            }
+            CHECK(okAll && worst <= 1 && std::abs(o[2] - 40) <= 2 && sc > 0.9);
+            CHECK(o[0] == std::round(o[0] * 100) / 100 && sc == std::round(sc * 100) / 100);   // app.js rounding
+        }
+        // occlusion: coasts with score 0, then picks the target up again
+        {
+            TrackerOptions opt;
+            opt.fixedSize = true;
+            opt.fps = 30;
+            TemplateTracker tr(frameAt(0), {40, 70, 40, 40}, opt);
+            Box4 o{};
+            double sc = 0;
+            std::vector<int> st;
+            for (int k = 1; k <= 14; ++k) st.push_back(tr.track(frameAt(k, k < 6 || k > 9), o, sc));
+            CHECK(st[4] == TS_OK && st[5] == TS_COAST && st[8] == TS_COAST && st[9] == TS_OK && st[13] == TS_OK);
+            CHECK(std::abs(o[0] - (40 + 3 * 14)) <= 1 && std::abs(o[1] - (70 + 14)) <= 1);
+            // gone for good: lost after maxCoast = round(30 * 0.5) = 15 coast frames
+            TemplateTracker tg(frameAt(0), {40, 70, 40, 40}, opt);
+            int k = 1, coasts = 0;
+            for (; k < 40; ++k) {
+                TrackState s = tg.track(frameAt(k, false), o, sc);
+                if (s == TS_LOST) break;
+                coasts += s == TS_COAST && sc == 0;
+            }
+            CHECK(coasts == 15 && k == 16);
+        }
+        // template bank: the first look + the latest 5, not for a box over the edge
+        ClipMask bm2 = newClipMask(L"b");
+        Image f0 = frameAt(0);
+        for (int f = 0; f < 8; ++f) trackBankAdd(bm2, f, f0, {40, 70, 40, 40});
+        trackBankAdd(bm2, 99, f0, {-5, 70, 40, 40});
+        CHECK(bm2.trackBank.size() == 6 && bm2.trackBank[0].f == 0 && bm2.trackBank[1].f == 3 && bm2.trackBank[5].f == 7);
+        CHECK(trackBankOf(bm2, 3).size() == 5 && bm2.trackBank[0].img->w == 40);
+        trackBankAdd(bm2, 50, f0, {0, 0, 96, 48});
+        CHECK(bm2.trackBank.back().img->w == 48 && bm2.trackBank.back().img->h == 24);
+        TrackerOptions bo;
+        bo.bank = trackBankOf(bm2, -1);
+        TemplateTracker tb(frameAt(0), {40, 70, 40, 40}, bo);
+        Box4 o{};
+        double sc = 0;
+        CHECK(tb.track(frameAt(1), o, sc) == TS_OK && std::abs(o[0] - 43) <= 1);
+        ClipProject bp;
+        bp.masks = {bm2};
+        ClipProject bq;
+        CHECK(clipFromJson(clipToJson(bp), bq) && bq.masks.size() == 1 && bq.masks[0].trackBank.size() == 6 &&
+              bq.masks[0].trackBank.back().f == 50 && bq.masks[0].trackBank.back().img->px == bm2.trackBank.back().img->px);
+    }
+    // tracker speed: 200x200 box on 1080p
+    {
+        std::mt19937 rng(3);
+        Image big(1920 + 120, 1080);
+        for (int y = 0; y < 1080; ++y) for (int x = 0; x < big.w; ++x) {
+            int v = (int)((std::sin(x * 0.05) + std::cos(y * 0.07)) * 50 + 128 + (rng() & 31));
+            big.row(y)[x] = rgb(clamp255(v), clamp255(v / 2 + 40), clamp255(255 - v));
+        }
+        auto frameAt = [&](int k) {
+            Image f(1920, 1080);
+            for (int y = 0; y < 1080; ++y) std::memcpy(f.row(y), big.row(y) + 3 * k, 1920 * 4);   // content moves left 3 px/frame
+            return f;
+        };
+        std::vector<Image> frames;
+        for (int k = 0; k <= 30; ++k) frames.push_back(frameAt(k));
+        for (bool fixed : {true, false}) {
+            TemplateTracker tr(frames[0], {900, 400, 200, 200}, fixed);
+            Box4 o{};
+            double sc = 0;
+            bool ok = true;
+            auto t0 = std::chrono::steady_clock::now();
+            for (int k = 1; k <= 30; ++k) ok = tr.track(frames[k], o, sc) == TS_OK && ok;
+            double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+            std::printf("clip tracker (%s): 200x200 on 1080p %.0f updates/s (x=%.2f expected 810, w=%.1f, score %.2f)\n",
+                        fixed ? "fixed size" : "free size", 30 / s, o[0], o[2], sc);
+            CHECK(ok && std::abs(o[0] + o[2] / 2 - 910) <= 2 && std::abs(o[1] + o[3] / 2 - 500) <= 2);
+        }
+    }
+    // smoothing keeps a straight line
+    ClipMask sm = newClipMask(L"s");
+    for (int f = 0; f < 20; ++f) sm.keys[f] = {f * 2.0, 5, 10, 10};
+    sm.keys[10][0] += 1;
+    smoothKeys(sm, 0, 19);
+    CHECK(sm.keys[0][0] == 0 && std::abs(sm.keys[10][0] - 20) < 0.3 && sm.keys[5][1] == 5);
+    // JSON round trip
+    ClipProject q = newClipProject(300, 59.94);
+    q.inFrame = 12;
+    q.outFrame = 250;
+    q.hasCrop = true;
+    q.crop = {10.5, 20.25, 640, 360.125};
+    q.ex.speed = 1.5;
+    q.ex.width = 480;
+    q.ex.quality = 77;
+    q.ex.loop = 1;
+    q.ex.targetMB = 9.75;
+    q.freezes[40] = 1.5;
+    q.freezes[100] = 0.1;
+    q.segments = {{12, 80}, {120, 250}};
+    q.slowmos = {{30, 60, 0.33}};
+    ClipMask m1 = newClipMask(L"모자이크 \"1\"\\\n😀");
+    m1.keys[12] = {1, 2, 3, 4};
+    m1.keys[13] = {1.1, 2.2, 3.3, 4.4};
+    m1.trackScore[13] = 0.55;
+    m1.lost = {14, 15};
+    m1.smooth = false;
+    ClipMask m2 = newClipMask(L"portal", &m1);
+    m2.effect = CE_PORTAL;
+    m2.shape = CS_ELLIPSE;
+    m2.color = 0xFF12ABEFu;
+    m2.zoom = 3.7;
+    m2.border = 5;
+    m2.pad = 7;
+    m2.start = 20;
+    m2.end = 200;
+    m2.fixedSize = false;
+    m2.enabled = false;
+    m2.keys[20] = {100, 100, 50, 60};
+    m2.destKeys[20] = {300, 10, 100, 120};
+    m2.destKeys[90] = {310.333, 15, 100, 120};
+    q.masks = {m1, m2};
+    std::string js = clipToJson(q);
+    ClipProject r;
+    CHECK(clipFromJson(js, r));
+    CHECK(r.inFrame == q.inFrame && r.outFrame == q.outFrame && r.hasCrop && r.crop == q.crop);
+    CHECK(r.ex.fps == q.ex.fps && r.ex.speed == q.ex.speed && r.ex.width == q.ex.width && r.ex.quality == q.ex.quality &&
+          r.ex.loop == q.ex.loop && r.ex.targetMB == q.ex.targetMB);
+    CHECK(r.freezes == q.freezes && r.segments.size() == 2 && r.segments[1].lo == 120 && r.segments[1].hi == 250);
+    CHECK(r.slowmos.size() == 1 && r.slowmos[0].lo == 30 && r.slowmos[0].hi == 60 && r.slowmos[0].rate == 0.33);
+    CHECK(r.masks.size() == 2 && sameMask(r.masks[0], m1) && sameMask(r.masks[1], m2));
+    CHECK(clipToJson(r) == js);
+    ClipProject d;
+    CHECK(clipFromJson("{\"unknown\":[1,{\"x\":null}],\"inFrame\":5}", d) && d.inFrame == 5 && d.ex.fps == 60);
+    CHECK(!clipFromJson("{\"inFrame\":", d));
+}
+
 static void bench() {
     auto fr = gradientAnim(640, 360, 60);
     for (auto& f : fr) {   // add noise region so quantisation has work
@@ -258,6 +598,7 @@ int main(int argc, char** argv) {
     testQuantMethods();
     testPsdAndFilters();
     testApng();
+    testClip();
     platformTests(g_fail);
     if (argc > 1 && std::strcmp(argv[1], "--bench") == 0) bench();
     std::printf(g_fail ? "%d FAILED\n" : "ALL PASSED\n", g_fail);

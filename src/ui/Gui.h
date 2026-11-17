@@ -37,6 +37,8 @@ public:
     HWND hwnd = nullptr;
     float mx = -1e6f, my = -1e6f;
     bool down = false, pressed = false, released = false;
+    bool rdown = false, rpressed = false, rreleased = false;   // right button (pan gestures)
+    bool dblclick = false;
     float wheel = 0;
     Id hot = 0, active = 0;
     bool enabledInput = true;
@@ -119,6 +121,7 @@ public:
     std::function<float(Gui&, float, float, float)> body;
     std::function<bool()> onOk;          // false keeps the form open
     std::function<void()> onTick;        // called every tickMs while open (0 = none)
+    std::function<bool(int)> onKey;      // virtual key outside edit boxes; true = handled
     int tickMs = 0;
     std::wstring okText = L"확인", cancelText = L"취소";
     bool showCancel = true, okEnabled = true;

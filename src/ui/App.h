@@ -43,7 +43,10 @@ private:
     void paint();
     void drawSidebar(float h);
     // pages (App3.cpp)
-    enum Page { P_HOME, P_EDIT, P_MANAGE, P_BATCH, P_SETTINGS };
+    enum Page { P_HOME, P_EDIT, P_MANAGE, P_BATCH, P_SETTINGS, P_CLIP };
+    std::unique_ptr<class ClipPage> clip_;
+    void drawClip(float W, float H);
+    void clipTimer();
     void setPage(int p);
     void pageHeader(const std::wstring& title, const std::wstring& desc);
     void drawHome(float W, float H);

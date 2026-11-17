@@ -12,6 +12,7 @@
 #include "core/Psd.h"
 #include "ui/Dialogs.h"
 #include "ui/Lang.h"
+#include "ui/ClipPage.h"
 #include <imm.h>
 #include "ui/Recorder.h"
 
@@ -115,6 +116,7 @@ void App::paint() {
         case P_MANAGE: drawManage(W, H); break;
         case P_BATCH: drawBatch(W, H); break;
         case P_SETTINGS: drawSettings(W, H); break;
+        case P_CLIP: drawClip(W, H); break;
         }
         drawCaptionButtons(W);
         gui_.endFrame();
@@ -839,7 +841,7 @@ void App::openPath(const std::wstring& p, bool append) {
         VideoInfo vi;
         if (!videoInfo(p, vi)) { messageBox(hwnd, L"영상을 열 수 없어요.", false, true); return; }
         VideoImportParams vp;
-        if (!videoImportDialog(hwnd, vi, st, vp)) return;
+        if (!videoImportDialog(hwnd, p, vi, st, vp)) return;
         ok = runWithProgress(hwnd, L"영상을 읽는 중", [&](const std::function<void(double)>& pr, const std::function<bool()>& c) -> std::string {
             std::string e;
             if (!loadVideo(p, vp.start, vp.end, vp.maxFps, vp.maxSide, out, pr, c, e)) return c() ? "" : e;
@@ -1108,6 +1110,14 @@ bool App::preTranslate(MSG& m) {
         return true;
     }
     if (m.message != WM_KEYDOWN || GetAncestor(m.hwnd, GA_ROOT) != hwnd) return false;
+    if (page_ == P_CLIP && clip_) {   // WebP clip page: its own shortcuts (not while typing in an edit box)
+        wchar_t c2[32] = {};
+        GetClassNameW(GetFocus(), c2, 32);
+        bool ctrlE = m.wParam == 'E' && (GetKeyState(VK_CONTROL) & 0x8000);   // export works while typing too
+        if (_wcsicmp(c2, L"Edit") == 0 && m.wParam != VK_ESCAPE && m.wParam != VK_F1 && !ctrlE) return false;
+        if (clip_->key((int)m.wParam)) { gui_.redraw(); clipTimer(); return true; }
+        return false;
+    }
     if (page_ != P_EDIT) {   // other pages: only Ctrl+O works
         if ((GetKeyState(VK_CONTROL) & 0x8000) && m.wParam == 'O') { openDialog(); return true; }
         return false;
@@ -1251,6 +1261,11 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_TIMER:
+        if (wp == 14) {   // WebP clip page: playback / tracking / export progress
+            if (clip_ && page_ == P_CLIP) clip_->tick();
+            clipTimer();
+            return 0;
+        }
         if (wp == ID_PLAYTIMER && playing_ && !proj.frames.empty()) {
             cur_ = (cur_ + 1) % (int)proj.frames.size();
             InvalidateRect(hwnd, nullptr, FALSE);
@@ -1306,6 +1321,12 @@ LRESULT App::handle(UINT msg, WPARAM wp, LPARAM lp) {
         }
         bool got = DragQueryFileW(d, 0, buf, MAX_PATH * 2) > 0;
         DragFinish(d);
+        if (got && page_ == P_CLIP) {   // WebP clip page opens the video itself
+            if (!clip_) clip_ = std::make_unique<ClipPage>(hwnd, gui_, st, [this](const std::wstring& s) { status(s); });
+            clip_->open(buf);
+            clipTimer();
+            return 0;
+        }
         if (got && confirmDiscard()) openPath(buf, false);
         return 0;
     }

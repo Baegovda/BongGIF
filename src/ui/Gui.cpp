@@ -87,8 +87,24 @@ bool Gui::handle(UINT msg, WPARAM wp, LPARAM lp, LRESULT& r) {
         tracking_ = false;
         if (!down) { mx = my = -1e6f; syncInput(); }
         return true;
+    case WM_RBUTTONDOWN:
+        mx = GET_X_LPARAM(lp) / s();
+        my = GET_Y_LPARAM(lp) / s();
+        rdown = rpressed = true;
+        SetCapture(hwnd);
+        syncInput();
+        return true;
+    case WM_RBUTTONUP:
+        mx = GET_X_LPARAM(lp) / s();
+        my = GET_Y_LPARAM(lp) / s();
+        rdown = false;
+        rreleased = true;
+        if (!down) ReleaseCapture();
+        syncInput();
+        return true;
     case WM_LBUTTONDOWN:
     case WM_LBUTTONDBLCLK:
+        if (msg == WM_LBUTTONDBLCLK) dblclick = true;
         mx = GET_X_LPARAM(lp) / s();
         my = GET_Y_LPARAM(lp) / s();
         down = pressed = true;
@@ -106,6 +122,7 @@ bool Gui::handle(UINT msg, WPARAM wp, LPARAM lp, LRESULT& r) {
         return true;
     case WM_CAPTURECHANGED:
         if (down) { down = false; released = true; active = 0; redraw(); }
+        rdown = false;
         return false;
     case WM_MOUSEWHEEL: {
         POINT p{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
@@ -165,6 +182,7 @@ void Gui::endFrame() {
         if (!e.used && e.h && IsWindowVisible(e.h)) ShowWindow(e.h, SW_HIDE);
     if (released) active = 0;
     pressed = released = false;
+    rpressed = rreleased = dblclick = false;
     wheel = 0;
     if (animating_) SetTimer(hwnd, kAnimTimer, 16, nullptr);
     else KillTimer(hwnd, kAnimTimer);
@@ -657,7 +675,7 @@ Form::Form(HWND owner, std::wstring t, float w) : title(std::move(t)), width(w),
         RegisterClassExW(&wc);
         reg = true;
     }
-    hwnd_ = CreateWindowExW(0, kFormClass, title.c_str(), WS_POPUP | WS_CAPTION | WS_SYSMENU, 0, 0, 100, 100,
+    hwnd_ = CreateWindowExW(0, kFormClass, title.c_str(), WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_CLIPCHILDREN, 0, 0, 100, 100,
                             owner ? GetAncestor(owner, GA_ROOT) : nullptr, nullptr, GetModuleHandleW(nullptr), this);
     applyWindowStyle(hwnd_);
     gui.attach(hwnd_);
@@ -719,6 +737,11 @@ bool Form::run() {
     while (!done_ && GetMessageW(&m, nullptr, 0, 0) > 0) {
         if (m.message == WM_KEYDOWN && GetAncestor(m.hwnd, GA_ROOT) == hwnd_) {
             if (m.wParam == VK_ESCAPE) { close(false); continue; }
+            if (onKey) {   // not while typing in an edit box
+                wchar_t cls[16] = {};
+                GetClassNameW(GetFocus(), cls, 16);
+                if (_wcsicmp(cls, L"Edit") != 0 && onKey((int)m.wParam)) { gui.redraw(); continue; }
+            }
             if (m.wParam == VK_RETURN && okEnabled) { if (!onOk || onOk()) close(true); continue; }
         }
         TranslateMessage(&m);

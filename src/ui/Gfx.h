@@ -72,9 +72,11 @@ private:
     std::map<uint32_t, ID2D1SolidColorBrush*> brushes_;
     std::map<std::pair<uint32_t, uint32_t>, ID2D1GradientStopCollection*> stops_;
     std::map<std::tuple<int, int, bool, bool>, IDWriteTextFormat*> formats_;
-    ID2D1Bitmap* bmp_ = nullptr;
-    ImagePtr bmpSrc_;
-    int bmpW_ = 0, bmpH_ = 0;
+    // a few bitmaps cached by source image (a video frame and a thumbnail strip can alternate)
+    struct BmpSlot { ID2D1Bitmap* bmp = nullptr; ImagePtr src; int w = 0, h = 0; uint64_t used = 0; };
+    BmpSlot slots_[4];
+    uint64_t useTick_ = 0;
+    void releaseBitmaps();
 };
 
 ID2D1Factory* d2dFactory();

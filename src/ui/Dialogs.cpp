@@ -4,6 +4,8 @@
 #include "core/Edit.h"
 #include "core/Gif.h"
 #include "platform/Export.h"
+#include "platform/Player.h"
+#include "ui/Lang.h"
 #include "ui/Gui.h"
 
 #include <algorithm>
@@ -11,6 +13,7 @@
 #include <cmath>
 #include <ctime>
 #include <memory>
+#include <mutex>
 #include <shellapi.h>
 #include <shlobj.h>
 #include <thread>
@@ -149,46 +152,255 @@ bool summaryDialog(HWND owner, Settings& st, SummaryParams& out) {
 }
 
 // ------------------------------------------------------------------ video import
-bool videoImportDialog(HWND owner, const VideoInfo& vi, Settings& st, VideoImportParams& out) {
-    Form f(owner, L"영상 가져오기", 480);
-    wchar_t buf[64];
-    swprintf_s(buf, L"%.2f", std::min(vi.duration > 0 ? vi.duration : 10.0, 10.0));
-    std::wstring s0 = L"0", s1 = buf;
+// Player-style range picker: the video plays with sound, a thumbnail timeline with start/end handles
+// chooses the clip, and only that range is decoded into frames.
+static std::wstring fmtClock(double s) {
+    s = std::max(0.0, s);
+    int m = (int)(s / 60);
+    wchar_t b[32];
+    swprintf_s(b, L"%d:%05.2f", m, s - m * 60);
+    return b;
+}
+
+bool videoImportDialog(HWND owner, const std::wstring& path, const VideoInfo& vi, Settings& st, VideoImportParams& out) {
+    const double dur = vi.duration > 0 ? vi.duration : 10.0;
+    double a = 0, b = std::min(dur, 10.0);
     int fps = st.videoMaxFps, side = st.videoMaxSide;
-    f.okText = L"가져오기";
+    bool muted = false, loopSel = true;
+
+    // height of the video well from the owner's work area
+    float wellH = 400;
+    {
+        MONITORINFO mi{sizeof(mi)};
+        GetMonitorInfoW(MonitorFromWindow(owner, MONITOR_DEFAULTTONEAREST), &mi);
+        float sc = GetDpiForWindow(owner) / 96.0f;
+        float avail = (mi.rcWork.bottom - mi.rcWork.top) / std::max(1.0f, sc);
+        wellH = std::clamp(avail * 0.85f - 430, 200.0f, 440.0f);
+    }
+
+    VideoPlayer pl;
+    std::string perr;
+    bool havePlayer = pl.open(path, 1280, 720, perr);
+    ImagePtr cur;
+
+    // thumbnails on a worker
+    const int NT = 16;
+    std::mutex tm;
+    std::vector<ImagePtr> thumbs(NT);
+    std::atomic<int> thumbGen{0};
+    std::atomic<bool> stopThumbs{false};
+    std::thread thumbThread([&] {
+        videoThumbnails(path, NT, 90, [&](int i, ImagePtr im) {
+            { std::lock_guard<std::mutex> l(tm); thumbs[i] = std::move(im); }
+            ++thumbGen;
+        }, [&] { return stopThumbs.load(); });
+    });
+    struct Join {
+        std::atomic<bool>& stop;
+        std::thread& t;
+        ~Join() { stop = true; if (t.joinable()) t.join(); }
+    } join{stopThumbs, thumbThread};
+    ImagePtr strip;
+    int stripGen = -1;
+
+    int drag = 0;            // 1 start handle, 2 end handle, 3 playhead
+    double dragOffset = 0;
+
+    auto playFromRange = [&] {
+        double t = pl.time();
+        if (t >= b - 0.05 || t < a) pl.seek(a);
+        pl.play();
+    };
+
+    Form f(owner, L"영상 가져오기", 900);
+    f.okText = L"이 구간 가져오기";
+    f.tickMs = 15;
+    f.onTick = [&] {
+        if (!havePlayer) return;
+        if (auto im = pl.frame()) cur = im;
+        if (!pl.paused() && drag == 0) {
+            double t = pl.time();
+            if (loopSel && (t >= b - 0.01 || t < a - 0.3)) pl.seek(a);
+        }
+    };
+    f.onKey = [&](int vk) {
+        if (!havePlayer) return false;
+        bool shift = GetKeyState(VK_SHIFT) & 0x8000;
+        switch (vk) {
+        case VK_SPACE: if (pl.paused()) playFromRange(); else pl.pause(); return true;
+        case 'I': a = std::clamp(pl.time(), 0.0, b - 0.1); return true;
+        case 'O': b = std::clamp(pl.time(), a + 0.1, dur); return true;
+        case VK_LEFT: case VK_RIGHT: {
+            double step = (shift ? 1.0 : 1.0 / std::max(1.0, vi.fps)) * (vk == VK_LEFT ? -1 : 1);
+            pl.pause();
+            pl.seek(std::clamp(pl.time() + step, 0.0, dur));
+            return true;
+        }
+        case VK_HOME: pl.seek(a); return true;
+        case VK_END: pl.seek(b); return true;
+        }
+        return false;
+    };
     f.body = [&](Gui& g, float x, float y, float w) {
-        wchar_t info[128];
-        swprintf_s(info, L"%d×%d", vi.w, vi.h);
+        Gfx& gx = g.g;
+        // ---- video
+        RectF well{x, y, w, wellH};
+        gx.fill(well, th::radiusCard, 0xFF000000);
+        if (cur) {
+            float sc = std::min(well.w / cur->w, well.h / cur->h);
+            gx.image(cur, {well.x + (well.w - cur->w * sc) / 2, well.y + (well.h - cur->h * sc) / 2, cur->w * sc, cur->h * sc}, true);
+        } else {
+            gx.text(havePlayer ? L"영상을 여는 중…" : L"미리보기를 열 수 없어요. 구간은 고를 수 있어요", well, th::textSecondary, th::body, 400,
+                    A_CENTER);
+        }
+        if (havePlayer && g.interact(gid("vp.well"), well)) {
+            if (pl.paused()) playFromRange();
+            else pl.pause();
+        }
+        if (havePlayer && pl.paused() && cur) {
+            float t = g.hoverT(gid("vp.well"));
+            float cx = well.x + well.w / 2, cy = well.y + well.h / 2;
+            gx.circle(cx, cy, 30 + 3 * t, 0x99000000);
+            gx.icon(ic::Play, {cx - 30, cy - 30, 60, 60}, th::textPrimary, 24);
+        }
+        y += wellH + 10;
+
+        // ---- transport row
+        bool isPaused = !havePlayer || pl.paused();
+        if (g.iconButton(gid("vp.play"), {x, y, 36, 34}, isPaused ? ic::Play : ic::Pause, havePlayer, th::textPrimary, 16)) {
+            if (isPaused) playFromRange();
+            else pl.pause();
+        }
+        double now = havePlayer ? pl.time() : a;
+        gx.text(fmtClock(now) + L"  /  " + fmtClock(dur), {x + 44, y, 220, 34}, th::textSecondary, th::body, 600);
+        float rx = x + w;
+        if (g.iconButton(gid("vp.mute"), {rx - 34, y, 34, 34}, muted ? (wchar_t)0xE74F : (wchar_t)0xE767, havePlayer && pl.hasAudio(),
+                         th::textSecondary, 15)) {
+            muted = !muted;
+            pl.setMuted(muted);
+        }
+        RectF lt{rx - 34 - 12 - 40, y + 7, 40, 20};
+        g.toggle(gid("vp.loop"), lt, loopSel);
+        float lw = gx.textWidth(L"구간 반복", th::caption, 600);
+        gx.text(L"구간 반복", {lt.x - lw - 8, y, lw + 2, 34}, th::textSecondary, th::caption, 600);
+        y += 44;
+
+        // ---- timeline: thumbnails + range handles + playhead
+        RectF tl{x + 10, y + 6, w - 20, 64};
+        if (thumbGen.load() != stripGen) {   // tile the thumbnails without stretching: centre-crop each slot
+            stripGen = thumbGen.load();
+            std::lock_guard<std::mutex> l(tm);
+            const int sh = 90, sw = std::max(NT, (int)std::lround(sh * tl.w / tl.h));
+            auto im = std::make_shared<Image>(sw, sh);
+            for (auto& p : im->px) p = 0xFF15171C;
+            bool any = false;
+            for (int i = 0; i < NT; ++i) {
+                const ImagePtr& t = thumbs[i];
+                if (!t || t->h != sh) continue;
+                any = true;
+                int x0 = sw * i / NT, x1 = sw * (i + 1) / NT, slot = x1 - x0;
+                int off = (t->w - slot) / 2;
+                for (int yy = 0; yy < sh; ++yy)
+                    for (int xx = 0; xx < slot; ++xx) {
+                        int sx = std::clamp(off + xx, 0, t->w - 1);
+                        im->row(yy)[x0 + xx] = (off + xx >= 0 && off + xx < t->w) ? t->row(yy)[sx] : 0xFF15171C;
+                    }
+            }
+            if (any) strip = im;
+        }
+        gx.fill(tl, 6, 0xFF15171C);
+        if (strip) gx.image(strip, tl, true);
+        auto xOf = [&](double t) { return tl.x + (float)(t / dur) * tl.w; };
+        auto tOf = [&](float px) { return std::clamp((double)(px - tl.x) / tl.w * dur, 0.0, dur); };
+        float xa = xOf(a), xb = xOf(b);
+        gx.fill({tl.x, tl.y, xa - tl.x, tl.h}, 0, 0xB0000000);
+        gx.fill({xb, tl.y, tl.r() - xb, tl.h}, 0, 0xB0000000);
+        gx.fill({xa, tl.y - 3, xb - xa, 3}, 0, th::yellow);
+        gx.fill({xa, tl.b(), xb - xa, 3}, 0, th::yellow);
+        RectF ha{xa - 10, tl.y - 3, 10, tl.h + 6}, hb{xb, tl.y - 3, 10, tl.h + 6};
+        gx.fill(ha, 3, th::yellow);
+        gx.fill(hb, 3, th::yellow);
+        gx.line(ha.x + 5, tl.y + tl.h / 2 - 8, ha.x + 5, tl.y + tl.h / 2 + 8, 0xFF5A4A00, 2);
+        gx.line(hb.x + 5, tl.y + tl.h / 2 - 8, hb.x + 5, tl.y + tl.h / 2 + 8, 0xFF5A4A00, 2);
+        // one interaction over the whole strip; where the press lands decides what is dragged
+        RectF hitR{tl.x - 14, tl.y - 8, tl.w + 28, tl.h + 16};
+        Id tid = gid("vp.tl");
+        g.interact(tid, hitR, true);
+        if (g.active == tid && g.pressed) {
+            if (std::fabs(g.mx - (xa - 5)) <= 10) { drag = 1; dragOffset = g.mx - xa; }
+            else if (std::fabs(g.mx - (xb + 5)) <= 10) { drag = 2; dragOffset = g.mx - xb; }
+            else { drag = 3; dragOffset = 0; }
+            if (havePlayer && drag != 3) pl.pause();
+        }
+        if (drag && g.active == tid && g.down) {
+            double t = tOf(g.mx - (float)dragOffset);
+            const double minLen = std::min(0.1, dur);
+            if (drag == 1) { a = std::clamp(t, 0.0, b - minLen); if (havePlayer) pl.seek(a); }
+            else if (drag == 2) { b = std::clamp(t, a + minLen, dur); if (havePlayer) pl.seek(b); }
+            else if (havePlayer) pl.seek(t);
+        }
+        if (!g.down) {
+            if (drag == 2 && havePlayer) pl.seek(a);   // after moving the end, rewind to the start
+            drag = 0;
+        }
+        float xp = xOf(havePlayer ? std::clamp(pl.time(), 0.0, dur) : a);
+        gx.fill({xp - 1, tl.y - 7, 2, tl.h + 14}, 1, th::textPrimary);
+        gx.circle(xp, tl.y - 7, 5, th::textPrimary);
+        y += 6 + 64 + 8;
+        gx.text(fmtClock(0), {tl.x, y, 100, 16}, th::textTertiary, th::caption);
+        gx.text(fmtClock(dur), {tl.r() - 100, y, 100, 16}, th::textTertiary, th::caption, 400, A_RIGHT);
+        y += 26;
+
+        // ---- selection summary + set from playhead
         float cx = x;
-        auto chip = [&](const std::wstring& t) {
-            float cw = g.g.textWidth(t, th::caption, 600) + 18;
-            g.chip({cx, y, cw, 22}, t, th::textSecondary, th::control);
+        auto chip = [&](const std::wstring& t, uint32_t fg) {
+            float cw = gx.textWidth(t, th::caption, 600) + 18;
+            g.chip({cx, y + 5, cw, 24}, t, fg, th::control);
             cx += cw + 6;
         };
-        chip(info);
-        swprintf_s(info, L"%.2f fps", vi.fps);
-        chip(info);
-        swprintf_s(info, L"%.1f초", vi.duration);
-        chip(info);
-        y += 34;
-        RectF c = g.optionRow(x, y, w, L"시작 (초)", L"", 140, 30);
-        g.edit(gid("vi.s"), c, s0);
-        c = g.optionRow(x, y, w, L"끝 (초)", L"긴 영상은 메모리를 많이 써요", 140, 30);
-        g.edit(gid("vi.e"), c, s1);
-        c = g.optionRow(x, y, w, L"최대 FPS", L"", 140, 30);
+        double len = b - a, rfps = std::min<double>(fps, vi.fps > 0 ? vi.fps : fps);
+        int nFrames = std::max(1, (int)std::lround(len * rfps));
+        int ow = vi.w, oh = vi.h;
+        if (side > 0 && std::max(ow, oh) > side) {
+            double s2 = (double)side / std::max(ow, oh);
+            ow = (int)(ow * s2);
+            oh = (int)(oh * s2);
+        }
+        double bytes = (double)nFrames * ow * oh * 4;
+        wchar_t buf[96];
+        chip(tr(L"시작") + L" " + fmtClock(a), th::textPrimary);
+        chip(tr(L"끝") + L" " + fmtClock(b), th::textPrimary);
+        swprintf_s(buf, L"%.2f", len);
+        chip(tr(L"길이") + L" " + buf + tr(L"초"), th::textPrimary);
+        chip(std::to_wstring(nFrames) + tr(L" 프레임") + L" · " + std::to_wstring(ow) + L"×" + std::to_wstring(oh) + L" · " +
+                 fmtBytes((size_t)bytes),
+             bytes > 1.5e9 ? th::orange : th::textSecondary);
+        float bw = 124;
+        if (g.button(gid("vp.setB"), {x + w - bw, y, bw, 34}, L"여기를 끝으로", BS_SECONDARY, 0, havePlayer))
+            b = std::clamp(pl.time(), a + 0.1, dur);
+        if (g.button(gid("vp.setA"), {x + w - bw * 2 - 8, y, bw, 34}, L"여기를 시작으로", BS_SECONDARY, 0, havePlayer))
+            a = std::clamp(pl.time(), 0.0, b - 0.1);
+        y += 40;
+        gx.text(L"Space 재생/멈춤 · ←/→ 한 프레임 (Shift 1초) · I 시작 · O 끝 · Home/End 구간 처음/끝", {x, y, w, 18}, th::textTertiary,
+                th::caption);
+        y += 28;
+
+        RectF c = g.optionRow(x, y, w, L"최대 FPS", L"영상 FPS보다 높으면 영상 FPS를 써요", 140, 30);
         g.number(gid("vi.fps"), c, fps, 1, 60);
         c = g.optionRow(x, y, w, L"긴 변 최대 (px)", L"0이면 원본 크기 그대로예요", 140, 30, true, false);
         g.number(gid("vi.side"), c, side, 0, 8000);
         return y;
     };
     f.onOk = [&] {
-        double a = _wtof(s0.c_str()), b = _wtof(s1.c_str());
-        if (b <= a) { messageBox(f.hwnd(), L"끝 시간이 시작보다 커야 해요."); return false; }
-        out.start = a;
-        out.end = b;
+        if (b - a < 0.05) { messageBox(f.hwnd(), L"구간이 너무 짧아요."); return false; }
         return true;
     };
-    if (!f.run()) return false;
+    if (havePlayer) pl.seek(0);
+    bool ok = f.run();
+    if (havePlayer) pl.pause();
+    if (!ok) return false;
+    out.start = a;
+    out.end = b;
     out.maxFps = fps;
     out.maxSide = side;
     st.videoMaxFps = fps;

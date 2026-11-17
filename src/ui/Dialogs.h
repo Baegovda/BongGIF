@@ -18,7 +18,7 @@ struct SummaryParams { int percent = 50; bool scale = true; int adjust = 20; boo
 bool summaryDialog(HWND owner, Settings& st, SummaryParams& out);
 
 struct VideoImportParams { double start = 0, end = 10; int maxFps = 30, maxSide = 960; };
-bool videoImportDialog(HWND owner, const VideoInfo& vi, Settings& st, VideoImportParams& out);
+bool videoImportDialog(HWND owner, const std::wstring& path, const VideoInfo& vi, Settings& st, VideoImportParams& out);
 
 bool saveDialog(HWND owner, const Frames& frames, Settings& st, std::wstring& savedPath, size_t& bytes);
 

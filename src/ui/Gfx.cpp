@@ -48,8 +48,12 @@ Gfx::~Gfx() {
     for (auto& [k, b] : brushes_) b->Release();
     for (auto& [k, s] : stops_) s->Release();
     for (auto& [k, f] : formats_) f->Release();
-    release(bmp_);
+    releaseBitmaps();
     release(rt_);
+}
+
+void Gfx::releaseBitmaps() {
+    for (auto& sl : slots_) { release(sl.bmp); sl.src.reset(); sl.w = sl.h = 0; }
 }
 
 bool Gfx::attach(HWND h) {
@@ -88,8 +92,7 @@ void Gfx::resize() {
         brushes_.clear();
         for (auto& [k, s] : stops_) s->Release();
         stops_.clear();
-        release(bmp_);
-        bmpSrc_.reset();
+        releaseBitmaps();
         release(rt_);
         createTarget();
         return;
@@ -117,8 +120,7 @@ void Gfx::end() {
         brushes_.clear();
         for (auto& [k, s] : stops_) s->Release();
         stops_.clear();
-        release(bmp_);
-        bmpSrc_.reset();
+        releaseBitmaps();
         release(rt_);
         InvalidateRect(hwnd_, nullptr, FALSE);
     }
@@ -284,17 +286,26 @@ void Gfx::icon(wchar_t glyph, RectF r, uint32_t c, float size) {
 void Gfx::image(const ImagePtr& ip, RectF dst, bool smooth, float opacity) {
     if (!ip || ip->w <= 0 || ip->h <= 0) return;
     const Image& im = *ip;
-    if (!bmp_ || bmpW_ != im.w || bmpH_ != im.h) {
-        release(bmp_);
+    BmpSlot* sl = nullptr;
+    for (auto& x : slots_)
+        if (x.bmp && x.src == ip) sl = &x;                       // same image: reuse as is
+    bool freeSlot = false;
+    for (auto& x : slots_) freeSlot |= !x.bmp;
+    if (!sl && !freeSlot)
+        for (auto& x : slots_)
+            if (x.bmp && x.w == im.w && x.h == im.h && (!sl || x.used < sl->used)) sl = &x;   // same size: copy pixels
+    if (sl && sl->src != ip) { sl->bmp->CopyFromMemory(nullptr, im.px.data(), im.w * 4); sl->src = ip; }
+    if (!sl) {
+        sl = &slots_[0];
+        for (auto& x : slots_)
+            if (!x.bmp || (sl->bmp && x.used < sl->used)) sl = &x;   // empty, else least recently used
+        release(sl->bmp);
         D2D1_BITMAP_PROPERTIES bp = D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE));
-        rt_->CreateBitmap(D2D1::SizeU(im.w, im.h), im.px.data(), im.w * 4, bp, &bmp_);
-        bmpW_ = im.w; bmpH_ = im.h;
-        bmpSrc_ = ip;
-    } else if (bmpSrc_ != ip) {
-        bmp_->CopyFromMemory(nullptr, im.px.data(), im.w * 4);
-        bmpSrc_ = ip;
+        rt_->CreateBitmap(D2D1::SizeU(im.w, im.h), im.px.data(), im.w * 4, bp, &sl->bmp);
+        sl->w = im.w; sl->h = im.h; sl->src = ip;
     }
-    if (bmp_) rt_->DrawBitmap(bmp_, dst.d2d(), opacity, smooth ? D2D1_BITMAP_INTERPOLATION_MODE_LINEAR : D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR);
+    sl->used = ++useTick_;
+    if (sl->bmp) rt_->DrawBitmap(sl->bmp, dst.d2d(), opacity, smooth ? D2D1_BITMAP_INTERPOLATION_MODE_LINEAR : D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR);
 }
 
 void Gfx::pushClip(RectF r) { rt_->PushAxisAlignedClip(r.d2d(), D2D1_ANTIALIAS_MODE_ALIASED); }

@@ -10,7 +10,7 @@
 namespace bg {
 
 constexpr const char* kAppName = "BongGIF";
-constexpr const char* kAppVersion = "2.0";
+constexpr const char* kAppVersion = "2.1";
 
 struct GifOptions {
     int quality = 80;              // 1..100
