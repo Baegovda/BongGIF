@@ -67,6 +67,14 @@ Ctrl+Shift+K/J 빠르게/느리게, X 구간, Q 줄이기, S 요약, 마우스 �
 
 설정: `%APPDATA%\BongGIF\bonggif.ini`.
 
+## 2.0.1
+
+- 단축키 설정: Pause, PrtSc, Scroll Lock, Insert, Home/End, PgUp/PgDn, 방향키, F1–F24, 미디어 키를 Ctrl·Alt·Shift 없이 단독으로 쓸 수 있다.
+- Del 또는 Backspace를 누르면 단축키를 지운다('없음').
+- Ctrl+Pause와 PrtSc도 인식한다. 지금 쓰고 있는 조합을 다시 고를 수 있다.
+- 글자 키를 단독으로 누르거나 두 단축키를 같게 정하면 안내가 뜬다.
+- 등록에 실패한 단축키를 알려 준다.
+
 ## 2.0.0
 
 - Python(PySide6) 버전을 **네이티브 C++/Win32로 새로 작성**했다. 설치 폴더 250 MB → exe 하나 약 9 MB, 평소 CPU 0%.
