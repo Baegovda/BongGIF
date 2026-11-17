@@ -1,10 +1,6 @@
-.venv/
-venv/
-build/
-dist/
+/build/
+/out/
+*.log
+*.user
+.vs/
 __pycache__/
-*.pyc
-*.spec
-qa_shots/
-relay/.wrangler/
-relay/node_modules/
