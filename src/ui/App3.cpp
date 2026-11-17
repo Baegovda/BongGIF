@@ -148,7 +148,10 @@ void App::drawSidebar(float H) {
     }
     if (gui_.navItem(gid("nav.settings"), {x, bottomY, w, 38}, ic::Settings, th::textTertiary, th::textSecondary, L"설정", page_ == P_SETTINGS))
         gui_.later([this] { setPage(P_SETTINGS); });
-    g.text(hotkeyName(st.hotkeyRec) + L"  " + tr(L"녹화 시작·정지") + L"\n" + hotkeyName(st.hotkeyPause) + L"  " + tr(L"일시정지"),
+    std::wstring hint;
+    if (st.hotkeyRec) hint += hotkeyName(st.hotkeyRec) + L"  " + tr(L"녹화 시작·정지");
+    if (st.hotkeyPause) hint += (hint.empty() ? L"" : L"\n") + hotkeyName(st.hotkeyPause) + L"  " + tr(L"일시정지");
+    g.text(hint,
            {x + 8, H - 54, w, 40}, th::textTertiary, th::caption, 400, A_LEFT, false, true);
 }
 
@@ -742,14 +745,20 @@ void App::drawSettings(float W, float H) {
     num(L"영상 가져오기 긴 변 최대 (px)", L"0이면 원본 크기예요", st.videoMaxSide, 0, 8000, true);
     cardEnd();
 
-    section(L"단축키", L"버튼을 누른 뒤 원하는 키 조합을 눌러요. Esc로 취소해요", ic::Timer, th::purple, th::pink);
+    section(L"단축키", L"버튼을 누른 뒤 원하는 키를 눌러요. Esc 취소, Del 지우기", ic::Timer, th::purple, th::pink);
     cardBegin();
     auto hk = [&](const std::wstring& t, int& v, int which, bool last) {
         RectF c = gui_.optionRow(x + 18, y, w - 36, t, L"", 200, 32, true, !last);
         std::wstring label = hotkeyCapture_ == which ? tr(L"키를 누르세요…") : hotkeyName(v);
         if (gui_.button(gid(gid("set.hk"), which), c, label, hotkeyCapture_ == which ? BS_PRIMARY : BS_SECONDARY)) {
             int k = which;
-            gui_.later([this, k] { hotkeyCapture_ = k; SetFocus(hwnd); gui_.redraw(); });
+            gui_.later([this, k] {
+                hotkeyCapture_ = k;
+                UnregisterHotKey(hwnd, 1);   // otherwise the current combination arrives as WM_HOTKEY
+                UnregisterHotKey(hwnd, 2);
+                SetFocus(hwnd);
+                gui_.redraw();
+            });
         }
     };
     hk(L"녹화 시작·정지", st.hotkeyRec, 1, false);
@@ -840,6 +849,7 @@ void App::drawSettings(float W, float H) {
 }
 
 std::wstring App::hotkeyName(int hk) {
+    if (!hk) return tr(L"없음");
     int mods = hk >> 16, vk = hk & 0xFFFF;
     std::wstring s;
     if (mods & MOD_CONTROL) s += L"Ctrl+";
@@ -850,7 +860,18 @@ std::wstring App::hotkeyName(int hk) {
     UINT sc = MapVirtualKeyW(vk, MAPVK_VK_TO_VSC);
     LONG lp = (LONG)(sc << 16);
     if (vk >= VK_PRIOR && vk <= VK_HELP) lp |= 1 << 24;
-    if (vk == VK_SNAPSHOT) wcscpy_s(name, L"PrtSc");
+    if (vk == VK_NUMLOCK || vk == VK_DIVIDE || vk == VK_RCONTROL || vk == VK_RMENU) lp |= 1 << 24;
+    static const struct { int vk; const wchar_t* n; } fixed[] = {
+        {VK_SNAPSHOT, L"PrtSc"}, {VK_PAUSE, L"Pause"}, {VK_SCROLL, L"Scroll Lock"}, {VK_NUMLOCK, L"Num Lock"},
+        {VK_INSERT, L"Insert"}, {VK_DELETE, L"Delete"}, {VK_HOME, L"Home"}, {VK_END, L"End"}, {VK_PRIOR, L"Page Up"},
+        {VK_NEXT, L"Page Down"}, {VK_LEFT, L"←"}, {VK_RIGHT, L"→"}, {VK_UP, L"↑"}, {VK_DOWN, L"↓"}, {VK_APPS, L"Menu"},
+        {VK_MEDIA_PLAY_PAUSE, L"Play/Pause"}, {VK_MEDIA_STOP, L"Stop"}, {VK_MEDIA_NEXT_TRACK, L"Next"},
+        {VK_MEDIA_PREV_TRACK, L"Prev"}, {VK_VOLUME_MUTE, L"Mute"}, {VK_ESCAPE, L"Esc"}, {VK_BACK, L"Backspace"}};
+    const wchar_t* fixedName = nullptr;
+    for (auto& f : fixed)
+        if (f.vk == vk) fixedName = f.n;
+    if (vk >= VK_F13 && vk <= VK_F24) swprintf_s(name, L"F%d", vk - VK_F1 + 1);
+    else if (fixedName) wcscpy_s(name, fixedName);
     else if (!GetKeyNameTextW(lp, name, 64)) swprintf_s(name, L"%d", vk);
     return s + name;
 }

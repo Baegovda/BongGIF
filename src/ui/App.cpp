@@ -12,6 +12,7 @@
 #include "core/Psd.h"
 #include "ui/Dialogs.h"
 #include "ui/Lang.h"
+#include <imm.h>
 #include "ui/Recorder.h"
 
 #include <algorithm>
@@ -76,9 +77,15 @@ void App::status(const std::wstring& s) {
 void App::registerHotkeys() {
     UnregisterHotKey(hwnd, 1);
     UnregisterHotKey(hwnd, 2);
-    bool ok = RegisterHotKey(hwnd, 1, (st.hotkeyRec >> 16) | MOD_NOREPEAT, st.hotkeyRec & 0xFFFF);
-    ok &= (bool)RegisterHotKey(hwnd, 2, (st.hotkeyPause >> 16) | MOD_NOREPEAT, st.hotkeyPause & 0xFFFF);
-    if (!ok) status(tr(L"전역 단축키를 등록하지 못했어요. 다른 프로그램이 쓰고 있어요.") + L" (" + hotkeyName(st.hotkeyRec) + L", " + hotkeyName(st.hotkeyPause) + L")");
+    std::wstring failed;
+    auto reg = [&](int id, int hk) {
+        if (!hk) return;   // 0 = no hotkey
+        if (!RegisterHotKey(hwnd, id, (hk >> 16) | MOD_NOREPEAT, hk & 0xFFFF))
+            failed += (failed.empty() ? L"" : L", ") + hotkeyName(hk);
+    };
+    reg(1, st.hotkeyRec);
+    reg(2, st.hotkeyPause);
+    if (!failed.empty()) status(tr(L"전역 단축키를 등록하지 못했어요. 다른 프로그램이 쓰고 있어요.") + L" (" + failed + L")");
 }
 
 void App::settingsChanged() {
@@ -1064,21 +1071,40 @@ void App::updatePreview() {
 // ================================================================== keyboard
 bool App::preTranslate(MSG& m) {
     if (rec_ && rec_->preTranslate(m)) return true;
-    if (hotkeyCapture_ && (m.message == WM_KEYDOWN || m.message == WM_SYSKEYDOWN) && GetAncestor(m.hwnd, GA_ROOT) == hwnd) {
+    if (hotkeyCapture_ && GetAncestor(m.hwnd, GA_ROOT) == hwnd &&
+        (m.message == WM_KEYDOWN || m.message == WM_SYSKEYDOWN ||
+         ((m.message == WM_KEYUP || m.message == WM_SYSKEYUP) && m.wParam == VK_SNAPSHOT))) {   // PrtSc only sends key-up
         int vk = (int)m.wParam;
-        if (vk == VK_ESCAPE) { hotkeyCapture_ = 0; gui_.redraw(); return true; }
-        if (vk == VK_CONTROL || vk == VK_SHIFT || vk == VK_MENU || vk == VK_LWIN || vk == VK_RWIN) return true;
+        if (vk == VK_PROCESSKEY) vk = (int)ImmGetVirtualKey(hwnd);
+        if (vk == VK_CONTROL || vk == VK_SHIFT || vk == VK_MENU || vk == VK_LWIN || vk == VK_RWIN || vk == VK_LCONTROL ||
+            vk == VK_RCONTROL || vk == VK_LSHIFT || vk == VK_RSHIFT || vk == VK_LMENU || vk == VK_RMENU || vk == 0)
+            return true;
         int mods = 0;
         if (GetKeyState(VK_CONTROL) & 0x8000) mods |= MOD_CONTROL;
         if (GetKeyState(VK_MENU) & 0x8000) mods |= MOD_ALT;
         if (GetKeyState(VK_SHIFT) & 0x8000) mods |= MOD_SHIFT;
         if ((GetKeyState(VK_LWIN) | GetKeyState(VK_RWIN)) & 0x8000) mods |= MOD_WIN;
-        if (!mods && !(vk >= VK_F1 && vk <= VK_F24)) return true;   // a global hotkey needs a modifier (F-keys excepted)
-        (hotkeyCapture_ == 1 ? st.hotkeyRec : st.hotkeyPause) = (mods << 16) | vk;
-        hotkeyCapture_ = 0;
-        st.save();
-        registerHotkeys();
-        gui_.redraw();
+        if (vk == VK_CANCEL) vk = VK_PAUSE;   // Ctrl+Pause arrives as VK_CANCEL
+        int& slot = hotkeyCapture_ == 1 ? st.hotkeyRec : st.hotkeyPause;
+        int other = hotkeyCapture_ == 1 ? st.hotkeyPause : st.hotkeyRec;
+        auto finish = [&] { hotkeyCapture_ = 0; st.save(); registerHotkeys(); gui_.redraw(); };
+        if (!mods && vk == VK_ESCAPE) { hotkeyCapture_ = 0; registerHotkeys(); gui_.redraw(); return true; }
+        if (!mods && (vk == VK_DELETE || vk == VK_BACK)) { slot = 0; finish(); return true; }   // clear
+        // keys that type text or move focus would be swallowed everywhere without a modifier
+        bool typing = (vk >= '0' && vk <= '9') || (vk >= 'A' && vk <= 'Z') || vk == VK_SPACE || vk == VK_RETURN ||
+                      vk == VK_TAB || (vk >= VK_OEM_1 && vk <= VK_OEM_3) || (vk >= VK_OEM_4 && vk <= VK_OEM_8) ||
+                      vk == VK_OEM_102;
+        if (!mods && typing) {
+            status(tr(L"글자 키는 Ctrl, Alt, Shift 중 하나와 함께 눌러 주세요"));
+            return true;
+        }
+        int hk = (mods << 16) | vk;
+        if (hk == other) {
+            status(tr(L"다른 단축키와 같아요") + L" (" + hotkeyName(hk) + L")");
+            return true;
+        }
+        slot = hk;
+        finish();
         return true;
     }
     if (m.message != WM_KEYDOWN || GetAncestor(m.hwnd, GA_ROOT) != hwnd) return false;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(BongGIF VERSION 2.0.0 LANGUAGES C CXX RC)
+project(BongGIF VERSION 2.0.1 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -44,7 +44,7 @@ add_library(bgplatform STATIC
 )
 # C++/WinRT (Windows.Media.Ocr) needs C++20 coroutines
 set_source_files_properties(src/platform/Ocr.cpp PROPERTIES COMPILE_OPTIONS "/std:c++20")
-target_link_libraries(bgplatform PUBLIC bgcore webp webpdemux libwebpmux vpx webmmux avif aom lunasvg d3d11 dxgi windowsapp d2d1 dwrite mfplat mfreadwrite mfuuid mf ole32 windowscodecs gdiplus dwmapi shell32 user32 gdi32)
+target_link_libraries(bgplatform PUBLIC bgcore webp webpdemux libwebpmux vpx webmmux avif aom lunasvg d3d11 dxgi windowsapp d2d1 dwrite mfplat mfreadwrite mfuuid mf ole32 windowscodecs gdiplus dwmapi imm32 shell32 user32 gdi32)
 
 add_executable(bonggif-tests tests/tests.cpp tests/tests_platform.cpp)
 target_link_libraries(bonggif-tests PRIVATE bgplatform)
