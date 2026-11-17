@@ -1,0 +1,31 @@
+#include <windows.h>
+1 ICON "bonggif.ico"
+// OpenCV dnn_superres models (Apache-2.0): ESPCN x2..x4 = 101..103, FSRCNN x2..x4 = 104..106
+101 RCDATA "models/ESPCN_x2.pb"
+102 RCDATA "models/ESPCN_x3.pb"
+103 RCDATA "models/ESPCN_x4.pb"
+104 RCDATA "models/FSRCNN_x2.pb"
+105 RCDATA "models/FSRCNN_x3.pb"
+106 RCDATA "models/FSRCNN_x4.pb"
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "app.manifest"
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 2,1,0,0
+PRODUCTVERSION 2,1,0,0
+FILEOS 0x40004
+FILETYPE 0x1
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "041204B0"
+    BEGIN
+      VALUE "FileDescription", "BongGIF - GIF recorder/editor"
+      VALUE "ProductName", "BongGIF"
+      VALUE "FileVersion", "2.1.0"
+      VALUE "ProductVersion", "2.1.0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x412, 1200
+  END
+END
